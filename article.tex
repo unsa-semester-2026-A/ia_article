@@ -1,0 +1,109 @@
+% Template for Elsevier
+% version 1.1-5p dated 18 January 2011
+% NO ACCENTUATION PROBLEM UTF-8 : NOT ACCEPTED
+
+% This file (c) 2010-2011 Elsevier Ltd. Modifications may be freely made,
+% provided the edited file is saved under a different name
+
+% This file contains modifications for Procedia Computer Science
+% but may easily be adapted to other journals
+
+
+%-----------------------------------------------------------------------------------
+
+%% This template uses the elsarticle.cls document class and the extension package ecrc.sty
+%% For full documentation on usage of elsarticle.cls, consult the documentation "elsdoc.pdf"
+%% Further resources available at http://www.elsevier.com/latex
+
+%-----------------------------------------------------------------------------------
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                          %%
+%% Important note on usage                  %%
+%% -----------------------                  %%
+%% This file must be compiled with PDFLaTeX %%
+%% Using standard LaTeX will not work!      %%
+%%                                          %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% The '5p' and 'times' class options of elsarticle are used for Elsevier CRC
+\documentclass[5p]{latex_report/style/elsarticle}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+\usepackage[english]{babel}     % Language
+\usepackage{float}
+\usepackage[latin1]{inputenc}   % Latin-1 encoding
+\usepackage{amsmath}             % For equation references with \eqref
+\usepackage{flushend}            % To equalize columns on the last page
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+\input{latex_report/style/style.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Hereafter the template follows `elsarticle'.
+%% For more details see the existing template files elsarticle-template-harv.tex and elsarticle-template-num.tex.
+
+%% Elsevier CRC generally uses a numbered reference style
+%% For this, the conventions of elsarticle-template-num.tex should be followed (included below)
+%% If using BibTeX, use the style file elsarticle-num.bst
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% The amssymb package provides various useful mathematical symbols
+\usepackage{amssymb}
+%% The amsthm package provides extended theorem environments
+%% \usepackage{amsthm}
+
+%% The lineno packages adds line numbers. Start line numbering with
+%% \begin{linenumbers}, end it with \end{linenumbers}. Or switch it on
+%% for the whole article with \linenumbers after \end{frontmatter}.
+%% \usepackage{lineno}
+
+%% natbib.sty is loaded by default. However, natbib options can be
+%% provided with \biboptions{...} command. Following options are
+%% valid:
+
+%%    round  -  round parentheses are used (default)
+%%    square -  square brackets are used    [option]
+%%    curly  -  curly braces are used      {option}
+%%    angle  -  angle brackets are used    <option>
+%%    semicolon  -  multiple citations separated by semi-colon
+%%    colon  - same as semicolon, an earlier confusion
+%%    comma  -  separated by comma
+%%    numbers-  selects numerical citations
+%%    super  -  numerical citations as superscripts
+%%    sort   -  sorts multiple citations according to order in ref. list
+%%    sort&compress    -  like sort, but also compresses numerical citations
+%%    compress - compresses without sorting
+%%
+%% \biboptions{comma,round}
+
+
+% if you have landscape tables
+\usepackage[figuresright]{rotating}
+
+
+
+% to be able to introduce multiple figures that occupy the width of the two columns.
+\usepackage{subfigure}
+
+% declarations for front matter
+
+\begin{document}
+
+
+\input{latex_report/content/frontmatter.tex}
+
+
+%% main text
+\input{latex_report/content/index.tex}
+
+%% References with BibTeX database:
+
+\bibliographystyle{latex_report/style/elsarticle-num}
+\bibliography{latex_report/references}
+
+\end{document}
