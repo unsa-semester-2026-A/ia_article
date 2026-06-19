@@ -1,3 +1,16 @@
+## Dependencies
+
+- `make`
+- `texlive-full`
+
+```sh
+# Installation in Debian based systems
+sudo apt update
+sudo apt install -y \
+    texlive-full \
+    make
+```
+
 ## Usage
 
 > [!NOTE]
