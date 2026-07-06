@@ -21,24 +21,9 @@ Finalmente, la viabilidad y la escalabilidad deben considerarse porque el proble
 
 \subsection{Tools and technologies}
 \label{sec:tools_technologies}
-Tools and technologies go here.
+La implementaci{\'o}n experimental se desarroll{\'o} en Python, usando PyTorch como marco principal para construir, entrenar y evaluar modelos de aprendizaje profundo. PyTorch resulta adecuado para este trabajo porque combina una interfaz imperativa compatible con el flujo habitual de programaci{\'o}n en Python, soporte para aceleraci{\'o}n en GPU y herramientas de depuraci{\'o}n que facilitan la iteraci{\'o}n durante el entrenamiento de redes neuronales \cite{Paszke2019PyTorch}. Para la ejecuci{\'o}n inicial de experimentos se consider{\'o} Google Colab como entorno de notebooks en la nube, ya que permite prototipar modelos convolucionales con acceso a servicios de GPU en l{\'i}nea sin requerir una configuraci{\'o}n local compleja \cite{Garavagno2022ColabNAS}.
 
-Two-column table example:
-\begin{table*}[htbp]
-  \caption{Descriptive title of the wide table.}
-  \label{tab:table1}
-  \centering
-  \begin{tabular}{p{0.25\textwidth} p{0.25\textwidth} p{0.25\textwidth} p{0.2\textwidth}}
-   \hline
-    \textbf{Parameter} & \textbf{Description} & \textbf{Description} & \textbf{Description} \\
-    \hline
-    Parameter1 & Text of example. & Text of example. & Text of example. \\
-    Parameter2 & Text of example. & Text of example. & Text of example. \\
-    Parameter3 & Text of example. & Text of example. & Text of example. \\
-    Parameter4 & Text of example. & Text of example. & Text of example. \\
-    \hline
-  \end{tabular}
-\end{table*}
+Como base de detecci{\'o}n se consider{\'o} la familia YOLO por su enfoque de detecci{\'o}n en tiempo real y por el equilibrio entre precisi{\'o}n, latencia y costo computacional que ofrecen sus variantes recientes \cite{Wang2024YOLOv10}. En la etapa de implementaci{\'o}n se priorizar{\'a} una variante con soporte para cajas orientadas, de modo que las predicciones puedan generarse en el formato requerido por el reto: clase vehicular, confianza, centro, ancho, alto y {\'a}ngulo \cite{MTC2026SmartChallenge}. Alrededor del detector se usar{\'a}n utilidades de Python para preparar im{\'a}genes, leer anotaciones, aplicar aumentos de datos, organizar particiones de entrenamiento y validaci{\'o}n, y exportar resultados en el formato de env{\'i}o; estas herramientas se mantendr{\'a}n como componentes auxiliares para asegurar reproducibilidad y facilitar la comparaci{\'o}n entre configuraciones experimentales.
 
 \subsection{Dataset}
 \label{sec:dataset}

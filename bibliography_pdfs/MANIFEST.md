@@ -1,6 +1,6 @@
 # Bibliography PDFs Manifest
 
-Initial bibliography package for the Materials and Methods section of the SMART Challenge 2026 article.
+Inventory of the PDF files currently stored in this folder for the Materials and Methods section of the SMART Challenge 2026 article.
 
 Selection criteria used in this pass:
 
@@ -34,17 +34,7 @@ Selection criteria used in this pass:
 | `2024_azfar_complex-traffic-environments-review.pdf` | `Azfar2024ComplexTrafficReview` | Deep Learning-Based Computer Vision Methods for Complex Traffic Environments Perception: A Review | Data Science for Transportation | 2024 | Viability/scalability support for real-world traffic perception: labeling needs, high data volume, real-time constraints, embedded hardware, lighting, occlusion, heterogeneous traffic, and camera viewpoints. |
 | `2021_koga_adapting-vehicle-detector-domain.pdf` | `Koga2021VehicleDomainAdaptation` | Adapting Vehicle Detector to Target Domain by Adversarial Prediction Alignment | IGARSS | 2021 | Domain adaptation support for vehicle detectors when target-domain conditions differ from the training domain. |
 | `2021_vora_generalization-multiview-detection.pdf` | `Vora2023GeneralizationMultiview` | Bringing Generalization to Deep Multi-View Pedestrian Detection | WACVW | 2023 | Generalization support across camera positions, camera counts, and new scenes; useful for discussing scalability across viewpoints and deployment locations. |
-
-## Rejected In This Pass
-
-| Candidate | Reason |
-|---|---|
-| Object detection using YOLO: challenges, architectural successors, datasets and applications | The Springer link downloaded as HTML in this environment, not as a valid PDF. Do not use it unless a real PDF is obtained later. |
-| Adaptive Slicing-Aided Hyper Inference for Small Object Detection in High-Resolution Remote Sensing Images | MDPI blocked direct PDF download in this environment and returned an access-denied HTML file; do not use unless a real PDF is obtained later. |
-| Deep Learning-Based Computer Vision Methods for Complex Traffic Environments Perception: A Review, Springer direct PDF | Springer direct PDF URL returned HTML in this environment; the arXiv PDF was downloaded instead while the BibTeX records the formal Springer journal DOI. |
-
-## Still Needed
-
-- Official SMART Challenge/Kaggle citation or rules/source material.
-- Dataset statistics after the local dataset finishes downloading.
-- Additional 2021+ Q1/Q2 PDFs for traffic video analysis, vehicle detection in urban/UAV scenes, YOLO/OBB tooling, and rotated IoU/AP metrics.
+| `2019_paszke_pytorch.pdf` | `Paszke2019PyTorch` | PyTorch: An Imperative Style, High-Performance Deep Learning Library | NeurIPS | 2019 | Canonical framework reference for PyTorch, Pythonic imperative execution, debugging, GPU acceleration, and deep-learning implementation. This is older than 2021 but is the standard PyTorch paper. |
+| `2024_wang_yolov10-real-time-detection.pdf` | `Wang2024YOLOv10` | YOLOv10: Real-Time End-to-End Object Detection | arXiv | 2024 | Tooling/method reference for modern YOLO-style real-time object detection and efficiency/latency considerations. |
+| `2022_garavagno_colabnas.pdf` | `Garavagno2022ColabNAS` | Colab NAS: Obtaining Lightweight Task-Specific Convolutional Neural Networks Following Occam's Razor | arXiv | 2022 | Support for using free online GPU services such as Google Colaboratory/Kaggle Kernel in lightweight CNN experimentation. |
+| `2021_zhao_notebook-vre.pdf` | `Zhao2021NaaVRE` | Notebook-as-a-VRE (NaaVRE): From Private Notebooks to a Collaborative Cloud Virtual Research Environment | arXiv | 2021 | Auxiliary source for notebook-based cloud research environments and collaborative experiment workflows. |
