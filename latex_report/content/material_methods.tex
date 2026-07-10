@@ -31,7 +31,7 @@ Como base de detecci{\'o}n se consider{\'o} la familia YOLO por su enfoque de de
 \subsubsection{Provenance \& Purpose}
 % Aquí va el párrafo inicial: origen del dataset, propósito del estudio,
 % motivación de la recopilación de datos.
-The dataset used in this work originates from the SMART Challenge 2026: IA para la Movilidad del Per\'{u} competition, hosted on Kaggle by Peru's Ministry of Transportation and Communications (MTC). The challenge description defines the task as oriented vehicle detection and classification, together with the required prediction format for evaluation with oriented bounding boxes (OBB)  \cite{MTC2026SmartChallenge}.
+The dataset used in this work originates from the SMART Challenge 2026: ``IA para la Movilidad del Per{\'u}'' competition, hosted on Kaggle by Peru's Ministry of Transportation and Communications (MTC). The challenge description defines the task as oriented vehicle detection and classification, together with the required prediction format for evaluation with oriented bounding boxes (OBB)  \cite{MTC2026SmartChallenge}.
 
 \subsubsection{Acquisition \& File Structure}
 % Aquí va la descripción de cómo se adquirieron los datos,
@@ -42,7 +42,7 @@ Table~\ref{tab:dataset_structure} summarizes the inspected file structure.
   \caption{Inspected local dataset structure}
   \label{tab:dataset_structure}
   \centering
-  \begin{tabular}{p{0.22\textwidth} p{0.18\textwidth} p{0.18\textwidth} p{0.34\textwidth}}
+  \begin{tabular}{p{0.22\textwidth} p{0.14\textwidth} p{0.16\textwidth} p{0.38\textwidth}}
     \toprule
     \textbf{Item} & \textbf{Size} & \textbf{Rows / Images} & \textbf{Content} \\
     \midrule
@@ -50,7 +50,6 @@ Table~\ref{tab:dataset_structure} summarizes the inspected file structure.
     \texttt{test.zip} & 17.3 GB & 23,579 images & Test frames in \texttt{.jpg}. \\
     \texttt{train.csv} & 19.4 MB & 54,262 rows & OBB annotations stored in columns \texttt{Id} and \texttt{Target}. \\
     \texttt{sample\_submission.csv} & 552.6 KB & 23,579 rows & Submission template with initial \texttt{Target} set to \texttt{none}. \\
-    \texttt{muestra\_300/} & 228.0 MB & 300 images & Local sample for visual inspection of frames and annotations. \\
     \bottomrule
   \end{tabular}
 \end{table*}
@@ -65,18 +64,19 @@ When a frame contains multiple objects, individual annotations are separated by 
 
 Example annotation entry for a single image row (CSV \texttt{Target} field):
 \begin{verbatim}
-1 345.2 412.7 78.5 42.0 90.0; 7 120.0 300.0 150.0 60.0 0.0
+1 345.2 412.7 78.5 42.0 90.0;
+7 120.0 300.0 150.0 60.0 0.0
 \end{verbatim}
 (The example above encodes two objects: a class 1 object and a class 7 object.)
 
 
 \subsubsection{Class Taxonomy}
-The dataset defines nine vehicle categories, listed in Table~\ref{tab:class_taxonomy}. Visual inspection of the stratified sample suggests that the boundaries between \emph{combi}, \emph{microbus}, and \emph{minibus} may exhibit inter-class ambiguity due to overlapping vehicle dimensions and similar appearance from the elevated viewpoint. This potential ambiguity, if confirmed through systematic inter-annotator agreement analysis, could introduce class-conditional noise that disproportionately affects minority categories already underrepresented in the training distribution. Fig.~\ref{fig:dataset_obb_sample} illustrates annotated instances from five classes in a representative intersection frame.
+The dataset defines nine vehicle categories, listed in Table~\ref{tab:class_taxonomy}. Visual inspection of the training dataset suggests that the boundaries between \emph{combi}, \emph{microbus}, and \emph{minibus} may exhibit inter-class ambiguity due to overlapping vehicle dimensions and similar appearance from the elevated viewpoint. This potential ambiguity, if confirmed through systematic inter-annotator agreement analysis, could introduce class-conditional noise that disproportionately affects minority categories already underrepresented in the training distribution. Fig.~\ref{fig:dataset_obb_sample} illustrates annotated instances from five classes in a representative intersection frame.
 
 \begin{figure}[ht]
   \centering
   \includegraphics[width=\columnwidth]{latex_report/src/fig/dataset_obb_sample.jpg}
-  \caption{Annotated OBB instances in a representative intersection frame from the \texttt{muestra\_300} subset.}
+  \caption{Annotated OBB instances in a representative intersection frame.}
   \label{fig:dataset_obb_sample}
 \end{figure}
 \begin{table}[ht]
@@ -167,7 +167,7 @@ The class distribution exhibits substantial imbalance. Car accounts for 481,731 
 \subsubsection{Known Annotation Bias}
 \label{sec:annotation_bias}
 
-Manual inspection of the stratified sample reveals that \texttt{train.csv} systematically omits annotations for stationary vehicles, even when such vehicles are fully visible and unoccluded in the frame. A vehicle parked at the edge of an intersection is left without a bounding box, whereas a visually near-identical vehicle in motion within the same frame is annotated. This omission is distinct from minor annotation errors such as misplaced boxes and inconsistent angle values, which are addressed separately in Section~\ref{sec:motion_filter}.
+Manual inspection of the training frames reveals that \texttt{train.csv} systematically omits annotations for stationary vehicles, even when such vehicles are fully visible and unoccluded in the frame. A vehicle parked at the edge of an intersection is left without a bounding box, whereas a visually near-identical vehicle in motion within the same frame is annotated. This omission is distinct from minor annotation errors such as misplaced boxes and inconsistent angle values, which are addressed separately in Section~\ref{sec:motion_filter}.
 
 This finding is treated as a defining characteristic of the dataset rather than as label noise. A standard OBB detector, regardless of architecture, is trained to recognize vehicle appearance and cannot infer motion state from that appearance alone. Consequently, a well-trained detector correctly localizing a parked vehicle is scored as a false positive under the ground truth in \texttt{train.csv}, uniformly degrading per-class Average Precision across all rotated-IoU thresholds, independent of the architecture under evaluation. The underlying task is therefore not vehicle detection in isolation, but joint detection and motion-state discrimination---a distinction that cannot be reliably resolved from a single frame and instead requires temporal context from neighboring frames within the same clip. This observation is consistent with the challenge rules, which explicitly permit the use of the full clip sequence despite frame-level evaluation, indicating that temporal information is necessary for approaching the maximum achievable score. The annotation-bias correction procedure motivated by this finding is presented in Section~\ref{sec:motion_filter}.
 
@@ -175,7 +175,7 @@ This finding is treated as a defining characteristic of the dataset rather than 
 \subsubsection{Temporal Structure \& Split Implication}
 \label{sec:temporal_structure}
 
-Frame identifiers follow the naming convention \texttt{v\_\{anonymized\_video\}\_\{frame\_4digits\}}, where the prefix denotes an anonymized clip and the suffix encodes the temporal index within that clip. In the compressed archives, identifiers carry a \texttt{.jpg} extension; in the CSV files, they appear without extension. Parsing the training set identifiers yielded 1,088 distinct clips, with a minimum of 18 frames per clip, a mean of 49.87, a median of 50, and a maximum of 50. The test set comprises 473 clips, with a minimum of 23 frames per clip, a mean of 49.85, a median of 50, and a maximum of 50. Table~\ref{tab:clip_statistics} summarizes these per-split clip statistics.
+Frame identifiers follow the naming convention \texttt{v\_[video]\allowbreak\_[frame]}, where the prefix denotes an anonymized clip and the suffix encodes the temporal index within that clip. In the compressed archives, identifiers carry a \texttt{.jpg} extension; in the CSV files, they appear without extension. Parsing the training set identifiers yielded 1,088 distinct clips, with a minimum of 18 frames per clip, a mean of 49.87, a median of 50, and a maximum of 50. The test set comprises 473 clips, with a minimum of 23 frames per clip, a mean of 49.85, a median of 50, and a maximum of 50. Table~\ref{tab:clip_statistics} summarizes these per-split clip statistics.
 
 \begin{table}[htbp]
   \caption{Per-split clip statistics derived from frame identifiers.}
@@ -195,9 +195,15 @@ Frame identifiers follow the naming convention \texttt{v\_\{anonymized\_video\}\
 \end{table}
 
 The clip length is concentrated near 50 frames, with a small number of shorter clips appearing in both splits. This organization has direct consequences for experimental design. Consecutive frames within a single clip share nearly identical viewpoint, illumination, and background geometry. Partitioning frames randomly across training and validation splits, without respecting clip boundaries, would place temporally adjacent frames from the same clip in both sets. Such inter-split leakage may inflate performance estimates, as the model effectively encounters near-duplicate visual conditions during validation that it has already seen during training. To obtain an unbiased estimate of generalization performance, the validation split is constructed at the clip level: all frames belonging to a given clip are assigned exclusively to either the training or the validation partition. The specific split ratio and clip selection criteria are described in Section~\ref{sec:experimental_setup}.
+\subsection{Motion Filter}
+\label{sec:motion_filter}
+Placeholder for the motion filter methodology.
 
+\subsection{Experimental Setup}
+\label{sec:experimental_setup}
+Placeholder for the experimental setup.
 
 \subsubsection{Data Access Statement}
 \label{sec:data_access}
 
-The dataset is registered and distributed through the SMART Challenge 2026 competition page on Kaggle, hosted by Peru's Ministry of Transportation and Communications (MTC)~\cite{MTC2026SmartChallenge}. Access requires acceptance of the competition rules and Kaggle's terms of service. The raw data files---\texttt{train.zip}, \texttt{test.zip}, \texttt{train.csv}, and \texttt{sample\_submission.csv}---are not redistributed as part of this work. The code developed for data preprocessing, format conversion, and model training is released under the GPLv3 license, independently of the dataset distribution terms. The repository location and version identifier are provided in the Code Availability statement.
+The dataset is registered and distributed through the \href{https://www.kaggle.com/competitions/mtc-smart-challenge-ia-para-la-movilidad-del-peru/data}{competition page on Kaggle}, hosted by Peru's Ministry of Transportation and Communications (MTC)~\cite{MTC2026SmartChallenge}. Access requires acceptance of the competition rules and Kaggle's terms of service. For development convenience, a mirror of the dataset and trained weights are also stored in a \href{https://drive.google.com/drive/u/0/folders/1FVBV0QnS9BLqLNiHSN6v-gjGFMOOgOXc}{Google Drive folder}. The raw data files---\texttt{train.zip}, \texttt{test.zip}, \texttt{train.csv}, and \texttt{sample\_submission.csv}---are not redistributed as part of this work. The code developed for data preprocessing, format conversion, and model training is released under the GPLv3 license, independently of the dataset distribution terms. The repository location and version identifier are provided in the Code Availability statement.

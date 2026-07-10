@@ -1,23 +1,203 @@
 \section{Related Work}
 \label{sec:related_work}
 
-\textbf{Fernández-Rodríguez et al. — Automated detection of vehicles with anomalous trajectories in traffic surveillance videos (2023)~\cite{FernandezRodriguez2023}.}
-The problem addressed by this work is how to automatically detect vehicles with anomalous trajectories using only traffic cameras, without relying on explicit ``motion'' labels. Its objective is to propose a model that compares velocity vectors of neighboring trajectories in order to flag those that deviate from the normal pattern. The main contribution is to demonstrate that a vehicle's motion state can be inferred by comparing trajectories over time, without requiring an explicit ``moving'' label. Methodologically, it combines per-frame detection, trajectory tracking, velocity-vector estimation, and comparison with spatially adjacent trajectories. As a result, the model successfully detects wrong-way vehicles and anomalous behaviors in real videos. However, its main deficiency is that it does not distinguish fully stationary (parked) vehicles from those circulating normally, which is precisely the core problem in our dataset, since train.csv does not annotate parked vehicles.
+\subsection{Real-Time Vehicle Detection and Tracking Baselines}
 
-\textbf{Espinosa, Velastín \& Branch — Detection of motorcycles in urban traffic using video analysis: A review (2020)~\cite{Espinosa2020}.}
-The problem motivating this review is that the detection and tracking of motorcycles — a vulnerable road user and a minority class in almost every traffic dataset — remains a poorly solved challenge. Its objective is to review the state of the art in motorcycle detection/tracking on CCTV and to consolidate available datasets and metrics. The contribution of this work is to explicitly map the problem of detecting a small, minority class (motorcycle/mototaxi), which is directly analogous to the imbalance we face in the MTC challenge. Methodologically, it consists of a literature review of deep learning algorithms applied to motorcycles, additionally introducing the Urban Motorbike Dataset (UMD). As a result, it identifies the best-performing detectors reported on UMD and outlines the field's current limitations. Nevertheless, its deficiency is that it neither proposes nor evaluates OBB architectures, nor does it address the filtering of stationary vehicles.
+Real-time vehicle detection from video has been a foundational problem in intelligent transport systems,
+and a growing body of work has converged on the YOLO family of detectors as the de~facto backbone for
+this task. Gomaa et al.~\cite{Gomaa2022} attack the problem of high computational cost in vehicle
+counting on fixed cameras. Their goal is to propose a fast counting strategy that avoids the overhead
+of complex multi-object trackers. To this end, they combine a YOLOv2 detector with motion
+feature-point analysis via K-means clustering and a Kanade--Lucas--Tomasi (KLT) optical-flow tracker.
+The result is a throughput of 18.7 FPS with improved counting accuracy over prior methods.
+The main contribution is demonstrating that lightweight point tracking, rather than a full-scale
+re-identification pipeline, is sufficient for accurate real-time counting on static scenes.
+The primary limitation, however, is that the method relies on axis-aligned bounding boxes and provides
+no mechanism for handling class imbalance or discriminating between moving and stationary vehicles.
 
-\textbf{Balamuralidhar, Tilon \& Nex — MultEYE: Monitoring system for real-time vehicle detection, tracking and speed estimation from UAV imagery on edge-computing platforms (2021)~\cite{Balamuralidhar2021}.}
-The problem this work faces is that traffic monitoring systems must run in real time on low-compute embedded hardware, not only on server-grade GPUs. Its objective is to design a detection, tracking, and speed-estimation system optimized for embedded hardware onboard a UAV. The main contribution is to provide concrete proof that high accuracy can be maintained in real time under strict hardware constraints, validating the premise of our Layer 2 (accessible hardware). Its methodology is based on a multi-task detection architecture, with a segmentation head added to the backbone, executed on an Nvidia Xavier NX. The results show a 4.8\% improvement in mAP and a 91.4\% improvement in speed over the prior state of the art, reaching up to 29--33 FPS when embedded. As a deficiency, it focuses on aerial UAV video and does not discuss class imbalance or the discrimination of stationary vehicles.
+A more recent and widely cited baseline is the work of Kumar et al.~\cite{Kumar2023}, who
+address the failure of earlier systems under varying vehicle scales, occlusions, and diverse
+road conditions. Their objective is an effective real-time detection and tracking scheme for
+highway traffic management. Methodologically, they fuse a YOLOv5 detector (operating at
+140 FPS) with the DeepSORT tracker, supported by a Kalman filter and the Hungarian algorithm
+for identity assignment. On the BDD100K and PASCAL benchmarks, the pipeline achieves
+91.25\% precision, 93.52\% recall, and 92.18\% mAP. The contribution establishes a robust
+and reproducible reference for the YOLO + DeepSORT paradigm that subsequent works
+routinely cite as a performance floor. As with Gomaa et al., however, the method uses
+horizontal bounding boxes and neither addresses class imbalance nor the discrimination
+between moving and parked vehicles.
 
-\textbf{Alás, Cervera \& Sanfeliu — A Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments (2026)~\cite{Alas2026}.}
-The central problem of this article is scaling real-time vehicle tracking systems across heterogeneous CCTV networks without relying on a dedicated GPU per camera. Its objective is to propose a modular, low-compute architecture for tracking across the edge-fog continuum. The contribution of this work is to provide evidence that a detection/tracking pipeline can sustain real-time performance on accessible hardware (CPU) at urban network scale, which is relevant for justifying the feasibility of our Layer 2. Methodologically, it combines lightweight detection, transformer-based appearance embeddings, and cross-camera association constrained by topology and travel time. As a result, it maintains over 80\% correct identity matches and 20--29 FPS per stream using only CPU across 27 real cameras. Its deficiency is that it targets cross-camera re-identification, a problem different from the per-frame detection required by the MTC challenge, and it does not address class imbalance or stationary vehicles.
+Bin Zuraimi and Kamaru Zaman~\cite{BinZuraimi2021} frame the problem as one of latency
+and model selection: which YOLO variant provides the best speed-accuracy trade-off for
+real-time urban surveillance on mid-range consumer hardware? Their benchmark compares
+YOLOv3, YOLOv3-tiny, YOLOv4, and YOLOv4-tiny using Darknet weights, each paired with
+the DeepSORT algorithm for tracking. On their custom traffic dataset, YOLOv4 achieves
+the highest mAP@0.5 of 82.08\% at 14.12~FPS, while YOLOv4-tiny yields 76.14\% at
+40.11~FPS on a single GTX~1660~Ti. The contribution is an empirical confirmation that
+lightweight YOLO variants can sustain genuine real-time throughput on consumer-grade GPUs
+without catastrophic accuracy loss. Critically, all tested configurations use standard
+axis-aligned bounding boxes, leaving vehicle orientation unaddressed, which is a necessary
+capability in intersection-level traffic analysis.
 
-\textbf{Gomaa et al. — Faster CNN-based vehicle detection and counting strategy for fixed camera scenes (2022)~\cite{Gomaa2022}.}
-The problem addressed by this work is that automatic vehicle detection and counting in video remains computationally expensive for real-time use. Its objective is to propose a fast method for vehicle detection and counting on fixed cameras. The main contribution is to demonstrate that a fast detector combined with lightweight point tracking, without the need for a complex tracker, is sufficient to achieve accurate real-time counting, which is relevant to our Layer 3 (from detection to counting). Its methodology uses YOLOv2 for detection, together with motion feature-point analysis via K-means and a KLT tracker for counting. As a result, it improves from 1.24/0.19 FPS of prior methods to 18.7 FPS, while also improving counting accuracy. However, it does not address class imbalance, stationary-vehicle discrimination, or comparison with modern OBB architectures.
+\subsection{Scalable Deployment on Low-Cost Hardware}
 
-\textbf{Kumar et al. — Fusion of deep sort and Yolov5 for effective vehicle detection and tracking scheme in real-time traffic management sustainable system (2023)~\cite{Kumar2023}.}
-The problem motivating this work is that existing detection/tracking methods fail under varying vehicle sizes, occlusions, and real-world scenarios. Its objective is to propose an effective real-time detection and tracking scheme for highway traffic management. The contribution of this article is to serve as a solid reference for the ``YOLO + Deep SORT'' pipeline, which we use as a benchmark for typical real-time vehicle detection and tracking performance. Methodologically, it combines YOLOv5 (140 FPS) for detection with Deep SORT, supported by a Kalman filter and the Hungarian algorithm for tracking. The results show 91.25\% precision, 93.52\% recall, and 92.18\% mAP on the BDD100K and PASCAL datasets. As a deficiency, it uses an older, non-OBB version of YOLO and does not consider class imbalance or the discrimination between moving and parked vehicles.
+Beyond algorithmic accuracy, practical traffic monitoring must run on embedded and
+edge-computing infrastructure that municipalities can realistically afford. Balamuralidhar
+et al.~\cite{Balamuralidhar2021} tackle the challenge of running a joint detection,
+tracking, and speed-estimation system in real time on a UAV payload constrained to an
+Nvidia Jetson Xavier~NX. Their multi-task architecture attaches a segmentation head to a
+shared backbone, enabling simultaneous detection and scene understanding. Compared to the
+prior state of the art, the system achieves a 4.8\% improvement in mAP while improving
+processing speed by 91.4\%, reaching 29--33~FPS when fully embedded. The core contribution
+is an existence proof that high accuracy and real-time inference can co-exist under
+strict hardware constraints on aerial platforms. The limitation is that the work targets
+aerial footage with horizontal bounding boxes and does not discuss class imbalance or the
+disambiguation of static vehicles.
 
-\subsection*{Summary of the gap}
-None of the six reviewed works combines OBB detection, class-imbalance mitigation, and moving-vs-stationary vehicle discrimination within a single pipeline. Each addresses an isolated piece of the problem: motion-state inference from trajectories~\cite{FernandezRodriguez2023}, detection of a small, minority class~\cite{Espinosa2020}, deployment on low-cost embedded hardware~\cite{Balamuralidhar2021,Alas2026}, or real-time detection-and-tracking schemes used as baselines~\cite{Gomaa2022,Kumar2023}. This gap directly motivates our combined approach.
+Alás et al.~\cite{Alas2026} extend the hardware-feasibility argument to urban-scale
+camera networks, where the challenge is sustaining cross-camera vehicle re-identification
+across dozens of heterogeneous CCTV nodes without GPU hardware at each node.
+Their modular architecture combines lightweight detection, transformer-based appearance
+embeddings, and cross-camera association constrained by road topology and travel time.
+Deployed across 27 real cameras using only CPU resources, the system maintains over 80\%
+correct identity matches at 20--29~FPS per stream. The contribution is a direct
+demonstration that scalable, affordable deployment of vehicle tracking is architecturally
+feasible. The central limitation is that the system is designed for cross-camera
+re-identification, a task structurally different from the per-frame oriented detection
+required in our context, and it neither handles class imbalance nor filters stationary
+vehicles.
+
+\subsection{Class Imbalance and Detection of Minority Vehicle Types}
+
+A recurring and underappreciated challenge in vehicle datasets is the severe imbalance
+between common classes (passenger cars) and rare but safety-critical ones (motorcycles,
+minibuses, articulated trucks). Espinosa et al.~\cite{Espinosa2020} address this gap
+with a structured review of motorcycle detection and tracking in video, a class that
+appears infrequently in most benchmarks yet represents one of the most vulnerable road
+users. Their survey consolidates available algorithms and datasets, introducing the Urban
+Motorbike Dataset (UMD) as a dedicated benchmark. The analysis identifies the
+best-performing detectors on UMD and documents the field's current performance
+boundaries. The contribution is precisely mapping the structural challenges of
+small-minority-class detection, a situation directly analogous to the mototaxi and
+minibus classes in the MTC challenge. The limitation is that the review neither evaluates
+nor proposes oriented bounding box architectures, and stationary-vehicle filtering is
+outside its scope.
+
+Mo and Yan~\cite{Mo2020} confront the same imbalance problem from an experimental
+angle, targeting small-vehicle detection in aerial images where class distributions
+are highly skewed and pooling operations systematically degrade fine-grained features.
+Their objective is an oriented vehicle detection framework built on Faster~R-CNN that
+simultaneously addresses feature loss for small objects and category frequency imbalance.
+The methodology combines an oversampling-and-stitching data augmentation scheme to
+balance the training distribution, bilinear interpolation to amplify feature maps before
+classification, and a center loss term in the multi-task objective that forces intra-class
+feature representations to cluster, improving discrimination between visually similar
+vehicle types. On the VEDAI dataset, the framework achieves 60.1\% mAP for oriented
+bounding boxes, representing an 8\% gain over baseline Faster~R-CNN. The contribution is a
+concrete recipe for combining data-level resampling with representation-level loss design
+in oriented vehicle detection. The main deficiency is the two-stage architecture's
+inference speed, which precludes real-time application, together with a tendency to
+misclassify complex backgrounds as vehicles.
+
+\subsection{Oriented Detection and Tracking from Aerial Platforms}
+
+With the establishment of oriented bounding boxes as a superior representation for aerial
+vehicle detection, recent work has focused on two complementary frontiers: measuring
+whether OBB detectors are \emph{geometrically} accurate enough for downstream safety
+metrics, and extending OBB detection to the more challenging problem of multi-object
+tracking from a moving camera.
+
+Ahmed et al.~\cite{Ahmed2025} address the first frontier by asking whether
+the dimensional imprecision of standard bounding box detectors distorts safety-critical
+metrics such as Time-to-Collision (TTC) when computed from UAV footage. Their study
+evaluates three YOLOv8 configurations --- standard, YOLOv8+SAM (Segment Anything Model),
+and YOLOv8-OBB --- by integrating each with a SIFT-based georeferencing pipeline and
+measuring vehicle dimensions against ground truth at drone altitudes of 60 and 90 metres.
+YOLOv8-OBB achieves the lowest mean RMSE of 0.99~m (95\% CI: [0.80, 1.20]), versus 1.32~m
+for YOLOv8+SAM and 3.31~m for standard YOLOv8, while running nearly in real time.
+The contribution is a compelling empirical argument that OBB detectors are not merely more
+precise geometrically, but that this precision translates to measurably better safety
+metrics. The key limitation is that no fine-tuning is performed on any local dataset ---
+all three models are deployed off-the-shelf --- and performance is sensitive to weather
+and illumination conditions.
+
+Chen et al.~\cite{Chen2025} tackle the second frontier with ArbiTrack, a multi-object
+tracking framework designed specifically for detecting and tracking arbitrarily oriented
+vehicles from a \emph{moving} aerial vehicle. The core problem is the combined
+interference of irregular camera motion, partial occlusions, and arbitrary target
+orientations, all of which destabilize conventional tracking pipelines. ArbiTrack
+integrates an OBB detector with three purpose-built modules: Multi-Scale Context
+Aggregation (MCA) to preserve small-object features, Adaptive Motion Switching (AMS) to
+compensate for non-linear drone maneuvers by switching dynamically between Kalman and
+Unscented Kalman filters, and a Spatiotemporal Evolutionary Memory (SEM) module using
+ConvGRU to maintain identity continuity under occlusion. On the authors' OriDrone dataset,
+ArbiTrack achieves 44.6\% MOTA and 56.9\% IDF1, outperforming FairMOT by 6.7\% and
+11.7\% respectively on those metrics; on the public UAVDT benchmark, results reach 47.6\%
+MOTA and 67.4\% IDF1 with superior identity consistency (786 ID switches versus 1564 for
+FairMOT). The contribution is a complete end-to-end framework that proves temporal memory
+and motion-adaptive filtering are necessary for reliable OBB tracking from moving cameras.
+The limitation is that the framework assumes every detected vehicle must be tracked
+regardless of motion state --- a problem structurally different from the MTC setting,
+where only moving vehicles are annotated --- and performance degrades under low-light
+conditions.
+
+The architectural frontier of single-stage OBB detectors is defined by Jocher
+et al.~\cite{Jocher2026}, who address two persistent bottlenecks in the YOLO family:
+the inference-time latency introduced by Non-Maximum Suppression (NMS), and the
+computational overhead of Distribution Focal Loss (DFL) in the detection head.
+YOLO26 resolves both with a dual-head design: a one-to-many branch for rich supervision
+during training and a one-to-one branch for native end-to-end, NMS-free inference.
+The training pipeline couples three complementary advances --- MuSGD, a hybrid Muon--SGD
+optimizer adapted from large-language-model research; Progressive Loss, which gradually
+shifts supervision weight toward the inference-time branch; and STAL (Small-Target-Aware
+Label Assignment), which guarantees positive anchor coverage for tiny objects. On the
+COCO benchmark, YOLO26 spans 40.9--57.5\% mAP at 1.7--11.8~ms latency on an NVIDIA T4
+(TensorRT), with STAL specifically lifting small-object AP from 29.0 to 29.6. For OBB
+tasks, YOLO26 also introduces a revised angle parameterisation that eliminates the $90^\circ$
+rotational ambiguity inherent in nearly-square bounding boxes. The contribution is the
+most recent and complete unification of NMS-free end-to-end detection with OBB-specific
+training improvements. The limitation is that, as a very recent preprint, YOLO26 has not
+yet been evaluated in domain-specific vehicle detection settings, leaving open how much of
+its COCO advantage transfers to fine-grained, class-imbalanced urban traffic scenarios.
+
+\subsection{Motion-State Inference and Stationary Vehicle Filtering}
+
+A less explored but architecturally important thread in vehicle analysis is the inference
+of motion state from video sequences, a capability that becomes essential when a dataset
+annotates only moving vehicles, as is the case in our setting. Fernández-Rodríguez
+et al.~\cite{FernandezRodriguez2023} address the problem of automatically detecting
+vehicles with anomalous trajectories --- such as wrong-way drivers --- using only fixed
+traffic cameras and without explicit motion labels. Their model compares per-vehicle
+velocity vectors against those of spatially neighbouring trajectories, flagging outliers
+as anomalous. The methodology chains per-frame YOLO detection with trajectory tracking,
+velocity-vector estimation, and a spatial-neighbour comparison step. The system
+successfully identifies wrong-way and erratic trajectories in real footage, demonstrating
+that motion state can be reliably inferred from temporal patterns across frames rather than
+from appearance alone. The contribution is precisely establishing that trajectory-level
+reasoning --- not a single-frame detector --- is the appropriate tool for motion-state
+discrimination. The critical limitation, however, is that the method is designed for
+anomalous-versus-normal trajectory classification and does not explicitly separate fully
+stationary (parked) vehicles from slowly circulating ones, which is the distinction that
+matters most in our dataset.
+
+\subsection*{Summary and Research Gap}
+
+Across eleven reviewed works, a consistent pattern emerges: each contribution advances one
+dimension of the problem in isolation. Real-time baselines~\cite{Gomaa2022,Kumar2023,BinZuraimi2021}
+establish solid detection and tracking pipelines, but rely on horizontal bounding boxes
+and ignore class imbalance. Edge-deployment
+works~\cite{Balamuralidhar2021,Alas2026} prove hardware feasibility yet do not tackle
+orientation or skewed class distributions. Class-imbalance
+research~\cite{Espinosa2020,Mo2020} demonstrates effective resampling and loss-engineering
+strategies, but in two-stage architectures unsuitable for real-time inference.
+OBB-focused aerial works~\cite{Ahmed2025,Chen2025,Jocher2026} push the geometric and
+architectural frontier, yet none evaluates the impact of training on a dataset where
+\emph{only moving vehicles are annotated}, nor do they quantify how much of the measured
+metric error stems from that annotation bias rather than from detector limitations.
+Motion-state inference~\cite{FernandezRodriguez2023} confirms that frame sequences are
+necessary to separate moving from stationary vehicles, but does not connect this finding
+to an OBB detection evaluation pipeline. No reviewed work addresses all of these dimensions
+jointly: OBB detection, class-imbalance mitigation, and stationary-vehicle filtering
+within a single, real-time-capable pipeline evaluated on urban intersection footage.
+This multi-dimensional gap directly motivates the layered experimental design of the
+present study.
