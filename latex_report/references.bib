@@ -68,3 +68,71 @@
   abstract = {Real-time vision demands models that are accurate, efficient, and simple to deploy across diverse hardware. The YOLO family has become widely deployed for this reason, yet most YOLO detectors still rely on non-maximum suppression at inference, carry heavy detection heads due to Distribution Focal Loss, require long training schedules, and can leave the smallest objects without positive label assignments. We present Ultralytics YOLO26, a unified real-time vision model family that addresses these limitations through coordinated architecture and training advances. YOLO26 uses a dual-head design for native NMS-free end-to-end inference and removes DFL entirely, yielding a lighter head with unconstrained regression range. Its training pipeline combines MuSGD, a hybrid Muon-SGD optimizer adapted from large language model training; Progressive Loss, which shifts supervision toward the inference-time head; and STAL, a label assignment strategy that guarantees positive coverage for small objects. Beyond detection, YOLO26 introduces task-specific head and loss designs for instance segmentation, pose estimation, and oriented detection, producing consistent gains across tasks and scales. The family spans five scales (n/s/m/l/x) and supports detection, instance segmentation, pose estimation, classification, and oriented detection in a single pipeline, with an open-vocabulary extension, YOLOE-26, for text-, visual-, and prompt-free inference. Across all scales, YOLO26 achieves 40.9-57.5 mAP on COCO at 1.7-11.8 ms T4 TensorRT latency, advancing the accuracy-latency Pareto front over prior real-time detectors, while YOLOE-26x reaches 40.6 AP on LVIS minival under text prompting. Code and models are available at https://github.com/ultralytics/ultralytics.}
 }
 
+@article{FernandezRodriguez2023,
+  author    = {Fern{\'a}ndez-Rodr{\'i}guez, J. D. and Garc{\'i}a-Gonz{\'a}lez, J. and Ben{\'i}tez-Rochel, R. and Molina-Cabello, M. A. and Ramos-Jim{\'e}nez, G. and L{\'o}pez-Rubio, E.},
+  title     = {{Automated detection of vehicles with anomalous trajectories in traffic surveillance videos}},
+  journal   = {Integrated Computer-Aided Engineering},
+  year      = {2023},
+  volume    = {30},
+  number    = {3},
+  pages     = {293--309},
+  doi       = {10.3233/ICA-230706},
+  publisher = {IOS Press}
+}
+
+@article{Espinosa2020,
+  author    = {Espinosa, J. E. and Velast{\'i}n, S. A. and Branch, J. W.},
+  title     = {{Detection of motorcycles in urban traffic using video analysis: A review}},
+  journal   = {IEEE Transactions on Intelligent Transportation Systems},
+  year      = {2020},
+  volume    = {22},
+  number    = {10},
+  pages     = {6115--6130},
+  doi       = {10.1109/TITS.2020.2995874},
+  publisher = {IEEE}
+}
+
+@article{Balamuralidhar2021,
+  author    = {Balamuralidhar, N. and Tilon, S. and Nex, F.},
+  title     = {{MultEYE: Monitoring system for real-time vehicle detection, tracking and speed estimation from UAV imagery on edge-computing platforms}},
+  journal   = {Remote Sensing},
+  year      = {2021},
+  volume    = {13},
+  number    = {4},
+  pages     = {573},
+  doi       = {10.3390/rs13040573},
+  publisher = {MDPI}
+}
+
+@article{Alas2026,
+  author    = {Al{\'a}s, O. and Cervera, R. and Sanfeliu, R.},
+  title     = {{A Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments}},
+  journal   = {IEEE Access},
+  year      = {2026},
+  doi       = {10.1109/ACCESS.2026.xxxxxxx},
+  publisher = {IEEE}
+}
+
+@article{Gomaa2022,
+  author    = {Gomaa, A. and Minematsu, T. and Abdelwahab, M. M. and Abo-Zahhad, M. and Taniguchi, R. I.},
+  title     = {{Faster CNN-based vehicle detection and counting strategy for fixed camera scenes}},
+  journal   = {Multimedia Tools and Applications},
+  year      = {2022},
+  volume    = {81},
+  number    = {18},
+  pages     = {25443--25471},
+  doi       = {10.1007/s11042-022-12347-1},
+  publisher = {Springer}
+}
+
+@article{Kumar2023,
+  author    = {Kumar, S. and Singh, S. K. and Varshney, S. and Singh, S. and Kumar, P. and Kim, B. G. and Ra, I. H.},
+  title     = {{Fusion of deep sort and Yolov5 for effective vehicle detection and tracking scheme in real-time traffic management sustainable system}},
+  journal   = {Sustainability},
+  year      = {2023},
+  volume    = {15},
+  number    = {24},
+  pages     = {16869},
+  doi       = {10.3390/su152416869},
+  publisher = {MDPI}
+}
