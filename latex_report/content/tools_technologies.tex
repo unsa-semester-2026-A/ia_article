@@ -1,7 +1,7 @@
 \subsection{Tools and Technologies}
 \label{sec:tools_technologies}
 
-Model development and training were implemented in Python using \textbf{PyTorch}
+Model development and training were implemented in Python using PyTorch
 as the primary deep learning framework. PyTorch provides a dynamic computation
 graph with imperative execution, enabling straightforward debugging and rapid
 iteration during experimental design of oriented-detection training
@@ -9,18 +9,18 @@ loops~\cite{Paszke2019PyTorch}. Its native autograd engine supports
 the gradient computation required for angular regression losses (e.g.,
 Kullback--Leibler divergence loss over Gaussian-parameterised bounding boxes)
 without requiring custom backward passes. Training experiments were executed
-on \textbf{Google Colaboratory} accelerated hardware (NVIDIA T4 and A100
+on Google Colaboratory accelerated hardware (NVIDIA T4 and A100
 GPUs), a cloud-based environment that provides access to modern GPU architectures
 without requiring local infrastructure investment (a constraint particularly
 relevant for research groups in resource-limited institutions)~\cite{Garavagno2022ColabNAS}.
 
-Model architectures are drawn from the \textbf{Ultralytics YOLO} ecosystem~\cite{Jocher2026}, which provides YOLO11\allowbreak-OBB and YOLO26\allowbreak-OBB with built-in support
+Model architectures are drawn from the Ultralytics YOLO ecosystem~\cite{Jocher2026}, which provides YOLO11\allowbreak-OBB and YOLO26\allowbreak-OBB with built-in support
 for oriented bounding box regression, rotated-IoU-based matching, and
 rotation-aware data augmentation. The Ultralytics library also exposes
 an internal rotated-IoU computation that was reused as a primitive within
 the custom Macro AP-rIoU@[0.50:0.80] evaluator implemented for this work.
 For inference-speed benchmarking on edge\allowbreak-representative hardware, models were
-exported to the \textbf{ONNX} portable format, enabling CPU-only evaluation
+exported to the ONNX portable format, enabling CPU-only evaluation
 independent of the PyTorch runtime. Preprocessing utilities, annotation
 parsing, clip-level dataset splitting, and result formatting were implemented
 as auxiliary Python scripts to ensure full reproducibility across experimental
