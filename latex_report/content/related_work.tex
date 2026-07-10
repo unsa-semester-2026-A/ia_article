@@ -27,17 +27,7 @@ routinely cite as a performance floor. As with Gomaa et al., however, the method
 horizontal bounding boxes and neither addresses class imbalance nor the discrimination
 between moving and parked vehicles.
 
-Bin Zuraimi and Kamaru Zaman~\cite{BinZuraimi2021} frame the problem as one of latency
-and model selection: which YOLO variant provides the best speed-accuracy trade-off for
-real-time urban surveillance on mid-range consumer hardware? Their benchmark compares
-YOLOv3, YOLOv3-tiny, YOLOv4, and YOLOv4-tiny using Darknet weights, each paired with
-the DeepSORT algorithm for tracking. On their custom traffic dataset, YOLOv4 achieves
-the highest mAP@0.5 of 82.08\% at 14.12~FPS, while YOLOv4-tiny yields 76.14\% at
-40.11~FPS on a single GTX~1660~Ti. The contribution is an empirical confirmation that
-lightweight YOLO variants can sustain genuine real-time throughput on consumer-grade GPUs
-without catastrophic accuracy loss. Critically, all tested configurations use standard
-axis-aligned bounding boxes, leaving vehicle orientation unaddressed, which is a necessary
-capability in intersection-level traffic analysis.
+Bin Zuraimi and Kamaru Zaman~\cite{BinZuraimi2021} evaluate model latency and speed-accuracy trade-offs for real-time surveillance. Using a mid-range GPU, they compare YOLOv3, YOLOv3\allowbreak-tiny, YOLOv4, and YOLOv4\allowbreak-tiny (with Darknet weights) paired with the DeepSORT algorithm for tracking. On their custom traffic dataset, YOLOv4 achieves the highest mAP@0.5 of 82.08\% at 14.12~FPS, while YOLOv4-tiny yields 76.14\% at 40.11~FPS on a single GTX~1660~Ti. This empirically confirms that lightweight YOLO variants can sustain genuine real-time throughput on consumer-grade GPUs without catastrophic accuracy loss. Critically, all tested configurations use standard axis-aligned bounding boxes, leaving vehicle orientation unaddressed, which is a necessary capability in intersection-level traffic analysis.
 
 \subsection{Scalable Deployment on Low-Cost Hardware}
 
@@ -107,19 +97,7 @@ whether OBB detectors are \emph{geometrically} accurate enough for downstream sa
 metrics, and extending OBB detection to the more challenging problem of multi-object
 tracking from a moving camera.
 
-Ahmed et al.~\cite{Ahmed2025} address the first frontier by asking whether
-the dimensional imprecision of standard bounding box detectors distorts safety-critical
-metrics such as Time-to-Collision (TTC) when computed from UAV footage. Their study
-evaluates three YOLOv8 configurations --- standard, YOLOv8+SAM (Segment Anything Model),
-and YOLOv8-OBB --- by integrating each with a SIFT-based georeferencing pipeline and
-measuring vehicle dimensions against ground truth at drone altitudes of 60 and 90 metres.
-YOLOv8-OBB achieves the lowest mean RMSE of 0.99~m (95\% CI: [0.80, 1.20]), versus 1.32~m
-for YOLOv8+SAM and 3.31~m for standard YOLOv8, while running nearly in real time.
-The contribution is a compelling empirical argument that OBB detectors are not merely more
-precise geometrically, but that this precision translates to measurably better safety
-metrics. The key limitation is that no fine-tuning is performed on any local dataset ---
-all three models are deployed off-the-shelf --- and performance is sensitive to weather
-and illumination conditions.
+Ahmed et al.~\cite{Ahmed2025} address the first frontier by asking whether the dimensional imprecision of standard bounding box detectors distorts safety-critical metrics such as Time-to-Collision (TTC) when computed from UAV footage. Their study evaluates three YOLOv8 configurations (standard, YOLOv8+SAM (Segment Anything Model), and YOLOv8-OBB) by integrating each with a SIFT-based georeferencing pipeline and measuring vehicle dimensions against ground truth at drone altitudes of 60 and 90 metres. YOLOv8-OBB achieves the lowest mean RMSE of 0.99~m (with a 95\% CI of [0.80, 1.20]), compared to 1.32~m for YOLOv8+SAM and 3.31~m for standard YOLOv8, while running nearly in real time. The contribution is a compelling empirical argument that OBB detectors are not merely more precise geometrically, but that this precision translates to measurably better safety metrics. The key limitation is that no fine-tuning is performed on any local dataset (all three models are deployed off-the-shelf) and performance is sensitive to weather and illumination conditions.
 
 Chen et al.~\cite{Chen2025} tackle the second frontier with ArbiTrack, a multi-object
 tracking framework designed specifically for detecting and tracking arbitrarily oriented
@@ -182,15 +160,15 @@ matters most in our dataset.
 
 \subsection*{Summary and Research Gap}
 
-Across eleven reviewed works, a consistent pattern emerges: each contribution advances one
-dimension of the problem in isolation. Real-time baselines~\cite{Gomaa2022,Kumar2023,BinZuraimi2021}
+A clear pattern emerges across the reviewed literature: each study addresses one
+dimension of the problem in isolation. Real-time baselines~\cite{Gomaa2022, Kumar2023, BinZuraimi2021}
 establish solid detection and tracking pipelines, but rely on horizontal bounding boxes
 and ignore class imbalance. Edge-deployment
-works~\cite{Balamuralidhar2021,Alas2026} prove hardware feasibility yet do not tackle
+works~\cite{Balamuralidhar2021, Alas2026} prove hardware feasibility yet do not tackle
 orientation or skewed class distributions. Class-imbalance
-research~\cite{Espinosa2020,Mo2020} demonstrates effective resampling and loss-engineering
+research~\cite{Espinosa2020, Mo2020} demonstrates effective resampling and loss-engineering
 strategies, but in two-stage architectures unsuitable for real-time inference.
-OBB-focused aerial works~\cite{Ahmed2025,Chen2025,Jocher2026} push the geometric and
+Aerial OBB works~\cite{Ahmed2025, Chen2025, Jocher2026} push the geometric and
 architectural frontier, yet none evaluates the impact of training on a dataset where
 \emph{only moving vehicles are annotated}, nor do they quantify how much of the measured
 metric error stems from that annotation bias rather than from detector limitations.

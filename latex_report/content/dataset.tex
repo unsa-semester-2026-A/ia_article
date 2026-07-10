@@ -1,0 +1,165 @@
+\subsection{Dataset}
+\label{sec:dataset}
+
+\subsubsection{Provenance \& Purpose}
+% Aquí va el párrafo inicial: origen del dataset, propósito del estudio,
+% motivación de la recopilación de datos.
+The dataset used in this work originates from the SMART Challenge 2026 competition, hosted on Kaggle by Peru's Ministry of Transportation and Communications (MTC). The challenge description defines the task as oriented vehicle detection and classification, together with the required prediction format for evaluation with oriented bounding boxes (OBB)  \cite{MTC2026SmartChallenge}.
+
+\subsubsection{Acquisition \& File Structure}
+% Aquí va la descripción de cómo se adquirieron los datos,
+% estructura de archivos, referencia a Table I.
+Table~\ref{tab:dataset_structure} summarizes the inspected file structure.
+
+\begin{table*}[!t]
+  \caption{Inspected local dataset structure}
+  \label{tab:dataset_structure}
+  \centering
+  \begin{tabular}{p{0.22\textwidth} p{0.14\textwidth} p{0.16\textwidth} p{0.38\textwidth}}
+    \toprule
+    \textbf{Item} & \textbf{Size} & \textbf{Rows / Images} & \textbf{Content} \\
+    \midrule
+    \texttt{train.zip} & 40.3 GB & 54,262 images & Training frames in \texttt{.jpg}. \\
+    \texttt{test.zip} & 17.3 GB & 23,579 images & Test frames in \texttt{.jpg}. \\
+    \texttt{train.csv} & 19.4 MB & 54,262 rows & OBB annotations stored in columns \texttt{Id} and \texttt{Target}. \\
+    \texttt{sample\_submission.csv} & 552.6 KB & 23,579 rows & Submission template with initial \texttt{Target} set to \texttt{none}. \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\subsubsection{Annotation Schema}
+Annotations follow an oriented bounding box (OBB) format. Each annotated object is represented by six fields: 
+\texttt{category\_id}, \texttt{cx}, \texttt{cy}, \texttt{width}, \texttt{height}, and \texttt{angle\_deg}. 
+Coordinates \texttt{cx} and \texttt{cy} denote the center of the box in pixel units; \texttt{width} and \texttt{height} denote the box dimensions in pixels; \texttt{angle\_deg} expresses the orientation of the box in degrees, measured counterclockwise from the image x-axis.
+
+When a frame contains multiple objects, individual annotations are separated by a semicolon (`;`). If a frame contains no annotated objects, the annotation field value is exactly \texttt{none}.
+
+Example annotation entry for a single image row (CSV \texttt{Target} field):
+\begin{verbatim}
+1 345.2 412.7 78.5 42.0 90.0;
+7 120.0 300.0 150.0 60.0 0.0
+\end{verbatim}
+(The example above encodes two objects: a class 1 object and a class 7 object.)
+
+\subsubsection{Class Taxonomy}
+The dataset defines nine vehicle categories, listed in Table~\ref{tab:class_taxonomy}. Visual inspection of the training dataset suggests that the boundaries between \emph{combi}, \emph{microbus}, and \emph{minibus} may exhibit inter-class ambiguity due to overlapping vehicle dimensions and similar appearance from the elevated viewpoint. This potential ambiguity, if confirmed through systematic inter-annotator agreement analysis, could introduce class-conditional noise that disproportionately affects minority categories already underrepresented in the training distribution. Fig.~\ref{fig:dataset_obb_sample} illustrates annotated instances from five classes in a representative intersection frame.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\columnwidth]{latex_report/src/fig/dataset_obb_sample.jpg}
+  \caption{Annotated OBB instances in a representative intersection frame.}
+  \label{fig:dataset_obb_sample}
+\end{figure}
+\begin{table}[ht]
+  \caption{Class taxonomy of the SMART Challenge 2026 dataset.}
+  \label{tab:class_taxonomy}
+  \centering
+  \begin{tabular}{lc}
+    \toprule
+    \textbf{ID} & \textbf{Class} \\
+    \midrule
+    1 & Car \\
+    2 & Combi \\
+    3 & Microbus \\
+    4 & Minibus \\
+    5 & Omnibus \\
+    6 & Articulated bus \\
+    7 & Truck \\
+    8 & Mototaxi (auto rickshaw) \\
+    9 & Motorcycle \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection{Descriptive Statistics}
+\label{sec:descriptive_stats}
+
+Exploratory analysis identified 601,934 annotated objects across the 54,262 training frames. Of these frames, 3,394 contain no annotated objects (\texttt{Target}\allowbreak\texttt{==}\allowbreak\texttt{none}), 6,212 contain exactly one object, and 44,656 contain two or more objects, with a maximum of 53 objects observed in a single frame. Validation detected no parsing errors, out-of-range class identifiers (outside 1--9), non-positive box dimensions, out-of-bounds centers, or angles outside $[0^\circ, 360^\circ)$. Cross-referencing the CSV identifiers against the image names inside the compressed archives confirmed a one-to-one correspondence: no orphaned annotations and no unannotated images were found. Table~\ref{tab:dataset_frame_summary} reports these frame-level statistics, and Fig.~\ref{fig:dataset_objects_per_frame} shows the per-frame object density distribution.
+
+\begin{table}[htbp]
+  \caption{Summary of training frames and annotations.}
+  \label{tab:dataset_frame_summary}
+  \centering
+  \begin{tabular}{p{0.55\columnwidth} r}
+    \toprule
+    \textbf{Indicator} & \textbf{Value} \\
+    \midrule
+    Training frames                        & 54,262  \\
+    Annotated OBB objects                  & 601,934 \\
+    Frames with no objects                 & 3,394   \\
+    Frames with one object                 & 6,212   \\
+    Frames with multiple objects           & 44,656  \\
+    Maximum objects in a single frame      & 53      \\
+    Training clips                         & 1,088   \\
+    Test clips                             & 473     \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\columnwidth]{latex_report/src/fig/dataset_objects_per_frame.png}
+  \caption{Density distribution of objects per frame in \texttt{train.csv}.}
+  \label{fig:dataset_objects_per_frame}
+\end{figure}
+
+The class distribution exhibits substantial imbalance. Car accounts for 481,731 objects (80.03\% of all annotations), followed by Motorcycle with 47,568 objects (7.90\%) and Truck with 32,668 objects (5.43\%). At the opposite end, Articulated bus, Omnibus, and Microbus represent 0.04\%, 0.38\%, and 0.47\% of all objects, respectively. Table~\ref{tab:dataset_class_distribution} provides the full per-class breakdown, and Fig.~\ref{fig:dataset_class_distribution} shows the corresponding distribution. Because the official evaluation metric (macro AP at rIoU thresholds 0.50--0.80) averages Average Precision uniformly across the nine classes, this imbalance is methodologically consequential: high precision on Car does not compensate for degraded performance on minority categories, requiring per-class results to be reported individually.
+
+\begin{table*}[htbp]
+  \caption{Per-class object distribution in \texttt{train.csv}.}
+  \label{tab:dataset_class_distribution}
+  \centering
+  \begin{tabular}{r l r r}
+    \toprule
+    \textbf{ID} & \textbf{Class} & \textbf{Objects} & \textbf{Percentage} \\
+    \midrule
+    1 & Car              & 481,731 & 80.03\% \\
+    2 & Combi            & 10,152  & 1.69\%  \\
+    3 & Microbus         & 2,802   & 0.47\%  \\
+    4 & Minibus          & 18,941  & 3.15\%  \\
+    5 & Omnibus          & 2,283   & 0.38\%  \\
+    6 & Articulated bus  & 250     & 0.04\%  \\
+    7 & Truck            & 32,668  & 5.43\%  \\
+    8 & Mototaxi         & 5,539   & 0.92\%  \\
+    9 & Motorcycle       & 47,568  & 7.90\%  \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\begin{figure*}[htbp]
+  \centering
+  \includegraphics[width=0.95\textwidth]{latex_report/src/fig/dataset_class_distribution.png}
+  \caption{Distribution of annotated objects per vehicle class in the training set.}
+  \label{fig:dataset_class_distribution}
+\end{figure*}
+
+\subsubsection{Known Annotation Bias}
+\label{sec:annotation_bias}
+
+Manual inspection of the training frames reveals that \texttt{train.csv} systematically omits annotations for stationary vehicles, even when such vehicles are fully visible and unoccluded in the frame. A vehicle parked at the edge of an intersection is left without a bounding box, whereas a visually near-identical vehicle in motion within the same frame is annotated. This omission is distinct from minor annotation errors such as misplaced boxes and inconsistent angle values, which are addressed separately in Section~\ref{sec:motion_filter}.
+
+This finding is treated as a defining characteristic of the dataset rather than as label noise. A standard OBB detector, regardless of architecture, is trained to recognize vehicle appearance and cannot infer motion state from that appearance alone. Consequently, a well-trained detector correctly localizing a parked vehicle is scored as a false positive under the ground truth in \texttt{train.csv}, uniformly degrading per-class Average Precision across all rotated-IoU thresholds, independent of the architecture under evaluation. The underlying task is therefore not vehicle detection in isolation, but joint detection and motion-state discrimination---a distinction that cannot be reliably resolved from a single frame and instead requires temporal context from neighboring frames within the same clip. This observation is consistent with the challenge rules, which explicitly permit the use of the full clip sequence despite frame-level evaluation, indicating that temporal information is necessary for approaching the maximum achievable score. The annotation-bias correction procedure motivated by this finding is presented in Section~\ref{sec:motion_filter}.
+
+\subsubsection{Temporal Structure \& Split Implication}
+\label{sec:temporal_structure}
+
+Frame identifiers use the naming convention \texttt{v\_[video]\_\allowbreak[frame]}, where the prefix denotes an anonymized clip and the suffix encodes the temporal index within that clip. In the compressed archives, identifiers carry a \texttt{.jpg} extension; in the CSV files, they appear without extension. Parsing the training set identifiers yielded 1,088 distinct clips, with a minimum of 18 frames per clip, a mean of 49.87, a median of 50, and a maximum of 50. The test set comprises 473 clips, with a minimum of 23 frames per clip, a mean of 49.85, a median of 50, and a maximum of 50. Table~\ref{tab:clip_statistics} summarizes these per-split clip statistics.
+
+\begin{table}[htbp]
+  \caption{Per-split clip statistics derived from frame identifiers.}
+  \label{tab:clip_statistics}
+  \centering
+  \begin{tabular}{l r r}
+    \toprule
+    \textbf{Statistic} & \textbf{Train} & \textbf{Test} \\
+    \midrule
+    Number of clips     & 1,088 & 473   \\
+    Min frames per clip & 18    & 23    \\
+    Mean frames per clip & 49.87 & 49.85 \\
+    Median frames per clip & 50  & 50    \\
+    Max frames per clip & 50    & 50    \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The clip length is concentrated near 50 frames, with a small number of shorter clips appearing in both splits. This organization has direct consequences for experimental design. Consecutive frames within a single clip share nearly identical viewpoint, illumination, and background geometry. Partitioning frames randomly across training and validation splits, without respecting clip boundaries, would place temporally adjacent frames from the same clip in both sets. Such inter-split leakage may inflate performance estimates, as the model effectively encounters near-duplicate visual conditions during validation that it has already seen during training. To obtain an unbiased estimate of generalization performance, the validation split is constructed at the clip level: all frames belonging to a given clip are assigned exclusively to either the training or the validation partition. The specific split ratio and clip selection criteria are described in Section~\ref{sec:experimental_setup}.

@@ -24,6 +24,7 @@ $(DOC).pdf:
 	
 	@echo "-> Compilación completada. Log completo en $(BUILD_DIR)/$(DOC).log"
 
+
 fast:
 	@mkdir -p $(BUILD_DIR)
 	@echo "-> Compilación rápida..."

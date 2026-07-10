@@ -1,0 +1,128 @@
+\subsection{Theoretical Background}
+\label{sec:theoretical_background}
+
+\textbf{Intelligent Urban Mobility and Traffic Monitoring.}
+Effective urban traffic management depends on real-time, automated observation
+of vehicle flows, vehicle types, and intersection dynamics. \textbf{Intelligent
+Transport Systems (ITS)} integrate sensing, communication, and data analysis to
+support tasks such as congestion detection, signal optimization, and road safety
+analysis~\cite{Zhou2025TrafficSurveillanceSurvey}. As urban road networks
+grow in complexity (particularly in developing-country cities where mixed
+vehicle fleets, informal stops, and heterogeneous lane use are common), manual
+data collection becomes impossible to scale, making automated video-based
+monitoring a foundational component of modern traffic
+infrastructure~\cite{Azfar2024ComplexTrafficReview}.
+
+\textbf{Traffic Video Analysis via Computer Vision.}
+The shift from physical induction-loop sensors to optical camera systems has
+enabled far richer scene understanding, but introduces perceptual challenges
+that purely sensor-based systems do not face. Illumination variation, cast
+shadows, partial \textbf{occlusion} between vehicles in dense traffic, and
+scene-wide context ambiguity all degrade detection reliability if models
+process each pixel independently without exploiting spatial
+context~\cite{Zou2023ObjectDetectionSurvey}. Incorporating surrounding scene
+information---lane geometry, relative vehicle positions, and neighboring
+object types---has been shown to resolve cases where an individual object's
+appearance alone is insufficient for accurate
+classification~\cite{Jamali2025ContextObjectDetection}.
+
+\textbf{Object Detection: Bounding Box Representations.}
+\textbf{Object detection} is the task of simultaneously localizing and
+classifying each instance within a scene. The dominant localization format
+is the \textbf{horizontal bounding box (HBB)}, a rectangle aligned with the
+image axes. While computationally convenient, HBBs are geometrically
+imprecise for objects with arbitrary orientations: a vehicle turning through
+an intersection or traversing a diagonal lane will be enclosed by an HBB
+that includes substantial background pixels and may artificially overlap
+with neighboring boxes in dense scenes~\cite{Wang2025OBBSurvey}. The
+\textbf{oriented bounding box (OBB)} extends the localization representation
+with a rotation angle parameter $\theta$, producing a tighter fit to the
+object's actual footprint regardless of its heading direction. This tighter
+fit is mathematically critical when computing distance-based traffic metrics
+such as Time-to-Collision (TTC), where bounding-box imprecision propagates
+directly into safety-metric error~\cite{Ahmed2025}. The SMART Challenge
+evaluates predictions in OBB format with rotated IoU at thresholds ranging
+from 0.50 to 0.80, making OBB representation a hard requirement rather than
+an optional refinement~\cite{MTC2026SmartChallenge}.
+
+\textbf{Small-Object and High-Density Detection.}
+Urban intersection footage captured from elevated fixed cameras frequently
+contains vehicles that occupy only a small fraction of the frame. Compact
+vehicle classes such as motorcycles and mototaxis are especially affected:
+successive spatial-pooling operations in deep networks progressively suppress
+fine-grained features before the detection head, causing small objects to be
+missed disproportionately~\cite{Nikouei2025SmallObjectSurvey}. Slicing-based
+inference strategies (which tile a high-resolution frame and run the
+detector on each tile before merging results) have demonstrated consistent
+recall improvements for small and distant objects without retraining the
+model~\cite{Akyon2022SAHI}. The dedicated small-target label assignment
+strategy STAL, introduced in YOLO26, directly addresses this problem at
+training time by guaranteeing at least one positive anchor assignment for
+small objects~\cite{Jocher2026}.
+
+\textbf{Oriented Object Detection and the YOLO Family.}
+\textbf{Two-stage detectors} such as Faster R-CNN generate region proposals
+before classifying each candidate; this architecture supports high accuracy
+but introduces latency incompatible with real-time monitoring. \textbf{Single-stage
+detectors} unify localization and classification into one network pass,
+enabling far lower inference times. The \textbf{YOLO (You Only Look Once)}
+family has become the industry benchmark for real-time detection, with each
+generation refining the accuracy-latency trade-off~\cite{Wang2024YOLOv10}.
+For oriented detection, specialized losses that account for angular regression
+ambiguity have been shown to substantially improve localization of rotating
+objects; the Kullback--Leibler divergence loss~\cite{Yang2021KLD} and
+Mahalanobis-based loss~\cite{Wen2022MahalanobisRotatedDetection} exemplify
+this approach. The most recent YOLO26 release further addresses the
+rotational ambiguity of near-square objects by redefining the angular
+parameterisation range, and eliminates Non-Maximum Suppression overhead
+with a dual-head, end-to-end architecture~\cite{Jocher2026}.
+
+\textbf{Class Imbalance in Object Detection.}
+When training data are heavily skewed toward a dominant class, gradient
+updates are dominated by losses from frequent examples, leading neural
+networks to under-learn representations for rare categories. In the SMART
+Challenge dataset, the \emph{Car} class constitutes over 80\% of annotated
+instances, while \emph{Articulated bus} accounts for less than 0.05\%
+(Section~\ref{sec:descriptive_stats}). Because the official evaluation
+metric averages Average Precision uniformly across all nine classes, failure
+to detect rare vehicles is penalized equally to failure to detect common ones.
+Established mitigation strategies include \textbf{oversampling} with data
+augmentation to equalize class frequencies~\cite{Mo2020}, \textbf{class-weighted
+loss functions} that assign higher gradient weight to minority examples, and
+\textbf{focal loss}~\cite{Espinosa2020}, which down-weights easy (well-classified)
+examples so that training attention concentrates on the challenging minority
+classes.
+
+\textbf{Motion State Inference from Temporal Context.}
+A defining characteristic of the SMART Challenge dataset is that only
+\emph{moving} vehicles are annotated: stationary vehicles visible in the
+frame receive no ground-truth box (Section~\ref{sec:annotation_bias}). A
+standard detector trained on appearance features cannot distinguish a parked
+vehicle from an identical moving one in a single frame; both produce the
+same visual signature. Correctly suppressing detections on static vehicles
+therefore requires \textbf{temporal reasoning}: comparing the centroid position
+of an object across consecutive frames within the same clip to estimate
+whether it has displaced. This problem is structurally related to background
+subtraction and optical-flow-based motion segmentation, and has been
+approached in the tracking literature through trajectory-level velocity
+comparison~\cite{FernandezRodriguez2023} and adaptive motion\-switching
+filters embedded in multi\-object tracking frameworks~\cite{Chen2025}. In our
+pipeline, a lightweight inter-frame displacement filter serves this role
+without requiring a full tracking graph (Section~\ref{sec:motion_filter}).
+
+\textbf{Edge Computing and Evaluation Metrics.}
+Practical traffic monitoring systems for municipalities in developing countries
+must operate on \textbf{edge-computing} hardware (devices with limited GPU
+resources deployed directly at intersection cameras) rather than transmitting
+raw video streams to distant servers. This architectural constraint shapes
+model selection: lighter single-stage detectors with low latency are
+preferable to high-parameter two-stage models even if the latter offer
+marginally higher accuracy on benchmarks~\cite{Balamuralidhar2021,Alas2026}.
+Model performance is quantified here through \textbf{rotated Intersection
+over Union (rIoU)}, which computes the exact area overlap between two
+oriented polygons and is thus sensitive to angular misalignment in a way
+that axis-aligned IoU is not~\cite{Wen2022MahalanobisRotatedDetection}. The
+challenge metric, \textbf{Macro AP-rIoU@[0.50:0.80]}, averages per-class
+Average Precision over seven rotated-IoU thresholds (0.50, 0.55, \ldots,
+0.80) without frequency weighting, so that each of the nine vehicle classes
+contributes identically to the final score~\cite{MTC2026SmartChallenge}.
