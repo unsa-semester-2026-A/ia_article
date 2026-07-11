@@ -1,0 +1,5713 @@
+remote sensing
+Article
+
+Improved Faster RCNN Based on Feature
+Amplification and Oversampling Data Augmentation
+for Oriented Vehicle Detection in Aerial Images †
+Nan Mo
+
+and Li Yan *
+
+School of Geodesy and Geomatics, Wuhan University, 129 Luoyu Road, Wuhan 430079, China; nmo@whu.edu.cn
+* Correspondence: lyan@sgg.whu.edu.cn
+† This paper is an extended version of our conference paper that will be published in Nan Mo, Li Yan. Oriented
+Vehicle Detection in High-resolution Remote Sensing Images based on Feature Amplification and Category
+Balance by Oversampling Data Augmentation. In Proceedings of XXIV International Society for
+Photogrammetry and remote sensing (ISPRS 2020), Nice, France, 14–20 June 2020.
+Received: 27 June 2020; Accepted: 7 August 2020; Published: 9 August 2020
+
+
+
+
+Abstract: Vehicles in aerial images are generally with small sizes and unbalanced number of samples,
+which leads to the poor performances of the existing vehicle detection algorithms. Therefore,
+an oriented vehicle detection framework based on improved Faster RCNN is proposed for aerial
+images. First of all, we propose an oversampling and stitching data augmentation method to decrease
+the negative effect of category imbalance in the training dataset and construct a new dataset with
+balanced number of samples. Then considering that the pooling operation may loss the discriminative
+ability of features for small objects, we propose to amplify the feature map so that detailed information
+hidden in the last feature map can be enriched. Finally, we design a joint training loss function
+including center loss for both horizontal and oriented bounding boxes, and reduce the impact of small
+inter-class diversity on vehicle detection. The proposed framework is evaluated on the VEDAI dataset
+that consists of 9 vehicle categories. The experimental results show that the proposed framework
+outperforms previous approaches with a mean average precision of 60.4% and 60.1% in detecting
+horizontal and oriented bounding boxes respectively, which is about 8% better than Faster RCNN.
+Keywords: oriented vehicle detection; oversampling data augmentation; feature amplification;
+center loss; aerial image
+
+1. Introduction
+The development of high-resolution remote sensing images makes vehicle detection possible,
+which is important for autonomous driving and traffic monitoring [1–3]. In some more specific tasks,
+types and orientations of vehicles are required so that traffic conditions can be better scheduled [4].
+Therefore, the oriented vehicle detection of multiple types is significant. The transportations such as
+car, tractor, vans, plane, pick-up and so on are the common vehicles existing in aerial images and they
+are studied in this paper. The oriented vehicle detection is a more challenging task compared with
+multi-class object detection problems since the difference between different vehicle categories is small
+and vehicles are usually small objects [5].
+Two commonly used definitions of small objects are as follows. One definition is the relative
+size. An object will be regarded as a small object if the size of an object is below 10% of the original
+images. The other definition is that an object will be regarded as small objects if their sizes are
+below 32 × 32 pixels. In high-resolution remote sensing images, vehicles usually occupy a small area
+below 10% of the image size or smaller than 32 × 32 pixels. We take the Vehicle Detection in Aerial
+
+Remote Sens. 2020, 12, 2558; doi:10.3390/rs12162558
+
+www.mdpi.com/journal/remotesensing
+
+10% of the image size or smaller than 32 × 32 pixels. We take the Vehicle Detection in Aerial Imagery
+(VEDAI) [6] dataset as an example to prove this. The size of each image is 1024 × 1024 pixels. The
+VEDAI dataset contains 9 vehicle categories. The statistical results shown in Figure 1 demonstrate
+that most
+vehicles in this dataset are small objects.
+Remote
+Sens. types
+2020, 12,of2558
+2 of 21
+Traditional vehicle detection methods usually include four steps: (1) Data preprocessing such as
+improving the image quality and increasing the contrast between vehicles and their backgrounds. (2)
+Imagery
+(VEDAI)
+[6] dataset
+as an example
+to prove
+this. The size
+each image
+is 1024
+× 1024parts
+pixels.
+Determination
+of potential
+positions
+of vehicles
+by calculating
+the of
+contrast
+between
+different
+of
+The
+VEDAI
+dataset
+contains
+9
+vehicle
+categories.
+The
+statistical
+results
+shown
+in
+Figure
+1
+demonstrate
+images. (3) Segmentation is performed to accurately extract potential location of vehicles from the
+that
+most types
+vehiclesare
+in finally
+this dataset
+are small
+objects. features from potential regions.
+background.
+(4)of
+Vehicles
+recognized
+by extracted
+140
+120
+100
+80
+60
+40
+20
+0
+
+width
+
+height
+
+Figure
+vehicles in
+in VEDAI
+VEDAI dataset.
+dataset.
+Figure 1.
+1. Average
+Average length
+length and
+and width
+width of
+of different
+different vehicles
+
+Recent vehicle
+detection
+methods
+are completely
+different
+traditional
+methods since such
+they
+Traditional
+vehicle
+detection
+methods
+usually include
+fourfrom
+steps:
+(1) Data preprocessing
+tryimproving
+to decrease
+influence
+intermediate
+onbetween
+detection
+resultsand
+obtained
+by machine
+as
+thethe
+image
+qualityofand
+increasing decisions
+the contrast
+vehicles
+their backgrounds.
+learning
+methods.ofThey
+are made
+up of vehicles
+handcrafted
+features-based
+methods
+and deep
+learning(2)
+Determination
+potential
+positions
+by calculating
+the contrast
+between
+different
+parts
+based
+methods
+according is
+toperformed
+the different
+types ofextract
+extracted
+features
+usedof [7].
+Before
+2012,
+of
+images.
+(3) Segmentation
+to accurately
+potential
+location
+vehicles
+from
+the
+handcrafted (4)
+features-based
+approaches
+were by
+theextracted
+mainstream
+algorithms
+for vehicle
+background.
+Vehicles are finally
+recognized
+features
+from potential
+regions.detection.
+However,
+features
+including
+Viola Jones
+Detectors
+[8], Bag Of
+Wordssince
+(BOW)
+Recenthandcrafted
+vehicle detection
+methods
+are completely
+different
+from traditional
+methods
+they [9],
+try
+Deformable
+Parts
+Modelof(DPM)
+[10] and
+Histogram
+of Oriented
+(HOG)
+[11],learning
+cannot
+to
+decrease the
+influence
+intermediate
+decisions
+on detection
+resultsGradients
+obtained by
+machine
+represent They
+vehicles
+well up
+because
+they lack
+the semantic
+information
+is important
+for
+methods.
+are made
+of handcrafted
+features-based
+methods
+and deepwhich
+learning-based
+methods
+recognizing
+according
+to vehicles.
+the different types of extracted features used [7]. Before 2012, handcrafted features-based
+The development
+of vehicle algorithms
+detection approaches
+has been However,
+promoted handcrafted
+since deep learning
+approaches
+were the mainstream
+for vehicle detection.
+features
+architectures
+appeared
+in
+2012.
+Existing
+deep
+learning-based
+vehicle
+detection
+approaches
+canand
+be
+including Viola Jones Detectors [8], Bag of Words (BOW) [9], Deformable Parts Model (DPM) [10]
+divided intoofone-stage
+detection
+as Single
+Shotwell
+Multi-Box
+Detector
+(SSD)
+Histogram
+Oriented vehicle
+Gradients
+(HOG)approaches
+[11], cannotsuch
+represent
+vehicles
+because
+they lack
+the
+[12], You information
+Only Look which
+Once (YOLO)
+[13], for
+YOLOv2
+[14], YOLOv3
+semantic
+is important
+recognizing
+vehicles. [15], YOLOv4 [16] and two-stage
+vehicle
+methods
+such asdetection
+Region CNN
+(RCNN)has
+[17],
+Spatial
+Pyramid
+Pooling
+Thedetection
+development
+of vehicle
+approaches
+been
+promoted
+since
+deep Network
+learning
+(SPP-Net) [18],
+Fast RCNN
+[19] and
+Fasterdeep
+RCNN
+[20], according
+to the detection
+different detection
+processes
+architectures
+appeared
+in 2012.
+Existing
+learning-based
+vehicle
+approaches
+can be
+employed.
+Compared
+with
+one-stage
+approaches
+the
+two-stage
+methods
+can
+achieve
+higher
+precision
+divided into one-stage vehicle detection approaches such as Single Shot Multi-Box Detector (SSD) [12],
+ratioOnly
+withLook
+speeds
+that(YOLO)
+can meet
+real-time
+this [16]
+paper
+mainly
+investigates
+You
+Once
+[13],
+YOLOv2requirements.
+[14], YOLOv3Therefore,
+[15], YOLOv4
+and
+two-stage
+vehicle
+two-stagemethods
+deep learning-based
+approaches.
+detection
+such as Region
+CNN (RCNN) [17], Spatial Pyramid Pooling Network (SPP-Net) [18],
+deep RCNN
+learning-based
+methodsto are
+small vehicle
+detection,
+the
+Fast When
+RCNN two-stage
+[19] and Faster
+[20], according
+the applied
+differenttodetection
+processes
+employed.
+following limitations
+may approaches
+exist:
+Compared
+with one-stage
+the two-stage methods can achieve higher precision ratio with
+speeds
+that
+can
+meet
+real-time
+requirements.
+this paper
+investigates
+1. The quantity imbalance between diverseTherefore,
+types of vehicles
+inmainly
+the training
+datasettwo-stage
+caused bydeep
+the
+learning-based
+approaches.
+random frequency
+and spatial distribution of vehicles will have a negative influence on training
+When
+two-stage
+deep
+learning-based
+methods
+are applied
+to small
+vehicle
+detection,
+theon
+following
+the network.
+The
+Convolutional
+Neural
+Network
+(CNN)
+models
+tends
+to focus
+vehicle
+limitations
+may
+exist:
+categories with a larger number of samples, which may have a negative influence on detecting
+1.
+2.
+
+2.
+
+vehicle
+categories
+with a between
+smaller number
+samples.
+The quantity
+imbalance
+diverse of
+types
+of vehicles in the training dataset caused by the
+The
+features
+of small
+less detailed
+than those
+of large
+or medium
+objects,
+which
+random
+frequency
+andobjects
+spatial are
+distribution
+of vehicles
+will have
+a negative
+influence
+on training
+increases
+the
+difficulty
+of
+detecting
+vehicles.
+Features
+extracted
+by
+CNN
+contain
+more
+semantic
+the network. The Convolutional Neural Network (CNN) models tends to focus on vehicle
+categories with a larger number of samples, which may have a negative influence on detecting
+vehicle categories with a smaller number of samples.
+The features of small objects are less detailed than those of large or medium objects, which increases
+the difficulty of detecting vehicles. Features extracted by CNN contain more semantic information
+
+Remote Sens. 2020, 12, 2558
+Remote Sens. 2020, 12, x FOR PEER REVIEW
+
+3.
+3.
+
+4.
+4.
+
+3 of 21
+3 of 21
+
+information
+but operation
+the pooling
+in the CNN
+reducesinformation
+the detailedhidden
+information
+hidden
+in
+but the pooling
+in operation
+the CNN reduces
+the detailed
+in deep
+features,
+deep
+decrease the ability
+discriminative
+ability
+of features indifferent
+distinguishing
+different
+whichfeatures,
+decreasewhich
+the discriminative
+of features
+in distinguishing
+vehicles.
+vehicles.
+There may exist high inter-class similarity in vehicle detection as shown in Figure 2. Moreover,
+There
+exist
+high inter-class
+similarity inbackground,
+vehicle detection
+as shown
+in Figure
+2. Moreover,
+factorsmay
+such
+as vehicle
+type, environmental
+lighting
+condition
+and shooting
+angle
+factors
+such
+as
+vehicle
+type,
+environmental
+background,
+lighting
+condition
+and
+shooting
+angle
+may lead to the increased diversity of vehicle representations, which may increase the difficulty
+may
+lead to the increased
+diversity of vehicle representations, which may increase the difficulty
+of determining
+vehicle types.
+of
+determining
+vehicle
+types.
+The aerial images acquired by airborne sensors are taken overhead, which may lead to random
+The
+aerial images
+acquired
+by airbornehorizontal
+sensors are
+taken overhead,
+which
+may roughly
+lead to random
+directions
+of vehicles.
+The traditional
+bounding
+box (HBB)
+can only
+predict
+directions
+of of
+vehicles.
+horizontal
+(HBB)
+can onlybox
+roughly
+the position
+objects.The
+For traditional
+oriented objects
+such asbounding
+vehicles, box
+oriented
+bounding
+(OBB)predict
+should
+the
+position
+of
+objects.
+For
+oriented
+objects
+such
+as
+vehicles,
+oriented
+bounding
+box
+(OBB)
+be used to describe the position of objects more accurately.
+should be used to describe the position of objects more accurately.
+
+Pickup
+
+Camping
+car
+
+Vans
+
+Car
+
+Truck
+
+Plane
+
+Boat
+
+Others
+
+Tractor
+
+Figure 2.
+2. Examples
+Examples of
+of different
+different vehicle
+vehicle types
+types in
+in VEDAI
+VEDAI dataset.
+dataset.
+Figure
+
+Considering the above problems and the research status of addressing each problem shown in
+Considering the above problems and the research status of addressing each problem shown in
+Section 2. This paper proposes an oriented vehicle detection framework based on improved Faster
+Section 2. This paper proposes an oriented vehicle detection framework based on improved Faster
+RCNN for aerial images. The major contributions can be summarized as follows in this paper.
+RCNN for aerial images. The major contributions can be summarized as follows in this paper.
+
+•
+
+•
+
+•
+•
+
+Different from
+a data
+augmentation
+strategy
+by
+Different
+fromthe
+thebasic
+basicdata
+dataaugmentation
+augmentationmethods,
+methods,we
+wepropose
+propose
+a data
+augmentation
+strategy
+oversampling
+and and
+stitching
+to reduce
+the negative
+impact ofimpact
+category
+and construct
+by
+oversampling
+stitching
+to reduce
+the negative
+of imbalance
+category imbalance
+anda
+dataset
+with
+balanced
+number
+of
+samples.
+construct a dataset with balanced number of samples.
+The pooling
+in CNN
+may reduce
+the discriminative
+ability of features
+The
+poolingoperation
+operation
+in CNN
+may reduce
+the discriminative
+ability inofdistinguishing
+features in
+small
+objects.
+We
+perform
+feature
+amplification
+by
+bilinear
+interpolation
+in
+the
+last
+feature
+to
+distinguishing small objects. We perform feature amplification by bilinear interpolationmap
+in the
+increase
+the
+capability
+of
+features
+with
+more
+simple
+operations.
+last feature map to increase the capability of features with more simple operations.
+is introduced
+introduced
+Considering the small inter-class diversity in different types of vehicles, center loss is
+to the loss function in order to increase the model’s ability to distinguish different vehicle types.
+Considering the
+the random direction of vehicles, the oriented bounding
+bounding boxes and horizontal
+Considering
+bounding boxes
+are
+jointly
+trained
+in
+the
+same
+framework
+so
+as
+to to
+more
+accurately
+determine
+the
+boxes are jointly trained in the same framework so as
+more
+accurately
+determine
+position
+of the
+the
+position
+of vehicles.
+the vehicles.
+
+The remainder of this paper can be highlighted as follows. Section
+Section 22 gives
+gives aa brief
+brief introduction
+introduction to
+the
+the related work. Oriented
+Oriented vehicle
+vehicle detection
+detection based
+based on
+on feature amplification
+amplification and oversampling
+oversampling data
+augmentation in
+inaerial
+aerialimages
+imagesis is
+presented
+in Section
+3. Section
+4 describes
+the implementation
+presented
+in Section
+3. Section
+4 describes
+the implementation
+details
+details
+and dataset
+description
+along
+with detection
+vehicle detection
+results
+and studies.
+ablationSection
+studies.5 Section
+5
+and dataset
+description
+along with
+vehicle
+results and
+ablation
+discusses
+discusses
+and
+analyzes
+the
+experimental
+results
+in
+Section
+4.
+Section
+6
+concludes
+the
+experimental
+and analyzes the experimental results in Section 4. Section 6 concludes the experimental conclusions
+conclusions
+with future directions.
+with future directions.
+2. Related Work
+
+Remote Sens. 2020, 12, 2558
+
+4 of 21
+
+2. Related Work
+2.1. Class Imbalance Problem
+Class imbalance of objects in the training dataset is a common problem in the object detection.
+There are usually two types of category imbalance: foreground-background and foreground-foreground
+imbalance [21]. Foreground-foreground imbalance is studied in this paper since it negatively affects
+the multi-class object detection.
+Numerous studies have been done to address the foreground-foreground imbalance problem in
+the computer vision field. Ouyang et al. [22] proposed to fine-tune the distribution of under-represented
+categories by clustering similar categories to address the class imbalance. Oksuz et al. [23] proposed
+a foreground balanced sampling method, which decreases the imbalance between distributions of
+different objects within each batch by assigning a probability to each true bounding box. Wang et al. [24]
+proposed a sample exchange strategy to generate new samples and decrease the imbalance by
+exchanging the same type of objects in different natural images.
+The above methods are mainly aimed at addressing the class imbalance problem in natural
+imagery. In the remote sensing field, few researchers have considered the imbalance between types
+of training samples, and existing data augmentation methods are usually aimed at enhancing the
+generalization ability of the model. The imbalanced class distribution makes the network training
+favor the vehicle categories with a larger number, which leads to unideal results for other categories.
+Therefore, this paper designs an oversampling and stitching data augmentation method for aerial
+images so that the numbers of different vehicles can be balanced for training CNN.
+2.2. Represention of Small Objects
+Due to low resolution, blurred images, less information and more noise, small object detection has
+been a difficult problem in object detection. Some researchers have carried out some works in order to
+improve the performance in representing small objects. These methods mainly consist of improving
+the resolution of images containing small objects and enriching the detail information of the feature
+maps describing the small objects.
+In terms of improving image resolution, Ji et al. [25] fused an object detection network with
+an image super-resolution reconstruction network in order to increase the resolution of the original
+images. Bharat Singh et al. [26] proposed to establish multi-scale pyramids for training images by
+resizing training images. Moktari et al. [27] proposed a joint super-resolution and vehicle detection
+network that tries to generate high-resolution images of vehicles from low-resolution aerial images.
+By increasing the image resolution, the discriminative ability of the features can be enhanced.
+In enriching the detail information of feature maps, Hilal et al. [28] proposed deconvolving feature
+maps continuously in order to increase the ability of shallow features to distinguish diverse objects.
+Mandal at el. [29] proposed using AVDNet to enlarge feature maps for vehicles by introducing ConvRes
+modules to difference scale layers. Lin et al. [30] proposed a layer-by-layer prediction using feature
+pyramids to detect multi-scale objects, which predicts the output of the feature map of each layer of
+the CNN and finally selects the optimal detection results.
+The above methods based on feature pyramids or image pyramids increase the computational
+cost and set high requirements for computer graphics cards. In addition, complex deep learning
+architectures may not achieve the desired results in detecting diverse vehicles. Different from existing
+complex architectures, in this paper we perform a simple but effective bilinear interpolation to amplify
+the feature map and enrich detail information while maintaining the deep semantic information,
+which may increase the discrimination of features in representing vehicles.
+2.3. The Discriminative Ability of Features
+Vehicle is the typical small-scale object and the difference between diverse types of vehicles is
+relatively little. Therefore, it is more difficult to distinguish the specific category of each vehicle.
+
+Remote Sens. 2020, 12, 2558
+
+5 of 21
+
+In terms of increasing the discriminative ability of features in distinguishing diverse objects, Li et al. [31]
+Remote Sens.
+x FOR PEER
+REVIEWfor increased discrimination of features. Contextual information
+5 of 21
+propose
+to2020,
+use 12,
+contextual
+features
+related to the objects is proved to be helpful to improve the ability of the features [32]. Deng et al. [33]
+use different
+different feature
+feature layers
+layers to
+to extract
+extract candidate
+candidate regions
+regions in
+in the
+the region
+region proposal
+proposal network
+network (RPN)
+(RPN) for
+for
+use
+increased
+recall
+ratio
+of
+multi-class
+objects.
+Deep
+and
+shallow
+features
+are
+also
+concatenated
+to
+increased recall ratio of multi-class objects. Deep and shallow features are also concatenated to increase
+increase
+the precision
+ratio of
+in the classification
+stage.
+the
+precision
+ratio of objects
+inobjects
+the classification
+stage.
+However,
+the
+above
+methods
+mainly
+address
+multi-category
+geographic object
+object detection
+detection of
+of
+However, the above methods mainly address multi-category geographic
+remote
+sensing
+images
+rather
+than
+vehicle
+detection
+tasks.
+Compared
+with
+multi-class
+object
+remote sensing images rather than vehicle detection tasks. Compared with multi-class object detection,
+detection,
+vehicledemonstrates
+detection demonstrates
+highersimilarity,
+inter-classwhich
+similarity,
+which may
+increase the
+vehicle
+detection
+higher inter-class
+may increase
+the possibility
+of
+possibility
+of
+misclassification.
+In
+this
+paper,
+center
+loss
+[34]
+that
+can
+control
+intra-class
+differences
+misclassification. In this paper, center loss [34] that can control intra-class differences is introduced tois
+introduced
+improveof
+the
+capability
+of featuresdifferent
+to distinguish
+different vehicles.
+improve
+theto
+capability
+features
+to distinguish
+vehicles.
+
+2.4. Oriented
+Oriented Object
+Object Detection
+Detection
+2.4.
+The remote
+remotesensing
+sensingimages
+imagesare
+areacquired
+acquiredby
+byoverhead
+overheadsensors
+sensorsand
+andvehicles
+vehiclesare
+areaakind
+kindof
+ofmoving
+moving
+The
+object
+with
+random
+spatial
+distribution
+and
+arbitrary
+orientation.
+Traditional
+horizontal
+bounding
+object with random spatial distribution and arbitrary orientation. Traditional horizontal bounding
+boxes can
+can only
+only roughly
+roughly describe
+describe the
+the position
+position of
+ofvehicles.
+vehicles. Recently,
+Recently, some
+some researchers
+researchers have
+have studied
+studied
+boxes
+object
+detection
+algorithms
+with
+oriented
+bounding
+boxes.
+Ma
+et
+al.
+[35]
+proposed
+an
+oriented
+text
+object detection algorithms with oriented bounding boxes. Ma et al. [35] proposed an oriented text
+detection
+algorithm
+to
+detect
+inclined
+text
+in
+the
+field
+of
+text
+detection.
+Yang
+et
+al.
+[36]
+proposed
+detection algorithm to detect inclined text in the field of text detection. Yang et al. [36] proposed aa
+multi-orientedship
+shipdetection
+detection
+algorithm
+of remote
+sensing
+images.
+Ding
+et proposed
+al. [37] proposed
+an
+multi-oriented
+algorithm
+of remote
+sensing
+images.
+Ding et
+al. [37]
+an oriented
+oriented
+multi-class
+object
+detection
+method
+in
+aerial
+images.
+multi-class object detection method in aerial images.
+Fewstudies
+studieshave
+havebeen
+beendone
+donetotoachieve
+achieveboth
+bothhorizontal
+horizontal
+and
+oriented
+detection
+results
+a CNN
+Few
+and
+oriented
+detection
+results
+in ainCNN
+to
+to get
+more
+accurate
+position
+the vehicles.
+Therefore,
+this designs
+paper designs
+a joint loss
+training
+loss
+get
+more
+accurate
+position
+of theofvehicles.
+Therefore,
+this paper
+a joint training
+function
+function
+for horizontal
+andbounding
+oriented bounding
+boxes to
+vehicleand
+position
+and direction.
+for
+horizontal
+and oriented
+boxes to regress
+theregress
+vehiclethe
+position
+direction.
+3. Materials
+Materials and
+and Methods
+Methods
+3.
+3.1.
+3.1. Overall
+Overall Architecture
+Architecture
+In
+In this
+this part,
+part, we
+we introduce
+introduce the
+theproposed
+proposedoriented
+oriented vehicle
+vehicle detection
+detection algorithm
+algorithm for
+for aerial
+aerial images
+images
+based
+andand
+oversampling
+based
+data data
+augmentation.
+This paper
+takes the
+Faster
+basedon
+onfeature
+featureamplification
+amplification
+oversampling
+based
+augmentation.
+This paper
+takes
+the
+RCNN
+as
+the
+research
+basis
+and
+makes
+improvements
+on
+it.
+Figure
+3
+depicts
+the
+overall
+structure
+Faster RCNN as the research basis and makes improvements on it. Figure 3 depicts the overall
+of
+the algorithm.
+The basic
+feature
+extractor
+in the proposed
+framework
+is the isResnet101
+[38].
+structure
+of the algorithm.
+The
+basic feature
+extractor
+in the proposed
+framework
+the Resnet101
+The
+framework
+mainly
+consists
+of three
+parts,
+(1)(1)
+Oversampling
+[38].proposed
+The proposed
+framework
+mainly
+consists
+of three
+parts,
+Oversamplingand
+andstitching
+stitching data
+data
+augmentation,
+(2)
+Enlarging
+feature
+maps
+and
+(3)
+A
+joint
+training
+loss
+function
+combined
+with
+augmentation, (2) Enlarging feature maps and (3) A joint training loss function combined with center
+center
+for horizontal
+and oriented
+bounding
+Eachcan
+step
+be illustrated
+as follows.
+loss forloss
+horizontal
+and oriented
+bounding
+boxes.boxes.
+Each step
+becan
+illustrated
+as follows.
+Horizontal Anchor
+
+Oversampling Data Augmention
+
+Scale
+
+Region Proposal
+
+Ratio
+
+Multi-task loss
+
+Background images
+Synthetic dataset
+
+Feature Amplification
+
+…
+Boat:
+Tractor:
+Truck:
+
+…
+
+…
+…
+
+…
+Vans:
+
+…
+
+FC
+
+Vehicle templates
+
+Oriented bounding
+box regression
+Oriented bounding
+box classification
+Horizontal bounding
+box regression
+Horizontal bounding
+box classification
+Center loss
+
+OBB
+
+HBB
+
+Feature Extraction
+
+Figure 3. The flowchart of oriented vehicle detection based on feature amplification and oversampling
+Figure 3. The flowchart of oriented vehicle detection based on feature amplification and oversampling
+data augmentation in aerial images.
+data augmentation in aerial images.
+
+First of all, we perform oversampling and stitching data augmentation on the training dataset
+by increasing the frequency of vehicles with fewer number of training data to synthesize a new
+dataset.
+
+Remote Sens. 2020, 12, 2558
+
+6 of 21
+
+First of all, we perform oversampling and stitching data augmentation on the training dataset by
+increasing the frequency of vehicles with fewer number of training data to synthesize a new dataset.
+Remote Sens. 2020, 12, x FOR PEER REVIEW
+6 of 21
+In the stage of RPN, we set up multi-scale and multi-shape horizontal anchors and select positive
+and negative
+samples
+for we
+training
+RPN network,
+by calculating
+the overlap
+anchors
+In the stage
+of RPN,
+set up amulti-scale
+and multi-shape
+horizontal
+anchorsbetween
+and select
+positiveand
+ground
+truths.
+and negative samples for training a RPN network, by calculating the overlap between anchors and
+In thetruths.
+stage of classification, we amplify the feature map for increased ability of feature maps
+ground
+to represent
+Consideringwe
+theamplify
+orientation
+of vehicles,
+we
+proposeability
+a multi-task
+loss
+function,
+In the vehicles.
+stage of classification,
+the feature
+map for
+increased
+of feature
+maps
+to
+which
+jointlyvehicles.
+trains oriented
+and horizontal
+bounding
+boxes, and
+introduces
+the centerloss
+lossfunction,
+to decrease
+represent
+Considering
+the orientation
+of vehicles,
+we propose
+a multi-task
+which jointly
+trains oriented and horizontal bounding boxes, and introduces the center loss to
+within-class
+difference.
+decrease within-class difference.
+3.2. Data Augmentation for Foreground-Foreground Imbalance Problem by Oversampling and Stitching
+3.2. Data Augmentation for Foreground-Foreground Imbalance Problem by Oversampling and Stitching
+Motivation of data augmentation by oversampling and stitching. The proposed data augmentation
+data augmentation
+by oversampling
+andimbalance
+stitching.problem.
+The proposed
+data
+methodMotivation
+is aimed toofaddress
+the foreground-foreground
+category
+It is a common
+augmentation
+method
+is aimed
+to address
+the foreground-foreground
+category
+imbalance
+problem.
+problem
+in vehicle
+detection
+since
+the frequency
+and location of different
+types
+of vehicles
+in aerial
+It is a are
+common
+problem
+vehicle
+detection
+since thevariance
+frequency
+and location
+differentobjects
+types of
+images
+random.
+Wheninthere
+exists
+large quantity
+between
+diverseofvehicles,
+may
+vehicles
+in
+aerial
+images
+are
+random.
+When
+there
+exists
+large
+quantity
+variance
+between
+diverse
+be over-presented or under-represented in the training process.
+vehicles,
+objectscontribute
+may be over-presented
+or under-represented
+in theimbalance,
+training process.
+Two factors
+to the foreground-foreground
+category
+namely the imbalanced
+Two
+factors
+contribute
+to
+the
+foreground-foreground
+category
+namely
+the
+category distribution in a dataset and that within a batch of samples. We imbalance,
+have counted
+the number
+imbalanced category distribution in a dataset and that within a batch of samples. We have counted
+of 9 types of vehicles in the VEDAI dataset. Table 1 describes the statistical results according to a
+the number of 9 types of vehicles in the VEDAI dataset. Table 1 describes the statistical results
+descending order of vehicle number.
+according to a descending order of vehicle number.
+
+Class
+
+Car
+
+Table 1. Number of each vehicle category in VEDAI dataset.
+Table 1. Number of each vehicle category in VEDAI dataset.
+Pick-Up Camping Car
+Truck Other Tractor Boat
+
+Class
+Number
+
+Car
+1340
+
+Pick-Up
+950
+
+Vans
+
+Plane
+
+Camping
+Truck
+Boat
+Vans
+Plane
+390
+300 Other
+200 Tractor
+190
+170
+100
+47
+Car
+Number 1340
+950
+390
+300
+200
+190
+170
+100
+47
+The above statistical results show that there exists a serious foreground-foreground category
+The above statistical results show that there exists a serious foreground-foreground category
+imbalance
+in the VEDAI dataset, which will negatively affect the detection results of vehicles with a
+imbalance in the VEDAI dataset, which will negatively affect the detection results of vehicles with a
+small
+number
+vehicles occupy
+occupyless
+lessimage
+imageareas,
+areas,and
+and
+the
+vehicles
+with
+lower
+small numberofofsamples.
+samples.In
+In addition,
+addition, vehicles
+the
+vehicles
+with
+lower
+frequency
+usually
+have
+fewer
+matched
+anchors,
+which
+may
+increase
+the
+difficulty
+to
+learn
+useful
+frequency usually have fewer matched anchors, which may increase the difficulty to learn useful
+information
+informationfrom
+fromthe
+thenetwork.
+network.
+Considering
+that
+imagecontains
+contains
+only
+a small
+number
+of vehicles
+and backgrounds
+Considering that each
+each image
+only
+a small
+number
+of vehicles
+and backgrounds
+are withare
+with
+a large
+image
+area,
+paper
+designs
+a data
+augmentation
+method
+based
+oversampling
+a large
+image
+area,
+thisthis
+paper
+designs
+a data
+augmentation
+method
+based
+on on
+oversampling
+andand
+stitching
+ininorder
+offoreground-foreground
+foreground-foregroundimbalance
+imbalance
+training
+process.
+stitching
+ordertotodecrease
+decreasethe
+the impact of
+onon
+thethe
+training
+process.
+The
+centralidea
+ideaofofthe
+theproposed
+proposedmethod
+method shown
+shown in Figure
+The
+central
+Figure 44can
+canbe
+beillustrated
+illustratedasasfollows.
+follows.
+
+Figure
+4. 4.
+Schematic
+ofof
+oversampling
+and
+stitching
+data
+augmentation
+forfor
+foreground-foreground
+class
+Figure
+Schematic
+oversampling
+and
+stitching
+data
+augmentation
+foreground-foreground
+imbalance
+problem.
+class imbalance
+problem.
+◦ , 180◦ , 270◦ to
+Step
+imagesby
+byrotating
+rotatingthem
+themwith
+withangles
+angles
+90180°,
+Step1:1:Augment
+Augmentthe
+theoriginal
+original training
+training images
+ofof
+90°,
+270° to
+generate
+the
+rotation
+dataset
+ensuring
+the
+diversity
+of
+object
+direction.
+generate the rotation dataset ensuring the diversity of object direction.
+
+Step 2: Segment each vehicle from the rotation dataset in Step 1 according to the type and
+location of vehicles in order to establish the vehicle template dataset. Meanwhile, considering that
+
+Remote Sens. 2020, 12, 2558
+
+7 of 21
+
+Segment
+each
+vehicle
+from the rotation dataset in Step 1 according to the type and location
+RemoteStep
+Sens. 2:
+2020,
+12, x FOR
+PEER
+REVIEW
+7 of 21
+of vehicles in order to establish the vehicle template dataset. Meanwhile, considering that vehicles
+vehicles
+in each
+imageonly
+occupy
+onlyarea,
+a small
+area, the
+images
+in the
+rotation
+less are
+10
+in each image
+occupy
+a small
+the images
+in the
+rotation
+dataset
+withdataset
+less 10with
+vehicles
+vehicles
+selected
+as the background
+image dataset.
+selected are
+as the
+background
+image dataset.
+Step
+Step 3:
+3: Count
+Countthe
+the number
+number of
+of vehicles
+vehicles in
+in each
+each category
+category in
+in the
+the rotation
+rotation dataset.
+dataset. We
+We take
+take the
+the most
+most
+numerous
+type
+as
+an
+expansion
+benchmark.
+In
+order
+to
+keep
+a
+balance
+between
+the
+quantities
+numerous type as an expansion benchmark. In order to keep a balance between the quantities of
+of
+vehicles,
+be calculated.
+calculated.
+vehicles, the
+the number
+number of
+of vehicles
+vehicles in
+in each
+each category
+category to
+to be
+be augmented
+augmented should
+should be
+Step
+Step 4:
+4: For
+For each
+each type
+type of
+of vehicles,
+vehicles, certain
+certain number
+number of
+of images
+images from
+from the
+the background
+background dataset
+dataset and
+and aa
+random
+random vehicle
+vehicle from
+from the
+the template
+template dataset
+dataset are
+are used
+used to
+to synthetize
+synthetize the
+the new
+new training
+training images.
+images. We
+We try
+try to
+to
+make
+synthetized image
+imageinclude
+includeall
+alltypes
+typesofofvehicles
+vehicles
+reduce
+imbalanced
+distribution
+of
+make each
+each synthetized
+toto
+reduce
+thethe
+imbalanced
+distribution
+of the
+the
+samples
+within
+a training
+batch.
+samples
+within
+a training
+batch.
+Step
+Step 5:
+5: Considering
+Consideringthe
+therandom
+randomlocation
+location of
+of vehicles
+vehicles in
+inthe
+thegeographic
+geographic space,
+space, randomly
+randomly generate
+generate
+the
+positionofofthe
+thevehicles
+vehicles
+in the
+background
+images.
+In order
+to repetition,
+avoid repetition,
+we calculate
+the position
+in the
+background
+images.
+In order
+to avoid
+we calculate
+whether
+whether
+there
+is
+an
+overlap
+between
+positions
+of
+newly
+generated
+vehicles
+and
+those
+of
+original
+there is an overlap between positions of newly generated vehicles and those of original vehicles in the
+vehicles
+in thethe
+image.
+When
+overlap
+is 0, isimage
+synthesis
+performed.
+gray values
+of
+image. When
+overlap
+is 0,the
+image
+synthesis
+performed.
+Theisgray
+values ofThe
+generated
+vehicles
+generated
+vehicles
+replace
+those
+of
+original
+pixels
+in
+the
+background
+image.
+replace those of original pixels in the background image.
+Step
+Step 6:
+6: Repeat
+RepeatSteps
+Steps44and
+and55until
+untilthe
+thenumber
+numberof
+ofvehicles
+vehiclesfrom
+fromdifferent
+different categories
+categories in
+in the
+the training
+training
+dataset
+dataset is
+is balanced.
+balanced.
+3.3. Amplification
+Amplification of
+of Deep
+Deep Features
+Features for
+for Small
+Small Objects
+Objects
+3.3.
+Motivation of
+of deep
+deep feature
+feature amplification.
+amplification. The
+The pooling
+pooling operations
+operations can
+can decrease
+decrease the
+the number
+number of
+of
+Motivation
+deep
+neural
+network
+parameters
+but
+may
+lose
+the
+details
+of
+feature
+maps
+for
+small
+objects.
+Feature
+deep neural network parameters but may lose the details of feature
+Feature
+amplification can
+can enlarge
+enlarge the
+the deep
+deep feature
+feature map
+map and
+and restore
+restore the
+the detailed
+detailed information
+information of
+of the
+the feature
+feature
+amplification
+map. We
+We use
+use bilinear
+bilinear interpolation
+interpolationin
+in the
+the last
+last feature
+feature map
+map to
+to increase
+increase the
+the capability
+capability of
+of features
+features in
+in
+map.
+representing small objects with more simple operations.
+representing
+Resnet101 is
+is the
+the backbone
+backbone for
+for feature
+feature extraction
+extraction in
+in this
+this paper.
+paper. Figure
+Figure 55 shows
+shows the
+the structure
+structure of
+of
+Resnet101
+Resnet101 including
+includingfour
+fourpooling
+poolingoperations.
+operations.IfIfa avehicle
+vehiclewith
+withthe
+thesize
+sizeofof3232× ×
+pixels
+undergoes
+Resnet101
+3232
+pixels
+undergoes
+4
+4 pooling
+operations,
+corresponding
+feature
+map
+× 2 pixels.
+However,
+feature
+map
+pooling
+operations,
+thethe
+corresponding
+feature
+map
+sizesize
+is 2 is
+× 22 pixels.
+However,
+feature
+map of
+2 ×of
+2
+2 × 2 pixels
+cannot
+describe
+the information
+a vehicle.
+The
+differencesbetween
+betweenappearances
+appearances of
+of
+pixels
+cannot
+fully fully
+describe
+the information
+of aofvehicle.
+The
+differences
+vehicles from
+from different
+different types are relatively small. The
+The detailed
+detailed information
+information of
+of the
+the feature
+feature map
+map plays
+plays
+vehicles
+very important
+important role in distinguishing vehicles. Therefore,
+Therefore, we
+we propose
+propose to
+to perform
+perform amplification
+amplification
+aa very
+operation to
+to the
+the feature
+feature maps and increase the discriminative ability of features for vehicles.
+operation
+
+Figure 5.
+5. Structure
+Structure of
+of the
+the Resnet101.
+Resnet101.
+Figure
+
+There are
+twotwo
+mainmain
+methods
+for upsampling
+feature map,
+interpolation
+and deconvolution.
+There
+areusually
+usually
+methods
+for upsampling
+feature
+map, interpolation
+and
+However,
+deconvolution
+usually
+produces
+checkboard
+artifacts,
+which
+is
+not
+conducive
+to the detailed
+deconvolution. However, deconvolution usually produces checkboard artifacts, which
+is not
+descriptiontoofthe
+features.
+Therefore,
+we adopt
+interpolation
+to enlarge
+the interpolation
+feature image.toHere,
+we the
+use
+conducive
+detailed
+description
+of features.
+Therefore,
+we adopt
+enlarge
+bilinear
+interpolation
+to
+amplify
+the
+last
+feature
+map.
+The
+bilinear
+interpolation
+can
+be
+illustrated
+feature image. Here, we use bilinear interpolation to amplify the last feature map. The bilinear
+as follows. can be illustrated as follows.
+interpolation
+Assume that
+that the
+the original
+original feature
+feature map
+map size
+size is
+is w
+w *∗ hh pixels
+pixels and
+and the
+the enlarged
+enlarged feature
+feature map
+map size
+size is
+is W
+W
+Assume
+×H
+pixels.
+It
+is
+known
+that
+each
+pixel
+value
+in
+the
+original
+feature
+maps
+and
+enlarged
+feature
+maps
+is
+×H pixels. It is known that each pixel value in the original feature maps and enlarged feature maps
+f
+(
+x,
+y
+)
+and
+f
+(
+X,
+Y
+)
+respectively.
+If
+you
+want
+to
+get
+the
+pixel
+value
+of
+the
+point
+f
+(
+X,
+Y
+)
+,
+you
+need
+to
+get
+is f ( x, y ) and f ( X , Y ) respectively. If you want to get the pixel value of the point f ( X , Y ) , you
+
+need to get pixel values corresponding to the original feature map f ( x, y ) according to the ratio of
+enlargement. As shown in Equation (1), if the calculated position is not an integer, you need to
+
+Remote Sens. 2020, 12, 2558
+Remote Sens. 2020, 12, x FOR PEER REVIEW
+
+8 of 21
+8 of 21
+
+pixel values correspondingwto thehoriginal feature map f (x, y) according to the ratio of enlargement.
+f (  X ,  Y ) in the original image and assign them to the enlarged pixels
+interpolate
+pixels(1),
+As
+shown in the
+Equation
+if
+position is not an integer, you need to interpolate the pixels
+Wthe calculated
+H
+w
+h
+f (fW( X∗,X,
+. ∗ Y) in the original image and assign them to the enlarged pixels f (X, Y).
+Y) H
+ww
+hh
+f (x,
+f (yx), y=) f (f W
+( ∗X,
+X ,H ∗YY))
+W
+H
+
+(1)
+(1)
+
+As
+the
+central
+idea
+of of
+bilinear
+interpolation
+is to
+the the
+finalfinal
+pixel
+values
+to beto
+Asshown
+shownininFigure
+Figure6,6,
+the
+central
+idea
+bilinear
+interpolation
+is get
+to get
+pixel
+values
+interpolated
+by
+four
+adjacent
+points
+f
+(
+i,
+j
+)
+,
+f
+(
+i
++
+1,
+j
+)
+,
+f
+(
+i,
+j
++
+1
+)
+,
+f
+(
+i
++
+1,
+j
++
+1
+)
+next
+to
+the
+central
+pixel
+be interpolated by four adjacent points f (i, j ), f (i  1, j ), f (i, j  1), f (i  1, j  1) next to the central pixel
+for linear interpolation in the vertical and horizontal directions. Suppose that the float coordinates of
+for linear interpolation in the vertical and horizontal directions. Suppose that the float coordinates of
+the pixel to be interpolated are (i + u, j + v), where i, j are the integer part of the coordinate, and u,
+the pixel to be interpolated are (i  u, j  v) , where i, j are the integer part of the coordinate, and u, v
+v are the decimal part of the coordinate whose range is [0, 1). Then the pixel value to be interpolated
+are the decimal part of the coordinate whose range is [0, 1). Then the pixel value to be interpolated
+f (i + u, j + v) can be determined by the corresponding values of the four surrounding pixels (i, j),
+f (i  u, j  v) can be determined by the corresponding values of the four surrounding pixels (i, j ) ,
+(i + 1, j), (i, j + 1), (i + 1, j + 1). The pixel value of the point to be interpolated is shown in Equation (2).
+The pixel
+value
+of the(point
+beoriginal
+interpolated
+is shown in Equation
+1, jpixel
+ 1) . values
+(i  1, jf)(,i, j()i,represents
+j  1) , (i the
+Where
+of the
+location
+i, j) intothe
+image.
+(2). Where f (i, j ) represents the pixel values of the location (i, j ) in the original image.
+f (i + u, j + v) = (1 − u)(1 − v) f (i, j) + (1 − u)v f (i, j + 1) + u(1 − v) f (i + 1, j) + uv f (i + 1, j + 1) (2)
+f (i  u, j  v)  (1  u)(1  v) f (i, j )  (1  u )vf (i, j  1)  u (1  v) f (i  1, j )  uvf（i +1, j +1）
+(2)
+
+Figure
+Figure6.6.Flow
+Flowdiagram
+diagramofofbilinear
+bilinearinterpolation
+interpolationtotoenlarge
+enlargefeature
+featuremap.
+map.
+
+3.4. Multi-Task Loss Function for Joint Horizontal and Oriented Bounding Boxes
+3.4. Multi-Task Loss Function for Joint Horizontal and Oriented Bounding Boxes
+Motivation of multi-task loss function. Multi-task loss function is aimed to detect horizontal and
+Motivation of multi-task loss function. Multi-task loss function is aimed to detect horizontal and
+oriented vehicles simultaneously by combining the loss of horizontal bounding boxes with that of
+oriented vehicles simultaneously by combining the loss of horizontal bounding boxes with that of
+oriented bounding boxes. In addition, vehicle detection is a difficult problem due to diversity in object
+oriented bounding boxes. In addition, vehicle detection is a difficult problem due to diversity in object
+representation and small difference between different vehicles. Therefore, we also introduce center
+representation and small difference between different vehicles. Therefore, we also introduce center
+loss to the multi-task loss function to improve the discriminative ability of the features.
+loss to the multi-task loss function to improve the discriminative ability of the features.
+Traditional object detection methods usually use horizontal bounding boxes (xmin , ymin , xmax , ymax )
+Traditional object detection methods usually use horizontal bounding boxes ( xmin , ymin , xmax , ymax )
+to describe the position of the objects. However, vehicles on aerial images are usually with arbitrary
+to describe the position of the objects. However, vehicles on aerial images are usually with arbitrary
+oriention. For a oriented vehicle, we can describe the position more accurately by describing the
+oriention. For a oriented vehicle, we can describe the position more accurately by describing the
+coordinates of its four corners (x1 , y1 , x2 , y2 , x3 , y3 , x4 , y4 ).
+coordinates of its four corners ( x1, y1, x2 , y2 , x3 , y3 , x4 , y4 ) .
+As shown in Figure 7, when detecting an object that contains direction information, two types
+As shown
+in Figure
+7, [39],
+whennamely
+detecting
+an objectanchors
+that contains
+direction
+information,
+two types
+of anchors
+are usually
+used
+horizontal
+and oriented
+anchors.
+The horizontal
+of
+anchors
+are
+usually
+used
+[39],
+namely
+horizontal
+anchors
+and
+oriented
+anchors.
+The
+horizontal
+anchor contains more contextual information around objects than oriented anchor in the ROI pooling,
+anchor
+contains
+more
+contextual
+information
+around
+objects than
+oriented
+anchor
+the ROI
+pooling,
+which
+can
+assist the
+object
+recognition.
+Therefore,
+the horizontal
+anchor
+rather
+than in
+oriented
+anchor
+is
+which
+can
+assist
+the
+object
+recognition.
+Therefore,
+the
+horizontal
+anchor
+rather
+than
+oriented
+anchor
+adopted in the article.
+is adopted in the article.
+
+Remote Sens. 2020, 12, 2558
+Remote Sens. 2020, 12, x FOR PEER REVIEW
+
+9 of 21
+9 of 21
+
+X
+
+X
+
+(x1,y1)
+
+(Xmin,Ymin)
+
+w
+w
+(x4,y4)
+
+(x2,y2)
+center (x,y)
+
+center (x,y)
+
+h
+
+h
+
+ROI pooling
+
+ROI pooling
+(Xmax,Ymax)
+
+Y
+
+Y
+
+(x3,y3)
+
+(b)
+
+(a)
+
+Figure
+7. Two
+types
+of anchor
+setting
+methods
+of oriented
+objects.
+(a) Horizontal
+anchor.
+(b) Rotated
+anchor.
+Figure
+7. Two
+types
+of anchor
+setting
+methods
+of oriented
+objects.
+(a) Horizontal
+anchor.
+(b) Rotated
+anchor.
+
+As shown in Equation (3), the proposed loss function consists of 5 parts, namely the cross-entropy
+∗ ) in Equation (4), the cross-entropy loss of horizontal objects
+loss of
+LR
+(PR , Pthe
+R proposed loss function consists of 5 parts,
+cls (3),
+As oriented
+shown inobjects
+Equation
+crossP namely the
+H
+∗
+L
+(P , PH ) in
+Equationobjects
+(5), theLlocation
+loss
+function(4),
+of the
+the cross-entropy
+oriented objects
+LR
+(ti , t∗i )
+R
+*
+i∈{x,y,w,h,θ}
+reg
+cls H loss
+entropy
+of oriented
+in
+Equation
+loss
+of
+horizontal
+objects
+(
+P
+,P
+)
+P
+cls
+R
+R
+H
+∗
+and the horizontal objects i∈{x,y,w,h} Lreg (ti , ti ) in Equation (6) and center loss function RLCenterloss
+in
+*
+H
+*
+L
+(
+t
+,
+t
+)
+in
+Equation
+(5),
+the
+location
+loss
+function
+of
+the
+oriented
+objects
+and
+L
+(
+P
+,P
+)
+reg
+i
+i
+cls
+H
+H
+i x , y , w, h , 
+Equation (11). λ1 , λ2 , λ3 are the balance parameters.
+
+
+
+the horizontal objects
+(11). 1, 2 , 3
+
+
+and center loss function L
+LP , PL∗ , P(t , t, P) ∗ ,int, tEquation
+∗ = LH ((6)
+P , P∗ ) + LR (P , P∗ )
+i x , y , w , h
+
+H
+
+H
+reg
+
+i
+
+*
+i
+
+H H
+R
+cls R R
+P
+P cls
+H
+∗
+R
+∗
+are the
+parameters.
++λbalance
+1 i∈{x,y,w,h} Lreg (ti , ti ) + λ2 i∈{x,y,w,h,θ} Lreg (ti , ti ) + λ3 LCenterloss
+H
+
+R
+
+（
+L PH ,PH* ,PR ,PR* ,t,tR*）= LHcls ( ∗PH ,PH* )  LRcls ( PR ,PR* )
+
+L (PR , P ) = − log(PR )
+
+1  ix , y , w, h LHregcls
+(ti , ti* )  R2  ix , y , w, h ,  LRreg (ti , ti* )  3 LCenterloss
+
+Centerloss
+
+in Equation
+(3)
+(4)
+(3)
+
+LH
+(P , P∗ ) = − log(PH )
+cls H H
+
+(5)
+(4)
+In terms of classification, PH and PR are the probabilities that predicted horizontal and oriented
+LHcls ( PH ,PH* )   log(
+(5)
+H)
+bounding boxes belong to each category respectively;
+P∗H Pand
+P∗R are true categories of the horizontal
+and oriented
+boxes respectively.
+In termsbounding
+of classification,
+PH and PR are the probabilities that predicted horizontal and
+In the process of location regression, we convert four corners
+to the (x, y, w, h, θ) in order to
+oriented bounding boxes belong to each category respectively; PH* and PR* are true categories of
+describe the position of oriented vehicles, where (x, y) represents the coordinates of vehicle center,
+the horizontal and oriented bounding boxes respectively.
+(w, h) represents the width and height of vehicles and θ is the degrees from the horizontal perspective.
+In the process of location regression, we convert four corners to the ( x, y, w, h, ) in order to
+For the horizontal bounding boxes, t∗ represents the offset vector between true bounding boxes and
+( x, y) represents the coordinates
+describe anchors
+the position
+of oriented
+where
+of vehicle
+positive
+composed
+of x, vehicles,
+y, w, h. For
+the oriented
+bounding boxes, t∗ consists
+of x, y,center,
+w, h, θ.
+∗
+, h) represents
+the width and
+heightcoordinate
+of vehicles
+and In Equations
+is the degrees
+t( wrepresents
+the corresponding
+predicted
+vector.
+(7) and from
+(8), x ,the
+xa , xhorizontal
+represent
+perspective.
+For the
+between
+true
+t * represents
+the
+true bounding
+box,horizontal
+anchor, andbounding
+predictedboxes,
+box respectively.
+y, w,the
+h, θ offset
+can be vector
+represented
+in a way
+x, y, w, h
+similar
+to
+x.
+bounding boxes and positive anchors composed
+. For the∗ 2oriented bounding boxes, t *
+( of ∗
+i
+f
+−
+t
+<
+1,
+0.5·
+(t − t )
+|t
+|
+∗
+consists of x, y, w, h, . t represents
+predicted
+coordinate vector. In Equations (6)
+(7)
+Lreg = SL1 (the
+t − tcorresponding
+)=
+∗ | − 0.5
+otherwise,
+−
+t
+|t
+*
+and (8), x , xa , x represent the true bounding box, anchor, and predicted box respectively. y, w, h, θ
+t∗x =to(xx.∗ − xa )/wa , t∗y = ( y∗ − ya )/ha
+can be represented in a way similar
+(7)
+∗
+tw = log(w∗ /wa ), t∗h = log(h∗ /ha ), t∗θ = θ∗ − θa
+LRcls ( PR ,PR* )   log( PR )
+
+if t  t *  1,0.5 (t  t * )2
+
+/w
+Lregtx=
+SL(1 (xt −
+ txa))
+a , t y = ( y − ya )* /ha
+0.5− θa
+tw = log(w/wa ), th 
+log(h/h,a )t ,tθt = θ
+=otherwise
+*
+
+(6)
+(8)
+
+We introduce center loss as
+within-class differences existing in
+t x* shown
+ ( x*  xina )Equation
+/ wa , t *y  ((9)
+y* toyadecrease
+) / ha
+features, and increase the ability* of features
+in
+distinguishing
+diverse
+vehicles.
+(7)
+tw  log( w* / wa ), th*  log(h* / ha ), t*   *   a
+2
+m
+X
+t x  ( xL xa ) / wa=
+, t y 1 ( y kx
+ ya−) /cha k
+(9)
+n
+yn
+Centerloss
+(8)
+tw  log( w / wa ), th 2
+ nlog(
+=1 h / ha ), t 
+2   a
+
+We
+center
+loss
+shown
+in Equationstage,
+(9) toc ydecrease
+within-class differences existing
+where
+m introduce
+is the batch
+size in
+theasobject
+classification
+n is the feature center of the y-th category
+in features,
+increase
+the the
+ability
+ofconnected
+features inlayer.
+distinguishing diverse vehicles.
+and
+xn is theand
+features
+before
+fully
+
+2
+
+LCenterloss 
+
+1 m
+ x n  c yn
+2 n 1
+2
+
+(9)
+
+where m is the batch size in the object classification stage, c y is the feature center of the y-th category
+n
+
+and
+is the
+features
+xnSens.
+Remote
+2020,
+12, 2558 before the fully connected layer.
+
+10 of 21
+
+4. Experimental Results and Setup
+4. Experimental Results and Setup
+4.1. Description of Datasets and Implementation Details
+4.1. Description of Datasets and Implementation Details
+4.1.1.
+4.1.1. Dataset
+Dataset Description
+Description
+The
+experimentaldataset
+datasetinin
+this
+paper
+is Vehicle
+Detection
+in Aerial
+Imagery
+(VEDAI).
+The
+The experimental
+this
+paper
+is Vehicle
+Detection
+in Aerial
+Imagery
+(VEDAI).
+The VEDAI
+VEDAI
+dataset
+contains
+aerial
+images
+with
+the
+size
+of
+1024
+×
+1024
+pixels
+extracted
+from
+the
+publicly
+dataset contains aerial images with the size of 1024 × 1024 pixels extracted from the publicly available
+available
+Utah
+AGRC database.
+Thesampling
+ground sampling
+distance
+of the image
+original
+is 12.5
+Utah AGRC
+database.
+The ground
+distance (GSD)
+of (GSD)
+the original
+is image
+12.5 cm/pixel
+cm/pixel
+(cmpp).
+Each
+image of
+consists
+oftypes
+various
+types vehicles,
+of small backgrounds
+vehicles, backgrounds
+and
+objects
+(cmpp). Each
+image
+consists
+various
+of small
+and objects
+that
+may
+that
+may
+lead
+to
+confusion.
+The
+VEDAI
+dataset
+contains
+9
+types
+of
+vehicles,
+namely
+van,
+tractor,
+picklead to confusion. The VEDAI dataset contains 9 types of vehicles, namely van, tractor, pick-up,
+up,
+camping
+boat,
+plane
+and
+other
+vehicles.The
+Theresearch
+researchcontent
+contentof
+ofthis
+this paper
+paper is
+is mainly
+mainly for
+car, car,
+camping
+car,car,
+boat,
+plane
+and
+other
+vehicles.
+for
+vehicle
+detection
+of
+nine
+categories.
+On
+average,
+there
+are
+5.5
+vehicles
+on
+each
+image,
+accounting
+for
+vehicle detection of nine categories. On average, there are 5.5 vehicles on each image, accounting for
+approximately
+approximately 0.7%
+0.7% of
+of the
+the entire
+entire image.
+image. We
+We split
+split the
+the dataset
+dataset into
+into two
+two groups
+groups by
+by randomly
+randomly selecting
+selecting
+50%
+50% of
+of the
+the images
+images for
+for training
+training while
+while the
+the left
+left 50%
+50% for
+for testing.
+testing. The
+The experiments
+experiments have
+have been
+been repeated
+repeated two
+two
+times
+to
+reduce
+the
+measurement
+error.
+times to reduce the measurement error.
+The
+original
+training
+dataset
+for for
+each
+category
+is shown
+in Table
+2. The
+The number
+numberof
+ofvehicles
+vehiclesininthe
+the
+original
+training
+dataset
+each
+category
+is shown
+in Table
+2.
+number
+of
+different
+vehicles
+in
+the
+training
+set
+is
+extremely
+imbalanced.
+Images
+before
+and
+after
+the
+The number of different vehicles in the training set is extremely imbalanced. Images before and after
+proposed
+datadata
+augmentation
+method
+areare
+shown
+in in
+Figure
+8. 8.The
+the proposed
+augmentation
+method
+shown
+Figure
+Thered
+redcircle
+circleindicates
+indicatesthe
+the newly
+newly
+generated
+generated objects.
+objects. The
+The original
+original images
+images before
+before data
+data augmentation
+augmentation usually
+usually contain
+contain only
+only aa few
+few types
+types of
+of
+vehicles.
+After
+performing
+the
+proposed
+data
+augmentation
+method,
+each
+image
+contains
+9
+different
+vehicles. After performing the proposed data augmentation method, each image contains 9 different
+types
+types of
+of vehicles,
+vehicles, and
+and the
+the vehicle
+vehicle position
+position is
+is randomly
+randomly generated.
+generated. The
+The proposed
+proposed method
+method can
+can help
+help to
+to
+increase
+thefrequency
+frequency
+of the
+categories
+a smaller
+of and
+samples
+and
+the
+increase the
+of the
+categories
+with awith
+smaller
+numbernumber
+of samples
+increase
+theincrease
+background
+background
+diversitytoofa vehicles
+to a certain extent.
+diversity of vehicles
+certain extent.
+Table
+of VEDAI.
+VEDAI.
+Table 2.
+2. Vehicle
+Vehicle number
+number statistics
+statistics in
+in training
+training dataset
+dataset of
+Class
+Class
+Group1
+
+Group1
+Group2
+Group2
+
+Car
+Car
+700
+
+700
+740
+740
+
+PickPick-Up Camping
+Camping Car
+Other Tractor
+Tractor
+TruckTruck
+Other
+Up
+Car
+449
+209
+156
+103
+85
+449
+209
+156
+103
+85
+501
+181
+144
+97
+85
+501
+181
+144
+97
+85
+
+Boat
+Boat
+
+Vans
+Vans
+
+Plane
+Plane
+
+90
+
+48
+
+21
+
+90
+80
+80
+
+48
+52
+52
+
+(a)
+
+(b)
+
+(c)
+
+(d)
+
+(e)
+
+(f)
+
+(g)
+
+(h)
+
+21
+26
+
+26
+
+Figure 8. Comparison of images before and after augmentation by the oversampling and stitching
+method. (a–d) are original images from VEDAI dataset, and (e–h) are images synthesized by proposed
+method corresponding to (a–e).
+
+Remote Sens. 2020, 12, 2558
+
+11 of 21
+
+4.1.2. Experimental Setup
+Resnet101 which is pre-trained on the ImageNet dataset [40] is used for extracting features in
+this paper. The method in this paper is implemented in the TensorFlow framework with the Ubuntu
+16.04 system. The computer hardware is GTX1080ti GPU with 11GB memory. The mini-batch size of
+the RPN stage and classification stage in this paper is 256 and 512. The initial learning rate of first
+30,000 iterations is 0.003 while the learning rate of subsequent 70,000 epochs is 0.00003. The maximum
+iterations is set to 100,000. The momentum is 0.9 and the weight decay is 0.0001.
+In the stage of RPN, we set the horizontal anchors with various shape and scale parameters,
+and set the thresholds of anchors and true objects to select positive and negative samples for training
+RPN networks. In this article, the anchor scale parameter is set to (8, 16, 32, 64, 128), and the shape
+parameter is set to (1, 1/2, 2/1, 1/3, 3/1, 1/4, 4/1, 1/5, 5/1, 1/6, 6/1, 1/7, 7/1). This article considers anchors
+with an IoU overlap below 0.3 as negative samples while that above 0.7 as positive samples. In training
+the RPN network, when the overlap between the ground truth and the anchors meets the above
+conditions, the anchors can be used to train the RPN network.
+We have carried out comparative experiments with the baseline approaches that can detect
+oriented vehicles to demonstrate the effectiveness of the proposed algorithm. Among them, baseline
+methods include Faster RCNN, Feature Pyramid Network (FPN) and Dense Feature Pyramid Network
+(DFPN).We adopt Rotated anchors (RA) and Horizontal Anchors (HA) in FPN and DFPN, respectively.
+4.1.3. Evaluation Metric
+Mean average precision (mAP) is a comprehensive quality evaluation metric used in this paper,
+representing the mean value of average precision in each type of vehicle. The higher mAP is, the better
+vehicle detection performance is. Equation (10) shows how the average precision in each vehicle type
+is calculated.
+X
+AP =
+(Rn − Rn−1 )Pn
+(10)
+n
+
+where Rn and Pn represent the recall ratio and precision ratio when n-th threshold is set. The precision
+ratio and recall ratio can be defined as Equations (11) and (12).
+TP
+TP + FP
+
+(11)
+
+TP
+TP + FN
+
+(12)
+
+Precision =
+Recall =
+
+where FP and TP are the amount of wrongly and accurately detected vehicles. FN represents the
+amount of undetected vehicles. If the Intersection over Union (IoU) [40] between true locations and
+predicted locations computed by Equation (13) is above 0.5, the bounding box will be considered as TP.
+Otherwise, it will be FP.
+area(predicted) ∩ area(truth)
+(13)
+IoU =
+area(predicted) ∪ area(truth)
+4.2. Detection Results and Compared with Baseline Methods
+Figure 9 shows the examples of the detection results by the proposed method. The proposed
+method can well detect diverse types of vehicles. While determining the specific categories of the
+vehicles, the proposed method can simultaneously obtain good detection results of the horizontal and
+the oriented bounding boxes.
+
+Remote Sens. 2020, 12, 2558
+
+12 of 21
+
+Remote Sens. 2020, 12, x FOR PEER REVIEW
+
+12 of 21
+
+Figure
+Figure 9.
+9. Examples
+Examples of
+of the
+the detection
+detection results
+results by
+by the
+the proposed
+proposed method.
+method. The
+The odd
+odd rows
+rows are
+are the
+the detection
+detection
+results
+results of
+of the
+the horizontal
+horizontal bounding
+bounding boxes
+boxes (HBB).
+(HBB). The
+The even
+even rows
+rows are
+are the
+the detection
+detection results
+results of
+of the
+the oriented
+oriented
+bounding
+bounding boxes
+boxes (OBB).
+(OBB).
+
+Table 3 shows the horizontal and oriented detection results of baseline approaches. All baseline
+approaches
+approaches are performed on the merged dataset after rotation augmentation and oversampling
+augmentation proposed
+proposedininthis
+thispaper.
+paper.The
+The
+detection
+results
+of the
+proposed
+framework
+are better
+detection
+results
+of the
+proposed
+framework
+are better
+than
+than
+of Faster
+algorithm,
+algorithm
+and
+FPN algorithm
+in both horizontal
+and
+thosethose
+of Faster
+RCNNRCNN
+algorithm,
+DFPN DFPN
+algorithm
+and FPN
+algorithm
+in both horizontal
+and oriented
+oriented
+boxes.
+Rotated
+anchors
+contain
+less context
+information
+compared
+with
+bounding bounding
+boxes. Rotated
+anchors
+contain
+less context
+information
+compared
+with horizontal
+anchors,
+horizontal anchors, so the detection accuracy of the FPN and DFPN with rotated anchors are
+obviously lower than that of the methods with horizontal anchors. The proposed framework with
+horizontal anchors is improved on the Faster RCNN method. The enlarged feature maps can increase
+
+Remote Sens. 2020, 12, 2558
+
+13 of 21
+
+so the detection accuracy of the FPN and DFPN with rotated anchors are obviously lower than that of
+the methods with horizontal anchors. The proposed framework with horizontal anchors is improved
+on the Faster RCNN method. The enlarged feature maps can increase the discriminative ability of
+features by restoring the detailed information of feature maps. Center loss can relatively increase the
+gap between features of different vehicle types by reducing the intra-class diversity existing in features
+belonging to the same vehicle type, which may lead to decreased misclassification of similar vehicle
+types. Therefore, the overall detection accuracy of the proposed approach is higher than that of Faster
+RCNN algorithm.
+Table 3. Horizontal and oriented detection results of comparison approaches.
+Method
+Faster
+RCNN-HA
+FPN-RA
+DFPN-RA
+FPN-HA
+DFPN-HA
+Proposed
+method
+
+H
+O
+H
+O
+H
+O
+H
+O
+H
+O
+H
+O
+
+Car
+
+Pick-Up
+
+Camping Car
+
+Truck
+
+Other
+
+Tractor Boat
+
+Vans
+
+Plane
+
+mAP
+
+74.9
+70.4
+52.8
+54.7
+56.6
+56.6
+69.7
+51.9
+67.9
+54.1
+76.2
+76.5
+
+69.8
+66.3
+54.5
+56.1
+53.0
+54.0
+63.9
+51.1
+65.1
+52.2
+72.3
+71.9
+
+56.4
+54.2
+48.4
+51.4
+43.7
+45.0
+58.2
+48.3
+54.0
+44.6
+50.9
+51.0
+
+58.9
+50.2
+43.8
+43.8
+31.3
+32.1
+48.7
+31.2
+52.4
+33.4
+62.4
+61.2
+
+41.9
+38.8
+47.1
+38.4
+41.3
+37.6
+52.8
+42.6
+51.0
+41.7
+41.9
+44.7
+
+51.2
+50.1
+45.1
+46.4
+51.8
+51.2
+57.2
+52.0
+57.2
+42.3
+52.9
+52.7
+
+30.7
+29.5
+57.8
+57.8
+55.8
+55.8
+67.7
+71.1
+63.7
+51.9
+38.6
+36.8
+
+87.5
+87.9
+41.7
+41.7
+61.1
+61.1
+52.1
+56.3
+55.3
+60.6
+95.1
+95.1
+
+56.3
+53.8
+48.4
+48.7
+49.8
+50.1
+58.2
+49.5
+58.1
+47.4
+60.7
+60.4
+
+35.7
+36.5
+45.1
+48.3
+53.8
+57.1
+53.8
+45.4
+56.7
+46.1
+52.3
+52.1
+
+FPN method establishes a feature pyramid to detect multi-scale objects. The FPN method with
+horizontal anchors achieves the highest detection accuracy in the camping car, tractor and vans since it
+selects features suitable for detecting a certain type of vehicles from multilayer feature map pyramids.
+However, the detection results of other categories are unsatisfactory, especially for the airplane.
+That is because airplane is the category with the smallest number of samples in the original dataset,
+which limits the diversity of airplane samples. FPN increases the number of training parameters to
+build the feature pyramid and requires a larger number of samples, which may decrease the vehicle
+detection performance.
+Compared with FPN, DFPN can make full use of multi-layer features to build a tighter feature
+pyramid between different feature layers, which makes the network better adapt to multi-scale objects.
+Therefore, the detection accuracy of DFPN with the rotated anchors is slightly higher than that of FPN.
+The detection accuracy of DFPN with the horizontal anchors are comparable with that of FPN with the
+horizontal anchors.
+The same problem exists in the DFPN method, dense feature pyramid may increase number of
+network training parameters, which may lead to unideal detection accuracy of most vehicle categories.
+The horizontal detection results of FPN and DFPN are better than that of Faster RCNN because of
+multi-layer features. However, there is a big gap between results of detecting horizontal bounding
+boxes and those of detecting oriented bounding boxes in both DFPN and FPN methods with horizontal
+anchors. That is because it is difficult for both DFPN and FPN methods to regress the direction
+of oriented objects. But FPN can better obtain the direction information compared with DFPN.
+The oriented results of DFPN with horizontal anchors is about 2% mAP less than that of FPN.
+In the proposed method, a multi-task loss function that introduces center loss is used to constrain
+the detection results of both the oriented bounding box and the horizontal bounding box. The accuracy
+difference between the horizontal bounding box and the oriented bounding box by the proposed
+method is small, and the overall accuracy of the proposed method is better than other methods.
+4.3. Comparasion of the Different Data Augmentaion Methods
+We compare different data augmentation approaches on the detection results in this section.
+We adopt three kinds of datasets for experiments. The first one is the dataset after rotation augmentation.
+
+Remote Sens. 2020, 12, 2558
+
+14 of 21
+
+The second is the dataset after the proposed oversampling and stitching augmentation, and the third
+is combination of the previous two datasets. Three types of datasets are denoted as R, O and M
+respectively. To better prove the role of the proposed oversampling and stitching data augmentation
+algorithm, the proposed vehicle detection method in this paper along with the original Faster RCNN
+method are both verified on these three types of datasets.
+The detection results of horizontal and oriented bounding box in the Faster RCNN algorithm for
+three training datasets are shown in Tables 4 and 5, respectively. The bold indicates higher accuracies
+of average precision and recall ratio in the R and O datasets. The underlined indicates the optimal
+average precision and recall ratios in the R, O and M datasets.
+Table 4. Detection accuracy of Faster RCNN algorithm for HBB in three different types of datasets.
+Class
+R
+O
+M
+
+Recall
+AP
+Recall
+AP
+Recall
+AP
+
+Car
+
+Pick-Up
+
+Camping Car
+
+Truck
+
+Other
+
+Tractor
+
+Boat
+
+Vans
+
+Plane
+
+Mean
+
+85.1
+71.8
+84.3
+72.9
+84.5
+74.9
+
+75.7
+68.9
+75.7
+67.1
+79.5
+69.8
+
+88.8
+52.1
+87.8
+48.2
+92.0
+56.4
+
+68.2
+50.1
+77.5
+54.3
+76.8
+58.9
+
+64.0
+45.6
+68.0
+44.9
+65.0
+41.9
+
+76.2
+40.3
+76.2
+44.1
+80.0
+51.2
+
+65.4
+27.5
+75.3
+41.7
+67.9
+35.7
+
+52.8
+36.7
+54.7
+32.5
+58.5
+30.7
+
+85.2
+80.1
+92.6
+89.6
+92.6
+87.5
+
+73.5
+52.6
+76.9
+55.0
+77.4
+56.3
+
+Table 5. Detection accuracy of Faster RCNN algorithm for OBB in three different types of datasets.
+Class
+R
+O
+M
+
+Recall
+AP
+Recall
+AP
+Recall
+AP
+
+Car
+
+Pick-Up
+
+Camping Car
+
+Truck
+
+Other
+
+Tractor
+
+Boat
+
+Vans
+
+Plane
+
+Mean
+
+82.2
+68.0
+81.9
+69.8
+81.5
+70.4
+
+70.0
+65.5
+74.0
+64.7
+76.9
+66.3
+
+86.2
+47.9
+85.1
+44.3
+90.4
+54.2
+
+61.6
+42.0
+75.5
+53.3
+70.9
+50.2
+
+62.0
+43.3
+66.0
+43.9
+59.0
+38.8
+
+76.2
+41.4
+76.2
+44.2
+77.1
+50.1
+
+63.0
+26.1
+69.1
+37.5
+66.7
+36.5
+
+52.8
+37.2
+58.5
+31.7
+58.5
+29.5
+
+85.1
+80.4
+92.6
+89.7
+92.6
+87.9
+
+71.0
+50.2
+75.4
+53.2
+74.8
+53.8
+
+Among them, the mAP of the merged dataset reached the highest in horizontal and oriented
+bounding boxes, with 56.3% and 53.8%, respectively, which is better than R and O datasets. The mAP
+of O dataset reached 55% and 53.2% in the horizontal and oriented bounding box, which is better than
+the 52.6% mAP and 50.2% mAP for R dataset.
+As can be seen in Tables 4 and 5, the rotation augmentation method does not address the uneven
+vehicle number distribution in the dataset. The training network still favors vehicle categories with
+a large number of samples. After the proposed augmentation of the oversampling and stitching,
+the frequency of vehicle categories with fewer training samples in the dataset is increased. Therefore,
+the network trained by the dataset after oversampling and stitching data augmentation can better
+distinguish diverse types of vehicles.
+As shown in Tables 4 and 5, after performing the proposed data augmentation method, the recall
+ratios of the Pickup, Truck, Other, Tractor, boat, Vans, and Plane categories have been improved,
+and the corresponding mAP has also been improved. The Car, Pick-up, and Camping car are the
+categories with more training samples in the rotated training dataset. As the number of vehicles in
+other categories has been increased after the proposed data augmentation method, the tendency of
+network to categories with a larger number of training samples has been reduced. Therefore, the recall
+ratio and average precision of these categories are decreased slightly and that of remaining categories
+are increased after proposed data augmentation method.
+Although the dataset based on oversampling and stitching augmentation method can increase
+accuracy of vehicle detection to some degree. This type of synthesis method increases the complexity
+of the background objects. Moreover, a certain gap exists between the synthetic and real imagery.
+In order to decrease the negative influence of background diversity on object detection, we combine
+O dataset with R dataset to form a new training dataset M. According to the results of the merged
+
+Remote Sens. 2020, 12, 2558
+
+15 of 21
+
+dataset, we find that the results of the merged dataset are better than those of the previous two datasets.
+The detection accuracies of car, pickup, camping car, tractor and so on have been further improved
+compared to those of the oversampling and stitching data augmentation method. That is because the
+merged dataset improves the network’s ability to adapt to the complex background of the vehicles.
+Considering the shortcomings of feature representations for vehicles and limited discrimination
+ability of features for different categories in Faster RCNN, we propose an oriented vehicle detection
+method based on feature map amplification. We also use the above three datasets for training, and we
+can get similar conclusions as the Faster RCNN method. As shown in Tables 6 and 7, the proposed
+oversampling and stitching data augmentation method improves the recall ratios of vehicles with
+a small number of training samples such as Truck, Tractor, Boat, Vans, and Plane, and effectively
+improves the corresponding average detection accuracy. The merged datasets for training the proposed
+network can further improve the average vehicle detection accuracy.
+Table 6. Detection accuracy of proposed algorithm for HBB in three different types of datasets.
+Class
+R
+O
+M
+
+Recall
+AP
+Recall
+AP
+Recall
+AP
+
+Car
+
+Pick-Up
+
+Camping Car
+
+Truck
+
+Other
+
+Tractor
+
+Boat
+
+Vans
+
+Plane
+
+Mean
+
+85.8
+75.3
+86.3
+74.0
+84.9
+76.2
+
+78.7
+70.5
+77.7
+68.5
+79.9
+72.3
+
+90.4
+52.9
+88.3
+52.4
+90.4
+50.9
+
+74.8
+53.5
+80.1
+62.2
+81.0
+62.4
+
+73.0
+50.8
+66.0
+44.0
+64.0
+45.5
+
+79.0
+49.1
+75.2
+51.9
+83.8
+52.9
+
+67.9
+43.0
+69.1
+38.4
+74.1
+52.3
+
+58.5
+38.1
+62.3
+40.5
+62.3
+38.6
+
+88.9
+86.4
+96.3
+93.7
+96.3
+95.1
+
+77.4
+57.7
+77.9
+58.3
+79.5
+60.7
+
+Table 7. Detection accuracy of proposed algorithm for OBB in three different types of datasets.
+Class
+R
+O
+M
+
+Recall
+AP
+Recall
+AP
+Recall
+AP
+
+Car
+
+Pick-Up
+
+Camping Car
+
+Truck
+
+Other
+
+Tractor
+
+Boat
+
+Vans
+
+Plane
+
+Mean
+
+85.7
+75.2
+86.1
+73.7
+84.9
+76.5
+
+78.3
+70.2
+77.3
+68.0
+79.5
+71.9
+
+90.4
+51.7
+88.3
+50.6
+89.9
+51.0
+
+73.5
+52.3
+78.8
+60.3
+79.5
+61.2
+
+72.0
+50.3
+66.0
+43.0
+66.0
+44.7
+
+79.0
+49.2
+76.2
+52.5
+83.8
+52.7
+
+66.7
+39.5
+69.1
+38.4
+74.1
+51.2
+
+58.5
+37.7
+60.4
+39.3
+62.3
+38.6
+
+88.9
+84.7
+96.3
+93.9
+96.3
+95.1
+
+77.0
+56.8
+77.6
+57.7
+79.6
+60.4
+
+4.4. Ablation Study
+We performed ablation studies so as to demonstrate the role of each contribution in this paper.
+Tables 8 and 9 show the mean accuracy of detecting horizontal and oriented bounding boxes from
+two groups respectively. The bold represents the optimal recall or precision ratio in each column.
+We take the original Faster RCNN method as the basic method. In order to ensure fair comparison,
+all parameters in different methods are consistent with those in Section 4.1.2.
+Table 8. The mean of ablation experimental results of HBB from two groups.
+Class
+Rotation Dataset
+Rotation Dataset + amplification
+Merge Dataset + amplification
+Proposed method
+
+Recall
+AP
+Recall
+AP
+Recall
+AP
+Recall
+AP
+
+Car
+
+Pick-Up
+
+Camping Car
+
+Truck
+
+Other
+
+Tractor
+
+Boat
+
+Vans
+
+Plane
+
+84.5
+70.6
+85.2
+72.4
+85.8
+76.7
+85.3
+75.7
+
+80.2
+68.2
+80.3
+70.2
+79.3
+69.8
+82.4
+72.0
+
+91.3
+59.9
+91.9
+57.4
+91.8
+55.3
+91.2
+56.4
+
+72.6
+51.8
+73.9
+54.0
+78.6
+59.6
+81.1
+61.7
+
+66.5
+41.1
+65.4
+41.3
+72.9
+41.2
+67.9
+41.9
+
+75.2
+39.0
+77.4
+46.5
+80.5
+48.4
+81.3
+48.0
+
+69.4
+28.2
+73.1
+40.5
+76.2
+42.0
+79.9
+52.8
+
+60.8
+40.2
+64.6
+43.9
+65.7
+46.7
+64.5
+46.4
+
+78.3
+73.8
+75.7
+74.6
+92.9
+87.9
+93.4
+88.8
+
+mAP
+52.5
+55.6
+58.6
+60.4
+
+According to the vehicle detection results, the bilinear interpolation feature amplification method
+improves the ability of the features to distinguish different vehicle categories by keeping more detailed
+information hidden in CNN features. The horizontal and oriented vehicle detection results are increase
+by 3% mAP compared to the original Faster RCNN framework. We replace the rotation dataset with
+
+Remote Sens. 2020, 12, 2558
+
+16 of 21
+
+the merge dataset generated in this paper. The accuracy of horizontal and oriented vehicle detection
+are improved by 3% mAP and 5% mAP respectively. The center loss function improves the detection
+results by 2% mAP since it can reduce the intra-class feature differences of the different categories.
+The proposed framework achieve a mean average precision of 60.4% and 60.1% in detecting horizontal
+and oriented bounding boxes respectively. All the improvements in this article have achieved accuracy
+improvements of approximately 8% mAP totally in detecting horizontal and oriented bounding
+boxes, respectively.
+Table 9. The mean of ablation experimental results of OBB from two groups.
+Class
+Rotation Dataset
+Rotation Dataset + amplification
+Merge Dataset + amplification
+Proposed method
+
+Recall
+AP
+Recall
+AP
+Recall
+AP
+Recall
+AP
+
+Car
+
+Pick-Up
+
+Camping Car
+
+Truck
+
+Other
+
+Tractor
+
+Boat
+
+Vans
+
+Plane
+
+83.0
+68.2
+83.8
+70.4
+85.0
+76.4
+85.2
+75.6
+
+77.0
+66.3
+78.5
+67.3
+79.1
+69.6
+82.1
+71.7
+
+90.3
+57.6
+88.7
+53.1
+91.2
+55.2
+90.7
+57.0
+
+69.0
+46.9
+69.0
+47.3
+78.9
+59.2
+80.8
+60.3
+
+65.0
+38.6
+63.9
+38.0
+73.4
+40.9
+68.5
+40.4
+
+75.8
+39.5
+76.0
+44.2
+80.5
+48.3
+80.7
+48.0
+
+68.2
+27.2
+74.2
+40.3
+75.1
+41.4
+78.7
+52.4
+
+58.7
+40.1
+64.6
+43.9
+67.7
+46.8
+64.5
+46.4
+
+78.3
+74.0
+75.7
+74.5
+90.5
+86.3
+93.4
+88.8
+
+mAP
+50.9
+53.2
+58.2
+60.1
+
+In order to verify the role of each component in the multi-task loss, this paper conducts ablation
+study on the loss function as shown in Table 10. The experimental results show that center loss can
+improve the detection accuracy of both the oriented bounding box and the horizontal bounding box at
+the same time.
+Table 10. Ablation Experimental Results of Multi-task loss.
+Cls_R
+
+Reg_R
+
+Cls_H
+
+Reg_H
+
+Center_Loss
+
+√
+
+√
+
+√
+
+√
+
+√
+
+√
+
+√
+
+√
+
+√
+
+√
+
+√
+
+√
+
+√
+
+√
+
+√
+
+√
+
+√
+
+mAP(%)
+H
+
+O
+
+60.7
+
+60.4
+
+58.4
+
+58.0
+
+62.4
+
+-
+
+62.2
+
+-
+
+-
+
+56.1
+
+-
+
+54.4
+
+√
+
+√
+
+Meanwhile, we separately train the loss function of oriented bounding box and the horizontal
+bounding box. When only using the loss function of the horizontal bounding box, the horizontal results
+has a higher detection accuracy, and center loss has a little effect on the detection accuracy. However,
+the horizontal bounding box cannot describe the direction information of the vehicles, and the position
+is relatively rough.
+When only using the oriented bounding box loss function, the oriented detection accuracy is
+poor, and center loss can improve the detection accuracy by about 2% mAP. The joint training can
+improve the detection accuracy of the oriented bounding box. The joint training loss function that
+incorporates center loss can simultaneously obtain ideal detection results for both horizontal and
+oriented bounding boxes.
+5. Discussion
+5.1. Analysis of Object Number and Positive Samples
+The small size of the vehicles, the center deviation caused by pooling operation, and the anchor
+parameters make detection of small objects difficult. The category imbalance between vehicles in the
+
+Remote Sens. 2020, 12, x FOR PEER REVIEW
+Remote Sens. 2020, 12, x FOR PEER REVIEW
+
+17 of 21
+17 of 21
+
+The
+small
+Remote Sens.
+12,size
+2558 of
+17 of 21
+The2020,
+small
+size
+of the
+the vehicles,
+vehicles, the
+the center
+center deviation
+deviation caused
+caused by
+by pooling
+pooling operation,
+operation, and
+and the
+the anchor
+anchor
+
+parameters
+parameters make
+make detection
+detection of
+of small
+small objects
+objects difficult.
+difficult. The
+The category
+category imbalance
+imbalance between
+between vehicles
+vehicles in
+in the
+the
+dataset
+will
+further
+have
+a
+negative
+impact
+on
+training
+the
+network.
+In
+this
+section,
+we
+discuss
+dataset will further have a negative impact on training the network. In this section, we discuss the
+the
+dataset
+will further
+have a negative impact
+on training
+the network.
+In this section, we discuss the
+proposed
+proposed data
+data augmentation
+augmentation methods
+methods on
+on the
+the number
+number of
+of objects
+objects and
+and positive
+positive samples.
+samples.
+proposed
+data augmentation
+methods
+on the number
+of objectsrotation
+and positive samples.is performed.
+In
+In order
+order to
+to increase
+increase the
+the angle
+angle diversity
+diversity of
+of trained
+trained objects,
+objects, rotation augmentation
+augmentation is performed.
+In orderintoFigure
+increase the
+angle diversity
+of trained
+objects, rotation
+augmentation
+is performed.
+As
+As shown
+shown in Figure 10a,
+10a, the
+the number
+number of
+of vehicles
+vehicles of
+of Group
+Group 11 varies
+varies from
+from 83
+83 to
+to 2798.
+2798. And
+And as
+as shown
+shown in
+in
+AsFigure
+shown
+in
+Figure
+10a,
+the
+number
+of
+vehicles
+of
+Group
+1
+varies
+from
+83
+to
+2798.
+And
+as
+shown in
+11a,
+the
+number
+of
+vehicles
+of
+Group
+2
+varies
+from
+108
+to
+2680.
+The
+rotation
+augmentation
+Figure 11a, the number of vehicles of Group 2 varies from 108 to 2680. The rotation augmentation
+cannot
+the
+imbalance,
+but
+the
+between
+the
+of
+Figure
+11a,solve
+the number
+of vehicles
+of Group
+varies from
+108 to 2680.
+The rotation
+augmentation
+cannot
+cannot
+solve
+the category
+category
+imbalance,
+but 2increase
+increase
+the difference
+difference
+between
+the numbers
+numbers
+of different
+different
+classes.
+solve
+the category imbalance, but increase the difference between the numbers of different classes.
+classes.
+
+（a）
+（a）
+
+（b）
+（b）
+
+Figure
+Comparisonbetween
+betweenrotation
+rotation augmentation
+augmentation and
+1. 1.
+(a)(a)
+Object
+Figure
+10.10.
+Comparison
+and proposed
+proposedmethod
+methodofofGroup
+Group
+Object
+Figure 10. Comparison between rotation augmentation and proposed method of Group 1. (a) Object
+numbers
+(b)
+Positivesamples
+samples(IOU
+(IOU>> 0.7).
+0.7).
+numbers
+(b)
+Positive
+numbers (b) Positive samples (IOU > 0.7).
+
+（a）
+（b）
+（a）
+（b）
+Figure
+11.
+Comparison
+between
+rotation
+augmentation
+and
+proposed
+method
+of Group 2. (a) Object
+Figure 11. Comparison between rotation augmentation and proposed method of Group 2. (a) Object
+Figure (b)
+11. Comparison
+between
+rotation
+augmentation and proposed method of Group 2. (a) Object
+numbers
+Positive
+samples
+(IOU
+>
+0.7).
+numbers (b) Positive samples (IOU > 0.7).
+numbers (b) Positive samples (IOU > 0.7).
+
+The
+proposed
+the
+oversampling
+and
+stitching
+data augmentation
+augmentationmethod
+methodcan
+canmake
+make
+the
+number
+The
+proposed
+the
+oversampling
+and
+stitching
+data
+the
+number
+The
+proposed
+therelatively
+oversampling
+and
+stitching
+data
+augmentation
+method
+cancar
+make
+the
+number
+of of
+each
+type
+of
+vehicle
+equal.
+We
+take
+the
+most
+numerous
+type
+of
+the
+as
+an
+expansion
+of each
+each type
+type of
+of vehicle
+vehicle relatively
+relatively equal.
+equal. We
+We take
+take the
+the most
+most numerous
+numerous type
+type of
+of the
+the car
+car as
+as an
+an expansion
+expansion
+benchmark
+and
+increase
+the
+frequency
+of
+remaining
+8
+vehicle
+categories
+in
+different
+background
+benchmark
+benchmark and
+and increase
+increase the
+the frequency
+frequency of
+of remaining
+remaining 88 vehicle
+vehicle categories
+categories in
+in different
+different background
+background
+images.
+As shown
+in Figure
+10a, thethe
+number of of
+vehicles after
+proposed method
+ranges from
+2519–2798
+images.
+images. As
+As shown
+shown in
+in Figure
+Figure 10a,
+10a, the number
+number of vehicles
+vehicles after
+after proposed
+proposed method
+method ranges
+ranges from
+from 2519–
+2519–
+in Group
+1. Similarly,
+as shownshown
+in FigureFigure
+11a, the number
+of vehicles
+ranges from from
+2472–2680 in Group
+2798
+2798 in
+in Group
+Group 1.
+1. Similarly,
+Similarly, as
+as shown in
+in Figure 11a,
+11a, the
+the number
+number of
+of vehicles
+vehicles ranges
+ranges from 2472–2680
+2472–2680 in
+in
+2. We
+find that
+the vehicle
+number has
+been balanced
+after the proposed
+data augmentation
+method.
+Group
+Group 2.
+2. We
+We find
+find that
+that the
+the vehicle
+vehicle number
+number has
+has been
+been balanced
+balanced after
+after the
+the proposed
+proposed data
+data augmentation
+augmentation
+In the region proposal stage, the horizontal anchors are used to selective the samples for the
+method.
+method.
+In
+stage,
+the
+horizontal
+anchors
+used
+selective
+the
+the
+network.
+Forregion
+small proposal
+vehicles that
+to invest
+in are
+network
+training,
+thefor
+number
+In the
+the
+region
+proposal
+stage,are
+thedifficult
+horizontal
+anchors
+are
+used to
+to
+selectiveincreasing
+the samples
+samples
+for
+the
+For
+small
+vehicles
+that
+are
+difficult
+to
+invest
+in
+network
+training,
+increasing
+the
+number
+of network.
+samples
+is
+conducive
+to
+train
+the
+model.
+We
+separately
+count
+the
+number
+of
+positive
+samples
+network. For small vehicles that are difficult to invest in network training, increasing the number of
+of
+samples
+conducive
+to
+separately
+count
+the
+number
+positive
+samples
+>>
+(IoU
+> 0.7) is
+extracted
+from
+R andthe
+O model.
+datasetWe
+on the
+last feature
+resnet101
+so as (IoU
+to prove
+samples
+is
+conducive
+to train
+train
+the
+model.
+We
+separately
+countmap
+the extracted
+number of
+ofby
+positive
+samples
+(IoU
+0.7)
+extracted
+from
+R
+and
+O
+dataset
+on
+the
+last
+feature
+map
+extracted
+by
+resnet101
+so
+as
+to
+prove
+the
+the0.7)
+roleextracted
+of the proposed
+data
+augmentation
+method.
+are shown
+Figures
+from R and
+O dataset
+on the last
+featureThe
+mapstatistical
+extractedresults
+by resnet101
+so as in
+to prove
+the10b
+role
+of
+the
+proposed
+data
+augmentation
+method.
+The
+statistical
+results
+are
+shown
+in
+Figures
+10b
+and
+and
+11b.
+The
+proposed
+data
+augmentation
+approach
+can
+effectively
+increase
+the
+amount
+of
+positive
+role of the proposed data augmentation method. The statistical results are shown in Figures 10b and
+11b.
+proposed
+data
+augmentation
+can
+effectively
+increase
+the
+of
+positive
+samples
+used
+for training
+network approach
+and increase
+diversity
+of training
+samples.
+11b. The
+The
+proposed
+data RPN
+augmentation
+approach
+can the
+effectively
+increase
+the amount
+amount
+of Therefore,
+positive
+the proposed data augmentation method is an effective method to improve the effective sample number
+and the ability of the network to detect small objects.
+
+Remote Sens. 2020, 12, 2558
+
+18 of 21
+
+5.2. Analysis of the Feature Amplification Parameters
+In order to prove that vehicle detection results can be enhanced by feature map magnification
+operation, we use the merged dataset to discuss the magnification operation of deep feature maps
+and analyze the impact of different amplification parameters on vehicle detection. Two interpolation
+methods including bilinear interpolation and nearest neighbor (NN) interpolation are for comparison.
+H and O are respectively denoted as the horizontal and oriented detection results.
+The bold represents the optimal average precision of horizontal or oriented bounding boxes in
+each line of Table 11. The detection accuracy of horizontal and oriented vehicles by the proposed
+method without feature amplification are 58.9% mAP and 58.3% mAP, respectively. The experimental
+results show that the enlarged feature map by the bilinear interpolation can improve the detection
+accuracy to a certain extent.
+Table 11. Detection accuracy of different parameters in the feature amplification.
+no
+
+Category
+vans
+plane
+truck
+boat
+camping-car
+car
+others
+Tractor
+pickup
+mean
+
+Bilinear-1.5 Bilinear-2
+
+Bilinear-2.5 Bilinear-3.0
+
+NN-2.0
+
+H
+
+O
+
+H
+
+O
+
+H
+
+O
+
+H
+
+O
+
+H
+
+O
+
+H
+
+O
+
+29.6
+95.3
+68.0
+40.7
+48.9
+76.0
+49.7
+54.0
+67.8
+58.9
+
+29.2
+95.3
+65.4
+41.3
+48..0
+75.3
+49.3
+53.4
+67.6
+58.3
+
+36.9
+97.9
+63.3
+46.6
+45.6
+75.5
+46.5
+49.1
+69.5
+59.0
+
+35.5
+97.4
+62.6
+46.0
+45.8
+75.3
+46.0
+49.8
+69.0
+58.6
+
+38.6
+95.1
+62.4
+52.3
+50.9
+76.2
+45.5
+52.9
+72.3
+60.7
+
+38.6
+95.1
+61.2
+52.1
+51.0
+76.5
+44.7
+52.7
+71.9
+60.4
+
+38.8
+96.5
+61.8
+53.0
+49.1
+74.4
+42.8
+50.5
+71.8
+59.9
+
+39.1
+96.5
+60.6
+51.0
+49.3
+74.3
+42.1
+50.2
+71.5
+59.4
+
+43.9
+95.4
+61.9
+46.5
+52.5
+76.3
+46.1
+50.6
+72.5
+60.6
+
+43.5
+95.4
+60.7
+45.7
+51.5
+76.2
+45.7
+50.9
+71.8
+60.2
+
+32.8
+96.0
+57.7
+43.3
+49.0
+71.2
+44.8
+51.6
+68.8
+57.2
+
+31.4
+95.9
+55.9
+42.6
+48.2
+70.7
+44.2
+51.7
+68.5
+56.6
+
+When bilinear interpolation is used to enlarge the feature map, we investigate the influence of
+feature maps with different magnifications on detection results. Among the comparison experiments
+with amplification multiples of 1.5, 2.0, 2.5, and 3.0, feature amplification by bilinear interpolation with
+multiples of 2.0 increases the most detection accuracy, with about 2% mAP for both horizontal and
+oriented vehicles.
+At the same time, we use the nearest neighbor interpolation method of 2.0 to perform amplification
+experiments on feature maps. The nearest neighbor amplification method shows lower accuracy than
+of the method without feature map amplification since it will cause a jagged effect on the enlarged
+feature map, which is not beneficial to representing truck, car, others, and tractor.
+6. Conclusions
+Vehicle detection is difficult for remote sensing images because of the limited size and class
+imbalance. To enhance the vehicle detection results, we propose an oriented vehicle detection method
+for aerial images consisting of three indispensable parts, namely oversampling and stitching data
+augmentation method, amplifying the feature map and a joint training loss function for horizontal
+and oriented bounding boxes with the center loss. Three parts are aimed to address the problem
+of foreground-foreground category imbalance, the reduced discriminative ability of features caused
+by pooling operation and small inter-class diversity between types of oriented vehicles respectively.
+The experiments on the VEDAI dataset can draw the following conclusions.
+(1)
+
+(2)
+
+The proposed framework outperforms most of previous vehicle detection approaches. The method
+proposed in this paper can effectively detect oriented vehicles with a 8% higher mAP than the
+original Faster RCNN approach.
+The proposed oversampling and stitching data augmentation method is an effective way to
+address class imbalance. The datasets combining oversampling and stitching data augmentation
+
+Remote Sens. 2020, 12, 2558
+
+(3)
+(4)
+
+19 of 21
+
+with rotation augmentation can improve about 3% mAP since they can increase the number
+of effective samples in the network and reduce the imbalance between vehicle categories to a
+certain extent.
+The amplified feature map makes the network better distinguish different categories of vehicles
+by about 3% mAP.
+The multi-task loss function can get the horizontal and oriented detection results simultaneously
+and the center loss can improve the accuracy since it can reduce the intra-class diversity of the
+vehicle categories to a certain extent.
+
+Although the mAP can be improved by the proposed method compared with the Faster RCNN
+method, the overall precision ratio is still low. That is mainly because a large number of background
+objects are wrongly detected as foreground objects. In the future, we will study how to increase the
+ability of features to distinguish small objects.
+Author Contributions: Conceptualization, N.M.; methodology, N.M.; writing—original draft preparation, N.M.;
+writing—review and editing, N.M.; supervision, L.Y.; funding acquisition, L.Y. All authors have read and agreed
+to the published version of the manuscript.
+Funding: This research was funded by The National Key Research and Development Program of China under
+grant no. 2017YFC0803801.
+Conflicts of Interest: The authors declare no conflict of interest.
+
+References
+1.
+2.
+3.
+4.
+
+5.
+6.
+7.
+8.
+
+9.
+
+10.
+
+11.
+12.
+
+Sun, Z.; Bebis, G.; Miller, R. On-road vehicle detection: A review. IEEE Trans. Pattern Anal. Mach. Intell. 2006,
+28, 694–711. [CrossRef]
+Fan, Q.F.; Brown, L.; Smith, J. A closer look at Faster R-CNN for vehicle detection. IEEE Intell. Veh. Symp. (IV)
+2016, 124–129. [CrossRef]
+Dai, X. Hybridnet: A fast vehicle detection system for autonomous driving. Signal Process Image Commun.
+2019, 70, 79–88. [CrossRef]
+Gleason, J.; Nefian, A.V.; Bouyssounousse, X.; Fong, T.; Bebis, G. Vehicle detection from aerial imagery.
+In Proceedings of the IEEE International Conference on Robotics and Automation (ICRA), Shanghai, China,
+9–13 May 2011; pp. 2065–2070.
+Fang, J.; Zhou, Y.; Yu, Y.; Du, S. Fine-grained vehicle model recognition using a coarse-to-fine convolutional
+neural network architecture. IEEE Trans. Intell. Transp. Syst. 2016, 18, 1782–1792. [CrossRef]
+Razakarivony, S.; Jurie, F. Vehicle detection in aerial imagery: A small target detection benchmark. J. Vis.
+Commun. Image Represent 2016, 34, 187–203. [CrossRef]
+Cheng, G.; Han, J. A survey on object detection in optical remote sensing images. ISPRS J. Photogram.
+Remote Sens. 2016, 117, 11–28. [CrossRef]
+Viola, P.; Jones, M. Rapid object detection using a boosted cascade of simple features. In Proceedings of the
+2001 IEEE Computer Society Conference on Computer Vision and Pattern Recognition, Kauai, HI, USA, 8–14
+December 2001; pp. 511–518. [CrossRef]
+Csurka, G.; Dance, C.; Fan, L.; Willamowski, J.; Bray, C. Visual categorization with bags of keypoints.
+In Proceedings of the Workshop on Statistical Learning in Computer Vision, ECCV, Prague, Czech Republic,
+10–16 May 2004; pp. 1–2.
+Felzenszwalb, P.; McAllester, D.; Ramanan, D. A discriminatively trained, multiscale, deformable part model.
+In Proceedings of the 2008 IEEE Conference on Computer Vision and Pattern Recognition, Anchorage, AK,
+USA, 23–28 June 2008; pp. 1–8.
+Dalal, N.; Triggs, B. Histograms of oriented gradients for human detection. In Proceedings of the 2005 IEEE
+Computer Vision and Pattern Recognition, San Diego, CA, USA, 20–25 June 2005; pp. 886–893.
+Liu, W.; Anguelov, D.; Erhan, D.; Szegedy, C.; Reed, S.; Fu, C.-Y.; Berg, A.C. SSD: Single shot multibox
+detector. In Proceedings of the European Conference on Computer Vision, Amsterdam, The Netherlands,
+8–16 October 2016; pp. 21–37.
+
+Remote Sens. 2020, 12, 2558
+
+13.
+
+14.
+15.
+16.
+17.
+
+18.
+
+19.
+20.
+
+21.
+22.
+
+23.
+
+24.
+25.
+26.
+
+27.
+28.
+29.
+30.
+
+31.
+32.
+
+33.
+34.
+
+20 of 21
+
+Redmon, J.; Divvala, S.; Girshick, R.; Farhadi, A. You only look once: Unified, real-time object detection.
+In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, Las Vegas, NV, USA,
+27–30 June 2016; pp. 779–788.
+Redmon, J.; Farhadi, A. YOLO9000: Better, faster, stronger. In Proceedings of the IEEE Conference on
+Computer Vision and Pattern Recognition, Honolulu, HI, USA, 21–26 July 2017; pp. 7263–7271.
+Redmon, J.; Farhadi, A. Yolov3: An incremental improvement. arXiv 2018, arXiv:1804.02767.
+Bochkovskiy, A.; Wang, C.Y.; Liao, H.Y.M. YOLOv4: Optimal speed and accuracy of object detection. arXiv
+2020, arXiv:2004.10934.
+Girshick, R.; Donahue, J.; Darrell, T.; Malik, J. Rich feature hierarchies for accurate object detection and
+semantic segmentation. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition,
+Columbus, OH, USA, 23–28 June 2014; pp. 580–587.
+He, K.; Zhang, X.; Ren, S.; Sun, J. Spatial pyramid pooling in deep convolutional networks for
+visual29recognition. In Proceedings of the European Conference on Computer Vision, Zurich, Switzerland,
+6–12 September 2014; pp. 346–361.
+Girshick, R. Fast r-cnn. In Proceedings of the IEEE International Conference on Computer Vision, Santiago,
+Chile, 13–16 December 2015; pp. 1440–1448.
+Ren, S.; He, K.; Girshick, R.; Sun, J. Faster r-cnn: Towards real-time object detection with region proposal
+networks. In Proceedings of the Advances in Neural Information Processing Systems, Montreal, QC, Canada,
+7–12 December 2015; pp. 91–99.
+Oksuz, K.; Cam, B.C.; Kalkan, S.; Akbas, E. Imbalance problems in object detection: A review. IEEE Trans.
+Pattern Anal. Mach. Intell. 2020. [CrossRef]
+Ouyang, W.; Wang, X.; Zhang, C.; Yang, X. Factors in finetuning deep model for object detection with long-tail
+distribution. In Proceedings of the IEEE Conference on Computer Vision & Pattern Recognition, Las Vegas,
+NV, USA, 26–30 June 2016; pp. 864–873.
+Oksuz, K.; Cam, B.C.; Akbas, E.; Kalkan, S. Generating positive bounding boxes for balanced training
+of object detectors. In Proceedings of the IEEE Winter Conference on Applications of Computer Vision,
+Snowmass village, CO, USA, 1°C5 March 2020; pp. 894–903.
+Wang, H.; Wang, Q.; Yang, F.; Zhang, W.; Zuo, W. Data augmentation for object detection via progressive and
+selective instance-switching. arXiv 2019, arXiv:1906.00358.
+Ji, H.; Gao, Z.; Mei, T.; Ramesh, B. Vehicle detection in remote sensing images leveraging on simultaneous
+super-resolution. IEEE Geosci. Remote Sens. Lett. 2020, 17, 676–680. [CrossRef]
+Singh, B.; Davis, L.S. An analysis of scale invariance in object detection snip. In Proceedings of the
+IEEE Conference on Computer Vision and Pattern Recognition, Salt Lake City, UT, USA, 18–22 June 2018;
+pp. 3578–3587.
+Mostofa, M.; Ferdous, S.N.; Riggan, B.S.; Nasrabadi, N.M. Joint-Srvdnet: Joint super resolution and vehicle
+detection network. IEEE Access 2020, 8, 82306–82319. [CrossRef]
+Tayara, H.; Soo, K.G.; Chong, K.T. Vehicle detection and counting in high-resolution aerial images using
+convolutional regression neural network. IEEE Access 2018, 6, 2220–2230. [CrossRef]
+Mandal, M.; Shah, M.; Meena, P.; Devi, S.; Vipparthi, S.K. AVDNet: A small-sized vehicle detection network
+for aerial visual data. IEEE Geosci. Remote Sens. Lett. 2020, 17, 494–498. [CrossRef]
+Lin, T.Y.; Dollár, P.; Girshick, R.; He, K.; Hariharan, B.; Belongie, S. Feature pyramid networks for object
+detection. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, Honolulu,
+HI, USA, 21–26 July 2017; pp. 2117–2125.
+Li, K.; Cheng, G.; Bu, S.; You, X. Rotation-insensitive and context-augmented object detection in remote
+sensing images. IEEE Trans. Geosci. Remote Sens. 2018, 56, 2337–2348. [CrossRef]
+Mo, N.; Yan, L.; Zhu, R.; Xie, H. Class-specific anchor based and context-guided multi-class object detection
+in high resolution remote sensing imagery with a convolutional neural network. Remote Sens. 2019, 11, 272.
+[CrossRef]
+Deng, Z.; Sun, H.; Zhao, J.; Lei, L.; Zou, H.; Zhou, S. Multi-scale object detection in remote sensing imagery
+with convolutional neural networks. ISPRS J. Photogram. Remote Sens. 2017, 145, 3–22. [CrossRef]
+Wen, Y.; Zhang, K.; Li, Z.; Qiao, Y. A discriminative feature learning approach for deep face recognition.
+In Proceedings of the European Conference on Computer Vision, Amsterdam, The Netherlands, 11–14
+October 2016; pp. 499–515.
+
+Remote Sens. 2020, 12, 2558
+
+35.
+36.
+
+37.
+38.
+39.
+
+40.
+
+21 of 21
+
+Ma, J.; Shao, W.; Ye, H.; Wang, L.; Wang, H.; Zheng, Y.; Xue, X. Arbitrary-oriented scene text detection via
+rotation proposals. IEEE Trans. Multimedia 2018, 20, 3111–3122. [CrossRef]
+Yang, X.; Sun, H.; Fu, K.; Yang, J.; Sun, X.; Yan, M.; Guo, Z. Automatic ship detection in remote sensing
+images from google earth of complex scenes based on multiscale rotation dense feature pyramid networks.
+Remote Sens. 2018, 10, 132. [CrossRef]
+Ding, J.; Xue, N.; Long, Y.; Xia, G.S.; Lu, Q. Learning roi transformer for detecting oriented objects in aerial
+images. arXiv 2018, arXiv:1812.00155.
+He, K.; Zhang, X.; Ren, S. Deep residual learning for image recognition. In Proceedings of the IEEE Conference
+on Computer Vision & Pattern Recognition, Las Vegas, NV, USA, 27–30 June 2016; pp. 770–778.
+Yang, X.; Sun, H.; Sun, X.; Yan, M.; Guo, Z.; Fu, K. Position detection and direction prediction for
+arbitrary-oriented ships via multitask rotation region convolutional neural network. IEEE Access 2018, 6,
+50839–50849. [CrossRef]
+Deng, J.; Dong, W.; Socher, R.; Li, L.-J.; Li, K.; Fei-Fei, L. ImageNet: A large-scale hierarchical image database.
+In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), Miami, FL,
+USA, 20–25 June 2009; pp. 248–255.
+© 2020 by the authors. Licensee MDPI, Basel, Switzerland. This article is an open access
+article distributed under the terms and conditions of the Creative Commons Attribution
+(CC BY) license (http://creativecommons.org/licenses/by/4.0/).
+
+

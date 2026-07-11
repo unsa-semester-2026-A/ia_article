@@ -1,0 +1,3991 @@
+arXiv:2412.00348v2 [cs.CV] 28 Jun 2025
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+WEI ZHOU, School of Automation, Nanjing University of Science and Technology, China
+LI YANG, School of Automation, Nanjing University of Science and Technology, China
+LEI ZHAO, School of Transportation, Southeast University, China
+RUNYU ZHANG, School of Transportation, Southeast University, China
+YIFAN CUI, School of Transportation, Southeast University, China
+HONGPU HUANG, School of Transportation, Southeast University, China
+KUN QIE, Beijing Laboratory of General Aviation Technology, Beijing University of Civil Engineering and Architecture, China
+CHEN WANG∗ , School of Transportation, Southeast University, China
+Traffic Surveillance Systems (TSS) have become increasingly crucial in modern intelligent transportation systems, with vision technologies playing a central
+role for scene perception and understanding. While existing surveys typically focus on isolated aspects of TSS, a comprehensive analytical framework
+bridging low-level and high-level perception tasks, particularly considering emerging technologies, remains lacking. This paper presents a systematic
+review of vision technologies in TSS, examining both low-level perception tasks (object detection, classification, and tracking) and high-level perception
+tasks (parameter estimation, anomaly detection, and behavior understanding). Specifically, we first provide a detailed methodological categorization and
+comprehensive performance evaluation for each task. Our investigation reveals five fundamental limitations in current TSS: perceptual data degradation in
+complex scenarios, data-driven learning constraints, semantic understanding gaps, sensing coverage limitations and computational resource demands. To
+address these challenges, we systematically analyze five categories of current approaches and potential trends: advanced perception enhancement, efficient
+learning paradigms, knowledge-enhanced understanding, cooperative sensing frameworks and efficient computing frameworks, critically assessing their
+real-world applicability. Furthermore, we evaluate the transformative potential of foundation models in TSS, which exhibit remarkable zero-shot learning
+abilities, strong generalization, and sophisticated reasoning capabilities across diverse tasks. This review provides a unified analytical framework bridging
+low-level and high-level perception tasks, systematically analyzes current limitations and solutions, and presents a structured roadmap for integrating
+emerging technologies, particularly foundation models, to enhance TSS capabilities.
+CCS Concepts: • General and reference → Surveys and overviews; • Applied computing → Surveillance mechanisms; Transportation; •
+Computing methodologies → Computer vision.
+Additional Key Words and Phrases: Traffic surveillance systems, computer vision, foundation models, intelligent transportation, scene understanding
+ACM Reference Format:
+Wei Zhou, Li Yang, Lei Zhao, Runyu Zhang, Yifan Cui, Hongpu Huang, Kun Qie, and Chen Wang. 2024. Vision Technologies with Applications in Traffic
+Surveillance Systems: A Holistic Survey. 1, 1 (July 2024), 35 pages. https://doi.org/XXXXXXX.XXXXXXX
+
+1
+
+INTRODUCTION
+
+Traffic Surveillance Systems (TSS) play a crucial role in Intelligent Transportation Systems (ITS), enabling comprehensive perception and
+analysis of traffic scenarios. While ITS employs various sensing technologies, including inductive loops, microwaves, radar, and LiDAR,
+∗
+
+Prof. Chen Wang is the corresponding author of this paper.
+
+Authors’ addresses: Wei Zhou, weizhou@njust.edu.cn, School of Automation, Nanjing University of Science and Technology, Nanjing, 210094, China; Li Yang, yangli945@njust.
+edu.cn, School of Automation, Nanjing University of Science and Technology, Nanjing, 210094, China; Lei Zhao, lei_zhao@seu.edu.cn, School of Transportation, Southeast
+University, Nanjing, 211189, China; Runyu Zhang, ry01@seu.edu.cn, School of Transportation, Southeast University, Nanjing, 211189, China; Yifan Cui, 220243469@seu.edu.cn,
+School of Transportation, Southeast University, Nanjing, 211189, China; Hongpu Huang, 220223065@seu.edu.cn, School of Transportation, Southeast University, Nanjing, 211189,
+China; Kun Qie, qiekun@stu.bucea.edu.cn, Beijing Laboratory of General Aviation Technology, Beijing University of Civil Engineering and Architecture, Beijing, 100044, China;
+Chen Wang, chen_david_wang@seu.edu.cn, School of Transportation, Southeast University, Nanjing, 211189, China.
+Permission to make digital or hard copies of all or part of this work for personal or classroom use is granted without fee provided that copies are not made or distributed for profit
+or commercial advantage and that copies bear this notice and the full citation on the first page. Copyrights for components of this work owned by others than ACM must be
+honored. Abstracting with credit is permitted. To copy otherwise, or republish, to post on servers or to redistribute to lists, requires prior specific permission and/or a fee. Request
+permissions from permissions@acm.org.
+© 2024 Association for Computing Machinery.
+Manuscript submitted to ACM
+
+Manuscript submitted to ACM
+
+1
+
+2
+
+Wei Zhou et al.
+
+surveillance cameras have emerged as the predominant choice for traffic monitoring. This preference is primarily attributed to cameras’
+unique advantages in providing continuous, high-resolution visual data with rich semantic information about traffic participants and
+infrastructure [1]. These distinctive capabilities have established cameras as the cornerstone of modern traffic perception technologies.
+Vision technologies constitute the foundation of TSS by providing real-time traffic scene understanding and analysis. These technologies
+have evolved along two distinct approaches: traditional image processing methods and modern deep learning techniques. Traditional
+image processing methods rely on manually designed algorithms (e.g., SIFT and SURF) to extract predefined features from images. While
+effective for basic tasks, these methods often struggle with complex real-world scenarios. In contrast, deep learning approaches, particularly
+those based on convolutional neural networks (CNNs) [2] and Vision Transformer (ViT) [3], represent a significant advancement in vision
+technologies. These models automatically learn to extract and analyze complex visual patterns directly from raw data, eliminating the
+need for hand-crafted features. The superiority of deep learning methods in TSS applications stems from their enhanced adaptability
+to challenging conditions (varying lighting, weather, and occlusions) and relatively robust performance in complex scenarios. These
+advantages have established deep learning as the predominant approach in modern TSS development.
+Existing deep learning-based vision techniques in TSS generally operate at two distinct levels of traffic perception: low-level and highlevel tasks. At the foundational level, low-level perception handles basic but crucial tasks such as object detection, classification, and tracking
+to extract fundamental information about traffic elements, including their location, category, and movement patterns. Building upon
+this foundation, high-level perception focuses on understanding more challenging traffic scenarios and behaviors through sophisticated
+applications like traffic parameter estimation, anomaly detection, and behavior understanding. These advanced tasks rely heavily on data
+gathered from low-level tasks, such as trajectories. Recently, the integration of foundation models, such as Large Language Models (LLMs, e.g.,
+ChatGPT 3.5), Large Vision Models (LVMs, e.g., Segment Anything Model [4]) and Vision-Language Models (VLMs, e.g., CLIP [5], GPT-4V),
+has opened new possibilities for achieving even more accurate and sophisticated high-level traffic perception, analysis and comprehension.
+While significant scholarly attention has resulted in numerous review papers on vision-based TSS [6–13], a comprehensive analysis
+bridging different perception levels and incorporating the latest technological advancements remains a critical gap. Existing surveys often
+exhibit limitations: (1) Fragmented Scope: Many adopt a narrow focus, concentrating either on low-level tasks like detection and tracking
+[8, 12, 13] or specific high-level applications such as traffic anomaly detection [7], failing to provide a holistic view of the interconnected
+TSS pipeline. (2) Lack of Methodological Depth: Current reviews frequently lack detailed comparative analysis of methodological approaches
+within task categories, limiting insights into the relative strengths and weaknesses of different techniques. (3) Omission of Emerging
+Technologies: The transformative potential of foundation models (e.g., LLMs, LVMs, VLMs) in enhancing high-level traffic perception and
+understanding is often inadequately addressed or entirely omitted.
+Our survey directly addresses these gaps and offers unique contributions by: (a) Providing a Unified Framework: We systematically examine
+both low-level and high-level perception tasks within a cohesive structure, bridging the gap left by fragmented reviews. (b) Emphasizing
+Methodological Analysis: We offer detailed taxonomies and comparative performance analyses for each task category, evaluating the
+advantages and limitations of state-of-the-art approaches, thereby providing deeper technical insights than typically found. (c) Investigating
+Foundation Models: We dedicate significant focus to an in-depth investigation of foundation models, exploring their specific capabilities
+and potential to revolutionize TSS, a critical area often overlooked. Through this comprehensive and methodologically rigorous approach,
+our paper aims to deliver a more holistic and forward-looking perspective on the field. In summary, the main contributions of this paper
+are as follows:
+(1) We conduct an in-depth investigation of foundation models in traffic perception, analyzing their distinctive capabilities (e.g., zeroshot learning, semantic understanding, and scene generation) and their transformative potential in advancing TSS applications.
+(2) Building upon the analysis of current TSS techniques and application limitations, we develop a systematic roadmap that identifies
+critical challenges and proposes specific technical innovations for future development, offering practical guidance for both researchers
+and practitioners.
+(3) We provide a comprehensive review of vision-based tasks in TSS (up to 2025), categorizing them into low-level and high-level tasks.
+For each category, we present a detailed methodological taxonomy, performance analysis of state-of-the-art approaches, and an
+evaluation of their advantages and limitations.
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+3
+
+Main input
+
+3.2 Classification
+
+3.1 Detection
+
+Images
+
+3.3 Tracking
+
+Videos
+
+Auxiliary input
+
+Vision Technologies with Applications in Traffic Surveillance Systems
+
+Section 3 Low-level Traffic Perception
+
+2D detection
+
+Vehicle model recognition
+
+3D detection
+
+Input
+
+Single-object tracking
+
+Multi-object tracking
+
+Section 4 High-level Traffic Perception
+
+Cloud point
+
+Text
+
+Vehicle Re-ID
+
+4.1 Traffic Parameter Estimation
+
+4.2 Traffic Anomaly Detection
+
+4.3 Traffic Behavior Understanding
+Crossing probability : 0.85
+
+Traffic Surveillance Systems
+
+Camera calibration Speed estimation Vehicle counting
+
+Weakly supervised
+
+Unsupervised
+
+Vehicle behavior
+recognition
+
+Trajectory
+prediction
+
+Section 5 Limitation Analysis and Future Outlook
+
+Output
+
+5.1 Limitation Overview
+
+5.2 Current Solutions and Potential Trends
+
+Source
+
+5.3 Foundation Model Prospects
+
+few
+
+Known
+information
+
+Location
+
+Trajectory
+
+Intention
+prediction
+
+Unknown
+
+Category
+
+Data degradation
+
+Model
+
+Multi-camera
+coordination
+
+Perception enhancement
+
+Data-efficient learning
+
+instruction
+
+Assign
+Category
+
+Visual question answering
+
+Open-vocabulary detection
+
+Adapt
+
+Prediction
+
+Anomaly
+
+Comprehension
+
+Semantic
+understanding gap
+
+Computational
+resource demands
+
+Data-driven
+constraints
+
+Knowledge-enhanced
+understanding
+
+Cooperative
+sensing
+
+Efficient
+computing
+
+No/few data
+
+Zero/Few-shot learning
+
+Multi-modal
+complementarity
+
+World models
+
+Fig. 1. Overview of vision-based TSS: core components and future prospects
+
+2
+
+OVERVIEW
+
+This paper is organized into three main sections that progressively explore the application of vision technologies in TSS, as illustrated
+in Figure 1. Section 3 focuses on Low-level Traffic Perception Tasks, covering three fundamental aspects: 2D/3D detection, classification
+(including vehicle model recognition and vehicle Re-ID), and tracking (encompassing both single-object and multi-object tracking). Section
+4 examines High-level Traffic Perception Tasks through three advanced categories: parameter estimation (including camera calibration,
+speed estimation, and vehicle counting), anomaly detection (covering weakly supervised and unsupervised approaches), and behavior
+understanding (comprising vehicle behavior recognition, vehicle/pedestrian trajectory prediction, and intention prediction). Section 5,
+Limitation Analysis and Future Outlook, first analyzes the limitations of current vision technologies in TSS scenarios, then reviews current
+solutions and potential trends from advanced perception technologies addressing these constraints, and concludes with future prospects
+centered on the distinctive capabilities of foundation models, including zero/few-shot learning, open-vocabulary detection, visual question
+answering, multimodal complementarity, and physical scene reasoning through world models.
+3
+
+LOW-LEVEL TRAFFIC PERCEPTION TASKS
+
+In TSS, low-level traffic perception encompasses three key tasks: detection, classification, and tracking. These tasks are fundamental in
+obtaining essential attributes of traffic elements, such as their location, category, and trajectory.
+3.1
+
+Detection
+
+In TSS, detection involves identifying and localizing traffic elements within visual data. As shown in Figure 2, this process typically involves
+drawing either two-dimensional (2D) or three-dimensional (3D) bounding boxes around objects while assigning category labels.
+3.1.1 2D Detection. Modern 2D detection algorithms in TSS can be categorized as two-stage [14, 15] or one-stage detectors [16–18], each
+with distinct performance characteristics and deployment considerations.
+Two-stage detectors [14, 15] (Faster R-CNN [19], Cascade R-CNN [20]) achieve higher accuracy in complex traffic scenes with diverse
+object sizes but at the cost of inference speed. Their sequential proposal-then-classification approach introduces latency (typically 2-3×
+
+4
+
+Wei Zhou et al.
+
+3D detection
+2D detection
+
+Geometric
+-based
+MonoDLE
+
+Direct estimation
+-based
+MonoFlex
+MonoUNI
+BEVHeight
+
+KM3D
+
+AlexNet
+
+2012
+
+One-stage
+(Anchor-free)
+
+One-stage
+(Anchor-based)
+
+Two-stage
+
+Dubská et al.
+FCOS
+CornerNet
+CenterNet
+Faster R-CNN
+
+Cascade R-CNN
+
+RetinaNet YOLO V3
+
+SSD
+
+2014
+
+2016
+
+2018
+
+M3D-RPN
+
+Chen et al.
+Kocur et al.
+DETR
+Swin
+Transformer
+RT -DETR
+
+Deformable
+DETR
+Sparse R-CNN
+
+YOLO V5 CenterNet2
+
+2020
+
+YOLO V8 YOLO V10
+
+2022
+
+2024
+
+Fig. 2. Evolution and categorization of mainstream methods for 2D/3D detection
+
+slower than one-stage methods), making them less suitable for real-time applications with limited computational resources. However, they
+remain valuable for offline video analysis and scenarios where detection quality outweighs speed requirements, particularly for small
+objects like distant vehicles or pedestrians in dense urban environments [21].
+One-stage detectors prioritize efficiency through simultaneous box prediction and classification. Anchor-based methods (YOLO series
+[22–24], SSD [25]) offer mature implementations with efficient inference in standard conditions but show performance degradation in
+scenes with unusual object orientations, extreme scale variations, or densely packed objects due to their reliance on predefined anchor
+configurations. In contrast, anchor-free approaches provide greater flexibility for diverse object shapes. CNN-based variants (FCOS [26],
+CenterNet [27]) offer better speed-accuracy trade-offs for edge devices, while transformer-based detectors (DETR [28], RT-DETR [29])
+demonstrate superior detection quality for complex scenes but require more computational resources.
+Current development trends reveal a clear evolution from accuracy-focused two-stage approaches toward efficiency-oriented architectures, with transformer-based methods emerging as a promising middle ground that balances detection quality and computational demands.
+However, persistent challenges remain in achieving robust performance across diverse traffic conditions, maintaining accuracy for smallscale objects in real-time scenarios, and developing unified architectures that can adapt to varying computational constraints [16, 30, 31].
+3.1.2 3D Detection. 3D detection in TSS generates bounding boxes reflecting objects’ real-world positions. While vehicle-mounted
+approaches have advanced significantly, surveillance camera-based systems face distinct challenges requiring critical evaluation of
+methodology trade-offs. Current approaches fall into geometric-based and direct estimation-based categories [32], each with significant
+performance implications in real-world settings.
+Geometric-based methods leverage scene constraints to determine object depth and orientation. Approaches using vanishing points
+[33], image transformation with 2D detection [34], or homography mapping [35] can achieve reasonable accuracy in idealized conditions.
+However, their real-world performance varies dramatically with scene characteristics. These methods excel in structured environments with
+clear lane markings but degrade significantly in complex intersections or scenes with occlusion. Their sensitivity to calibration errors makes
+them unsuitable for dynamic surveillance environments where cameras may shift or when deployed across heterogeneous camera networks.
+Direct estimation-based methods utilize deep learning to predict 3D attributes directly from images, potentially offering greater robustness
+and bypassing explicit calibration needs in end-to-end models, given sufficient data. This category includes adaptations of autonomous
+driving models like KM3D [36] for surveillance [32], and benchmarks such as Rope3D [37] evaluating methods like M3D-RPN [38],
+MonoDLE [39], and MonoFlex [40]. Nevertheless, these methods heavily depend on large-scale datasets with accurate 3D annotations,
+which are scarce for diverse surveillance scenarios, and can be computationally intensive and less interpretable than geometric techniques.
+Recent advances focus on mitigating specific issues, such as height-based methods improving depth estimation [41] (Figure 3) or unified
+models like MonoUNI [42] handling vehicle and infrastructure detection via normalized depth optimization.
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+(a) A surveillance
+scene
+
+5
+
+(c) Height-based Method
+
+(b) Depth-based Method
+
+BYD Seal
+
+BMW 2 Series
+
+Audi Q3
+
+BYD Seal DMI
+
+BMW 3 Series
+
+Audi Q5
+
+BYD Sea Lion
+
+BMW 5 Series
+
+Audi Q7
+
+(a) Vehicle Model Recognition
+
+Global
+Auxiliary
+Local featuresfeatures-based
+information based
+based
+
+Fig. 3. Depth-based methods fall short in accurately detecting vehicles that are either moving at high speeds or are situated far from the camera. In
+contrast, height-based methods can effectively address these limitations [41]
+
+(b) Cross-camera Vehicle Re-ID
+
+(c) Categorization of Vehicle Re-ID Techniques
+
+Fig. 4. Schematic diagram of (a) vehicle model recognition; (b) cross-camera vehicle re-identification; (c) categorization of vehicle Re-ID techniques.
+
+3.2
+
+Classification
+
+Classification in TSS extends beyond basic categorization to fine-grained vehicle model recognition and cross-camera vehicle re-identification
+(Re-ID), as shown in Figure 4.
+3.2.1 Vehicle model recognition. Classification in TSS extends beyond basic categorization to fine-grained vehicle model recognition and
+cross-camera vehicle re-identification (Re-ID), as shown in Figure 4.
+Similarly, VLR evolved from handcrafted features (SIFT, HOG, LBP) [43–45] to deep learning models [46–48]. The critical trade-off here
+involves detection accuracy versus computational efficiency. Traditional approaches work adequately in controlled environments with
+frontal views but fail dramatically when logos appear at oblique angles or under partial occlusion. Deep learning models demonstrate
+greater robustness to these variations but at considerably higher computational cost. Hybrid approaches like MLPNL [49] offer a pragmatic
+middle ground, balancing reasonable accuracy with lower resource requirements, making them particularly suitable for deployments with
+limited processing capabilities.
+3.2.2 Vehicle re-identification. Vehicle re-identification (Re-ID) matches vehicles across different camera views, with methods categorized
+as global feature-based, local feature-based, or auxiliary information-based (Figure 4 (c)).
+Global feature-based methods [50, 51] extract holistic vehicle representations. Their architecture simplicity enables efficient implementation and faster inference times, making them suitable for systems where computational resources are constrained. However, they struggle
+with fine-grained discrimination between similar vehicle models and colors—a critical limitation in real-world scenarios where many
+vehicles share near-identical appearances.
+Local feature-based approaches [52–54] address this by focusing on discriminative vehicle parts. These methods achieve higher accuracy
+when distinctive features (license plates, roof racks, stickers) are visible. However, their performance becomes inconsistent across different
+camera networks with varying angles and resolutions. Combined approaches like GiT [55] attempt to mitigate these limitations by
+integrating both perspectives but introduce additional model complexity.
+
+6
+
+Wei Zhou et al.
+（b) Siamese network-based SOT
+method
+
+（a) Correlation filter-based SOT method
+Feature
+Extractor
+
+∗
+
+Template
+image
+
+Response map
+
+2012
+
+2014
+
+2016
+
+CSRDCF
+
+CRCDCF
+
+MEGTCF
+
+2020
+
+2022
+
+2018
+
+2024
+
+Search image
+
+Timeline
+
+Timeline
+
+correlation filter
+KCF Staple
+
+∗
+
+Correlation
+
+correlation filter update
+
+Feature
+Extractor
+
+CSK
+
+Same
+
+Embedding
+model
+
+Siamese
+FC
+
+Siamese
+RPN
+
+SiameBAN
+SiameAttn
+
+2016
+
+2018
+
+2020
+
+Siam
+CAM SiamST SiamDMU
+2024
+
+2022
+
+(d) Joint detection and embedding MOT method
+
+(c) Separate detection and tracking MOT method
+
+Detection
+results
+
+Timeline
+
+SORT DeepSORT
+2016
+
+2018
+
+Tracktor
+Tracktor++
+
+Embedding
+model
+
+BYTE Strong
+Track SORT++ SMILEtrack
+
+2020
+
+2022
+
+JDE
+model
+
+Embedding
+
+2024
+
+Timeline
+
+Detection
+results
+
+Detector
+
+JDE
+
+FairMOT
+
+2019
+
+2020
+
+Embedding
+TrackFormer
+2021
+
+MeMOT
+
+MeMOTR
+
+2022
+
+2023
+
+Fig. 5. Pipeline and timeline of methodological development for (a) Correlation filter-based SOT methods; (b) Siamese network-based SOT methods; (c)
+Separate detection and tracking MOT methods; (d) Joint detection and embedding MOT methods.
+
+Auxiliary information-based methods incorporate viewpoint-specific metrics (VANet [56]), orientation conditioning [57], attribute
+extraction (AttributeNet [58]), or semantic information (SOFCT [59]). While these demonstrate superior performance in challenging
+cross-camera scenarios with extreme viewpoint and lighting variations, their real-world applicability is constrained by the availability
+of additional annotations during training and potential domain gaps when deployed across different traffic surveillance networks. The
+performance advantage of these methods diminishes significantly when auxiliary information is limited or unavailable, raising concerns
+about their generalizability across diverse deployment settings.
+3.3
+
+Tracking
+
+Tracking in TSS monitors objects’ movement across video frames, divided into Single-Object Tracking (SOT) and Multiple-Object Tracking
+(MOT) approaches.
+3.3.1 Single-object tracking. SOT methods follow a specific target throughout a video sequence, primarily using correlation filter-based or
+siamese network-based approaches (Figure 5 (a-b)).
+Correlation filter-based methods ([60–62]) update appearance filters iteratively, offering computational efficiency suitable for resourceconstrained surveillance hardware. However, they demonstrate significant performance degradation in common traffic scenarios with
+occlusions and illumination variations. Their adaptive nature leads to error accumulation during extended tracking, making them less
+reliable for prolonged surveillance without periodic reinitialization.
+Siamese network-based approaches [63] employ deep learning for similarity measurement, with advancements in region proposals
+[64], attention mechanisms [65], and spatiotemporal modeling [66]. They show superior robustness to appearance changes but require
+substantial computational resources, limiting real-time performance on edge devices. Their accuracy drops when tracking small, distant
+objects or in adverse weather conditions absent from training data.
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+7
+
+3.3.2 Multi-object tracking. Multiple Object Tracking (MOT) simultaneously tracks multiple targets in video sequences, essential for
+vehicle and pedestrian tracking in TSS. MOT methods are categorized into Separate Detection and Tracking (SDT) and Joint Detection and
+Embedding (JDE) paradigms, as shown in Figure 5(c-d).
+The SDT paradigm operates through object detection, feature extraction, and cross-frame tracking. SORT [67] combines Kalman filtering
+with Hungarian algorithm, while DeepSORT [68] adds deep feature representations. Recent advances include BYTETrack’s [69] two-stage
+association, StrongSORT++ [70]’s multi-aspect improvements, and SMILEtrack [71]’s self-attention mechanisms. However, this multi-stage
+process often incurs higher computational costs in terms of both processing time (latency/lower FPS) and memory usage (particularly GPU
+memory), as it involves running distinct models/algorithms sequentially. Furthermore, this approach is prone to error propagation from
+the detector.
+The JDE paradigm integrates detection and tracking in a unified framework. Following Wang et al.’s [72] pioneering JDE model,
+FairMOT [73] enhanced feature extraction through Deep Layer Aggregation. Recent Transformer-based approaches like TrackFormer [74]
+and MeMOTR [75] utilize self-attention for improved inter-target relationship modeling. While computationally efficient due to shared
+backbones and end-to-end training, this paradigm inherently offers less flexibility. The joint optimization can lead to a compromise where
+the learned features may not be optimal for either detection or re-identification (embedding) tasks individually, potentially capping the
+performance ceiling for each.
+
+3.4
+
+Performance Evaluation
+
+The evaluation of low-level perception tasks in TSS relies on comprehensive datasets and specialized metrics for each task. This section
+first details the datasets and evaluation metrics used for detection, classification, and tracking tasks, and then presents the results of some
+representative approaches.
+3.4.1 Datasets for low-level perception. In terms of detection tasks in TSS, representative datasets include UA-DETRAC [76], FreewayVehicle [77], MIO-TCD [78], and SEU_PML [16] for 2D detection, as well as BAAI-VANJEE [79], IPS300+ [80], A9-dataset [81], Rope3D
+[37], and DAIR-V2X [82] for 3D detection.
+In terms of classification tasks in TSS, representative datasets include Stanford Cars [83] and CompCars [84] for fine-grained vehicle
+classification, HFUT-VL [45], XMU [46], and VLD-45 [85] for vehicle logo recognition, as well as VehicleID [86], VeRI-776 [87], CityFlow
+[88], and VERI-Wild 2.0 [89] for vehicle Re-ID.
+In terms of tracking tasks in TSS, representative datasets include UAV123 [90] and VisDrone-SOT [91] for single object tracking (SOT),
+as well as UA-DETRAC [76], MOT [92], and VisDrone-MOT2019 [91] for multiple object tracking (MOT). More detailed statistics is shown
+in Table 1.
+3.4.2 Metrics and performance evaluation. Evaluation metrics for 2D and 3D detection share similar principles while differing in implementation details. For 2D object detection, commonly used metrics include IOU (Intersection Over Union), Precision, Recall, F1 Score,
+Average Precision (AP), and Mean Average Precision (mAP) [21].
+For 3D detection, similar metrics are adapted with 3D mAP and BEV (Bird’s Eye View) mAP being calculated using 3D IOU or BEV IOU
+respectively [93]. However, the evaluation emphasis differs significantly based on sensor modality: LiDAR-based 3D methods, benefiting
+from direct 3D point cloud measurements, are evaluated with strict focus on geometric precision, typically using higher IoU thresholds (e.g.,
+0.7). In contrast, image-based 3D methods (e.g., monocular or stereo) must infer depth and 3D structure, leading to evaluations that assess
+both 3D detection accuracy and depth estimation quality, often with more lenient IoU thresholds (e.g., 0.5) to account for inherent depth
+inference uncertainty. Notably, different domains employ specialized evaluation frameworks. For instance, the KITTI dataset [94], which
+provides benchmarks for both image-based and LiDAR-based 3D detection, uses the 11-point Interpolated Average Precision. The nuScenes
+dataset [95], utilizing a multi-modal sensor suite including LiDAR and cameras, implements a comprehensive framework including mAP
+and various True Positive metrics (e.g., ATE, ASE, AOE, AVE, AAE) that capture different facets of 3D detection accuracy. In Traffic
+Surveillance Systems, specialized metrics have emerged, as exemplified by the Rope3D dataset’s evaluation system for image-based longrange 3D detection, which includes metrics like ACS, AOS, AAS, AGD, and AGS [37].
+
+8
+
+Wei Zhou et al.
+
+Table 1. Overview of common datasets for 2D/3D detection, fine-grained vehicle classification (FGVC), vehicle logo recognition (VLR), vehicle Re-ID and single/multiple object
+tracking, including sensor details and TSS relevance. N/A denotes “Not applicable”. Size units: I (Images), V (Videos), O (Objects).
+
+Task
+
+Dataset
+
+Year
+
+Size
+(I; V; O)
+
+Class Num.
+
+Sensor Platform
+
+Key Characteristics & TSS Focus
+
+Link
+
+UA-DETRAC [76]
+
+2015
+
+140,000+ I
+
+4
+
+2019
+
+11,129 I
+
+3
+
+Varied illumination/occlusion; Robust vehicle
+detection/MOT
+High-speed and low-density freeway scenarios;
+Vehicle detection
+
+Link
+
+Freeway-Vehicle [77]
+
+MIO-TCD [78]
+
+2018
+
+786,702 I
+
+11
+
+Static (Surveillancelike, Roadside, China)
+Static (Freeway
+surveillance, China)
+Static (Traffic
+surveillance,
+Canada/USA)
+
+Diverse urban object classes; Multi-class
+vehicle detection
+
+Link
+
+SEU_PML [16]
+
+2023
+
+270,000 O
+
+13
+
+Static (Traffic
+surveillance, China)
+
+Link
+
+BAAI-VANJEE [79]
+
+2021
+
+7,500 I
+
+12
+
+Static (Infrastructure
+LiDAR/Cam, China)
+
+High-density urban scenarios with high-quality
+annotation; Traffic participant detection
+Challenging roadside infrastructure views in
+Chinese traffic; Roadside 3D detection, V2I
+applications
+
+IPS300+ [80]
+
+2022
+
+14,198 I
+
+7
+
+Crowded urban intersection covering area of
+3000m2; V2I, safety analysis
+
+Link
+
+A9-dataset [81]
+
+2022
+
+1,098 I
+
+9
+
+High-speed dynamic 3D scenes (motorway);
+Autonomous driving and V2I applications
+
+Link
+
+Rope3D [37]
+
+2022
+
+50k+ I
+
+13
+
+Link
+
+DAIR-V2X [82]
+
+2022
+
+71,254 I
+
+10
+
+Stanford Cars [83]
+
+2013
+
+16,185 I
+
+196
+
+CompCars [84]
+
+2015
+
+30,955 I
+
+431
+
+HFUT-VL [45]
+
+2018
+
+32,000 I
+
+80
+
+XMU [46]
+
+2015
+
+11,500 I
+
+10
+
+VLD-45 [85]
+
+2022
+
+45,000 I
+
+45
+
+VehicleID [86]
+
+2016
+
+221,763 I
+
+250
+
+VeRI-776 [87]
+
+2016
+
+49,357 I
+
+N/A
+
+CityFlow [88]
+
+2019
+
+229,680 I
+
+N/A
+
+VERI-Wild 2.0 [89]
+
+2021
+
+825,042 I
+
+N/A
+
+UAV123 [90]
+
+2016
+
+123 V
+
+N/A
+
+VisDrone-SOT [91]
+
+2019
+
+157 V
+
+N/A
+
+UA-DETRAC [76]
+
+2020
+
+100 V
+
+N/A
+
+VisDrone-MOT [91]
+
+2019
+
+79 V
+
+N/A
+
+First high-diversity challenging roadside 3D
+dataset; Long-range 3D detection
+First real-world vehicle-infrastructure
+collaborative dataset; Cooperative 3D
+perception (V2X)
+Many car classes, often photographed from the
+rear; Vehicle model recognition
+Rich vehicle attribute data (e.g., max speed,
+displacement, doors, seats, type); Vehicle
+attribute recognition
+Real-world surveillance imagery; Vehicle logo
+recognition, manufacturer identification
+Early benchmark with major manufacturers;
+Vehicle manufacturer recognition
+Variable logo sizes and perspectives; Vehicle
+logo recognition and detection
+Real-world surveillance data captured from a
+small Chinese city; Large-scale Re-ID
+Viewpoint/illumination changes with spatiotemporal annotations; Cross-camera Re-ID
+City-scale multi-camera Re-ID; Large-scale
+vehicle Re-ID
+Unconstrained environments with extreme
+appearance variations; Robust re-identification
+Aerial perspectives with long sequences; Aerial
+SOT
+Complex urban environments with small and
+occluded objects; City-wide SOT
+Varied illumination/occlusion; Robust vehicle
+detection/MOT benchmark
+Dense object distribution with diverse scenes;
+UAV-based and city-wide MOT
+
+MOT20 [92]
+
+2020
+
+8V
+
+N/A
+
+Extremely crowded scenes; Robust tracking in
+dense crowds
+
+Link
+
+2D Detection
+
+3D Detection
+
+FGVC
+
+VLR
+
+Vehicle Re-ID
+
+SOT
+
+MOT
+
+Static (Intersection
+Perception System,
+China)
+Static (Roadside
+Infrastructure LiDAR
+& Camera, Germany)
+Static (Roadside
+Cam/LiDAR, China)
+Static (Roadside);
+Moving (Vehicle)
+LiDAR/Cam (China)
+Static Viewpoints
+(General)
+Static Viewpoints
+(Internet &
+Surveillance Cams)
+Static (Traffic
+surveillance)
+Static (Traffic
+surveillance)
+Static Viewpoints
+(Internet)
+Static (Traffic
+surveillance)
+Static (Networked
+surveillance cams)
+Static (Networked
+surveillance cams, US)
+Static (Unconstrained
+surveillance cams)
+Moving (Drone/UAV
+cameras)
+Moving (Drone/UAV
+cameras)
+Static (Surveillancelike, Roadside, China)
+Moving (Drone/UAV
+cameras, China)
+Static & Moving
+Cams (Challenging
+MOT benchmark)
+
+Link
+
+Link
+
+Link
+Link
+Link
+Link
+Link
+Link
+Link
+Link
+Link
+Link
+Link
+Link
+Link
+Link
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+9
+
+For the task of fine-grained vehicle classification and vehicle logo recognition, common evaluation metrics primarily includes Accuracy
+(Acc) and Confusion Matrices (CM). For Re-ID tasks, main metrics include: RR (Rank Ratio), mAP (Mean Average Precision), and CMC
+(Cumulative Matching Characteristic) [96].
+SOT and MOT tracking tasks utilize different evaluations metrics suited to their specific characteristics. SOT evaluation primarily relies
+on four key metrics: Success Rate (measuring overlap between tracking results and ground truth), Success Plot (visualizing Success Rate
+across different thresholds), Average Overlap Rate (AOR, calculating mean overlap), and Expected Average Overlap (EAO, measuring
+overall tracking accuracy) [64]. For MOT, the main metrics include MOTA (evaluating overall accuracy considering missed detections, false
+positives, and ID switches), MOTP (assessing positional accuracy), IDF1 (measuring ID matching performance), IDs (counting identity
+switches), and FPS (indicating real-time processing capability) [97].
+Table 2 presents performance benchmarks for representative methods across key traffic perception tasks, revealing several important
+technological evolution patterns and research directions. For 2D detection, the results demonstrate a clear progression from two-stage
+methods toward more efficient one-stage approaches, with recent transformer-based methods achieving superior performance while
+maintaining real-time capabilities. In 3D detection, direct estimation methods significantly outperform geometric approaches, indicating
+that data-driven learning has largely superseded hand-crafted geometric constraints.
+The classification tasks (FGVC and VLR) show consistent improvements with deep learning over handcrafted features, reaching accuracy
+levels above 94% and 99% respectively, suggesting these tasks are approaching practical deployment readiness. For vehicle Re-ID, local
+feature methods generally outperform global approaches, while auxiliary information integration shows promise for handling challenging
+scenarios. In tracking, the evolution from filter-based methods to Siamese networks in SOT, and from separate detection-tracking to joint
+frameworks in MOT, reflects the field’s movement toward end-to-end learning paradigms.
+These performance trends suggest future research should focus on: (1) unified transformer architectures that balance accuracy and
+efficiency across detection scales, (2) self-supervised learning approaches to reduce dependency on large annotated datasets, (3) multimodal fusion techniques for robust performance in adverse conditions, and (4) joint optimization frameworks that integrate multiple
+perception tasks for computational efficiency in real-world deployments.
+
+4
+
+HIGH-LEVEL TRAFFIC PERCEPTION TASKS
+
+High-level traffic perception in TSS builds upon low-level perception tasks to achieve analysis and understanding of traffic scenes. The scope
+of high-level perception encompasses critical tasks including traffic parameter extraction, traffic anomaly detection, and vehicle/pedestrian
+behavior understanding.
+
+4.1
+
+Traffic Parameter Estimation
+
+Traffic parameter estimation quantifies key traffic characteristics including flow rate, density, vehicle speed, and occupancy. Camera
+calibration remains a fundamental challenge affecting all measurement accuracy. This section examines calibration approaches and two
+critical estimation tasks: speed estimation and vehicle counting.
+
+4.1.1 Camera Calibration. Camera calibration [98] determines intrinsic and extrinsic parameters that enable conversion between image
+and world coordinates—essential for accurate measurements.
+While active calibration methods [99, 100] exist, TSS typically employs two more practical approaches: vanishing point-based and vehicle
+keypoint-based methods.
+Vanishing point-based methods (Figure 6(a)) utilize convergence points of parallel lines. Approaches include motion blob tracking
+[101], multi-source fusion [102], vehicle trajectory analysis [33], and three-VP methods [103, 104]. Recent advances include CNN-based
+approaches [105], automatic highway calibration [106], and online auto-calibration [107]. These methods struggle in scenes lacking clear
+parallel structures and show significant error propagation in calculations. Their performance degrades in urban environments with irregular
+road geometries and requires periodic recalibration due to sensitivity to camera movement or environmental changes.
+
+10
+
+Wei Zhou et al.
+
+Table 2. Performance of current representative methods for 2D/3D detection, fine-grained vehicle classification, vehicle logo recognition, vehicle Re-ID and single/multiple
+object tracking.
+Task
+
+Category
+Two-stage
+
+2D
+Detection
+
+One-stage
+(Anchor-based)
+
+One-stage
+(Anchor-free)
+
+Geometric
+
+3D
+Detection
+
+Direct
+estimation
+
+Handcrafted
+features
+FGVC
+
+Deep
+learning
+Handcrafted
+features
+
+VLR
+
+Deep
+learning
+Global
+feature
+
+Local feature
+Vehicle
+Re-ID
+Auxiliary
+information
+
+Filter
+SOT
+
+Siamese
+network
+
+SDT
+MOT
+JDE
+
+Method: Brief description
+
+Year
+
+Benchmark: Metrics (Source)
+
+Faster R-CNN [19]: Region Proposal Network with two-stage detection pipeline
+
+2015
+
+SEU_PML: mAP =62.53% (Link)
+
+Cascade R-CNN [20]: Series of detectors trained with increasing IoU thresholds for progressive refinement
+
+2017
+
+SEU_PML: mAP =65.66% (Link)
+
+YOLO V3 [23]: Single-stage detector with multi-scale feature maps and anchor boxes
+
+2018
+
+SEU_PML: mAP =61.54% (Link)
+
+YOLO V5a : Enhanced YOLO with CSPNet backbone and PANet feature aggregation
+
+2020
+
+SEU_PML: mAP =66.86% (Link)
+
+YOLO V8b : End-to-end model with anchor-free detection head and C2f block architecture
+
+2023
+
+VisDrone-DET: mAP = 39.0% (Link)
+
+YOLO V11c : Latest YOLO iteration with a re-architected backbone and neck for enhanced feature acuity
+
+2024
+
+UA-DETRAC: mAP =55.9% (Link)
+
+CenterNet [27]: Keypoint-based detector that predicts object centers and regresses size
+
+2019
+
+VisDrone-DET: mAP = 38.6% (Link)
+
+DETR [28]: Transformer-based detector with bipartite matching and parallel decoding
+
+2020
+
+BIT-Vehicle: mAP = 90.2% (Link)
+
+Deformable DETR [108]: DETR with deformable attention for multi-scale feature processing
+
+2020
+
+BIT-Vehicle: mAP = 90.8% (Link)
+
+Swin Transformer [109]: Hierarchical vision transformer with shifted window attention mechanism
+
+2021
+
+VisDrone-DET: mAP = 63.9% (Link)
+
+RT-DETR [29]: Real-time transformer detector with hybrid encoder and IoU-aware head
+
+2024
+
+VisDrone-DET: mAP = 72.7% (Link)
+
+Dubská et al. [33]: Vehicle measurement using vanishing point analysis and 3D bounding box reconstruction
+
+2014
+
+Proprietary: Mean Error<=2% (Link)
+
+Chen et al. [35]: Geometric method for calibration-free 3D vehicle box estimation without 3D annotations
+
+2022
+
+Ko-PER: AP= 70.53% (Link)
+
+M3D-RPN [38]: Monocular 3D region proposal network with depth-aware convolutions
+
+2022
+
+Rope3D dataset: AP3D =67.17% (Link)
+
+MonoDLE [39]: Monocular 3D detection tackling localization errors with refined training and a 3D IoU-based loss
+
+2022
+
+Rope3D dataset: AP3D =77.50% (Link)
+
+MonoFlex [40]: Flexible framework for 3D object detection with uncertainty modeling
+
+2022
+
+Rope3D dataset: AP3D =59.78% (Link)
+
+BEVHeight [41]: Bird’s-eye-view detector that regresses object height to guide 3D detection
+
+2023
+
+Rope3D dataset: AP3D = 74.60%(Link)
+
+MonoUNI [42]: SOTA unified 3D (vehicles/infra) leveraging normalized depth & 3D cube depth
+
+2024
+
+Rope3D dataset: AP3D = 92.45% (Link)
+
+Krause et al. [83]: 3D geometric reasoning with localized part detection for fine-grained categorization
+
+2013
+
+Stanford Cars: Accuracy= 67.6% (Link)
+
+Hsieh et al. [110]: Symmetry-based vehicle detection with HOG feature extraction
+
+2014
+
+Proprietary: Precision= 98.1% (Link)
+
+Sochor et al. [111]: Fine-grained vehicle recognition by “unpacking” images using 3D bounding boxes and CNN
+
+2019
+
+Boxcars116k: Accuracy= 84.13% (Link)
+
+Sun et al. [112]: Lightweight CNN with an attention mechanism (SENet) and joint learning for FGVC
+
+2020
+
+Car-159: AP= 85.86% (Link)
+
+Boukerche & Ma [113]: A Lightweight Recurrent Attention Unit (LRAU) to enhance CNNs for VMMR
+
+2022
+
+Stanford Cars: ACC= 92.64% (Link)
+
+Lu et al. [114]: An attention multibranch loss CNN that learns regional features and their interactions
+
+2023
+
+Stanford Cars: ACC= 94.18% (Link)
+
+Chen et al. [115]: Symmetrical SURF for vehicle detection& sparsity-based classification for model recognition
+
+2016
+
+XMU: Accuracy=99.71%
+
+Yu et al. [45]: Overlapping Enhanced Patterns of Oriented Edge Magnitudes with CRC for vehicle logo recognition
+
+2018
+
+HFUT-VL: Accuracy=99.1%
+
+Huang et al. [46]: CNN for VMR that achieves robustness to poor conditions without precise logo segmentation
+
+2015
+
+XMU: Accuracy=99.07% (Link)
+
+Soon et al. [47]: Particle swarm optimization to automatically search and optimize CNN architecture for VLR
+
+2018
+
+XMU: Accuracy=99.53% (Link)
+
+Li et al. [48]: Fine-tuned Swin Transformer for real-time Vehicle Logo Recognition
+
+2024
+
+HFUT-VL1: Accuracy=99.28% (Link)
+
+Li et al. [50]: Deep joint discriminative learning model using a deep CNN to extract discriminative representations
+
+2017
+
+Vehicle ID: CMC@1(small): 72.3% (Link)
+
+Zhang et al. [51]: Improved triplet-wise CNN training for vehicle re-identification
+
+2017
+
+Vehicle ID: CMC@1(small): 69.9% (Link)
+
+Liu et al. [52]: Region-Aware deep Model (RAM) for extracting discriminative local features in vehicle Re-ID
+
+2018
+
+Vehicle ID: CMC@1(small): 75.2%(Link)
+
+Huang et al. [53]: Lightweight coarse-to-fine sparse self-attention for vehicle Re-ID
+
+2023
+
+VeRi: mAP=78.5% (Link)
+
+Lian et al. [54]: Multi-branch network for extracting subtle distinguishing ReID features
+
+2023
+
+VeRi: mAP=83.4% (Link)
+
+Shen et al. [55]: Cooperative graph (local) & transformer (global) for robust ReID features
+
+2023
+
+VeRi: mAP=80.3%% (Link)
+
+Chu et al. [56]: Viewpoint-Aware Network (VANet) that addresses the challenge of extreme viewpoint variation
+
+2019
+
+VeRi: mAP= 66.34% (Link)
+
+Khorramshahi et al. [57]: Dual paths—global for macro, part-attention for local ReID features
+
+2019
+
+VeRi: mAP= 61.18% (Link)
+
+Quispe et al. [58]: Distills color attributes, using Amelioration Constraint, for more discriminative ReID features
+
+2021
+
+VeRi: mAP= 81.2% (Link)
+
+Yu et al. [59]: Multi-stage transformer coupling patches with learned, grouped semantics for ReID
+
+2023
+
+VeRi: mAP= 80.7% (Link)
+
+MEGTCF [116]: Game theory orchestrates diverse (handcrafted/deep) experts for correlation filter tracking
+
+2022
+
+OTB2015: SR=0.849 (Link)
+
+SiameseRPN [64]: Siamese region proposal network with classification and regression branches
+
+2018
+
+OTB2015: SR=0.816 (Link)
+
+SiamBAN [117]: Box adaptive network with anchor-free Siamese tracking framework
+
+2020
+
+VOT2019: EAO=0.327 (Link)
+
+SiamDMU [118]: Siamese tracker enhancing template updates via long-term motion & semantic info.
+
+2024
+
+VOT2018: EAO=0.427 (Link)
+
+DeepSORT [68]: Deep appearance features with Kalman filtering for tracking-by-detection
+
+2017
+
+MOT16: MOTA=61.4% (Link)
+
+BYTETrack [69]: High-performance tracking with detection score association mechanism
+
+2022
+
+MOT17: MOTA=78.6% (Link)
+
+SMILEtrack [71]: Occlusion-aware MOT by a siamese network-based similarity learning module
+
+2024
+
+MOT17: MOTA=81.1% (Link)
+
+FairMOT [73]: Joint detection and embedding framework for balanced tracking performance
+
+2021
+
+MOT16: MOTA=73.7% (Link)
+
+TrackFormer [74]: End-to-end trainable MOT approach based on an encoder-decoder Transformer architecture
+
+2022
+
+MOT17: MOTA=74.1% (Link)
+
+MeMOTR [75]: Long-term memory-augmented Transformer for MOT using a custom memory-attention layer
+
+2023
+
+MOT17: MOTA=72.8% (Link)
+
+https://docs.ultralytics.com/yolov5
+https://github.com/ultralytics/ultralytics
+https://github.com/ultralytics/ultralytics
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+11
+
+Vehicle keypoint-based methods (Figure 6(b)) offer greater robustness in complex environments. Methods like AutoCalib [119] and
+approaches combining landmarks with vehicle classification [120, 121] perform well even in irregular settings. However, they demand higher
+computational resources and depend heavily on accurate vehicle detection. Their calibration accuracy varies with traffic density—sparse
+conditions provide insufficient calibration data while congestion introduces keypoint occlusion challenges.
+4.1.2 Speed estimation. Speed estimation in TSS calculates vehicle traveling speeds through video sequence analysis, primarily using two
+approaches: virtual section-based methods and homography transformation-based methods.
+Virtual section-based methods, shown in Figure 6(c), use predefined virtual detection lines or areas to calculate speed by measuring
+vehicles’ passage time through known distances [122–125]. These methods have evolved from simple fixed-line implementations to more
+adaptive approaches, yet remain challenged by their fundamental reliance on manual calibration and sensitivity to camera positioning.
+Method Categorization for Camera Calibration
+
+Method Categorization for Speed Estimation
+
+Method Categorization for Vehicle Counting
+
+Start Line
+Distance
+Known
+End Line
+
+(a) Vanishing point-based
+
+(c) Virtual section-based
+
+(e) Detection and tracking-based
+
+regress
+
+(b) Vehicle keypoint-based
+
+(d) Homography transformation-based
+
+(f) Direct regression-based
+
+Fig. 6. Schematic diagram of (a) vanishing point-based camera calibration methods; (b) vehicle keypoint-based camera calibration methods; (c) virtual
+section-based speed estimation methods; (b) homography transformation-based speed estimation methods; (e) detection and tracking-based vehicle
+counting methods and (f) direct regression-based vehicle counting methods.
+
+Homography transformation-based methods, illustrated in Figure 6(d), transform image coordinates to real-world coordinates using
+homography matrices [10, 126–129]. The evolution of these methods has primarily addressed three key challenges: reducing perspective
+distortion errors, minimizing manual calibration requirements, and improving computational efficiency while maintaining accuracy.
+Despite numerous publications, a critical gap exists in quantitative performance comparison between methods. Recent surveys [130]
+attribute this to: lack of standardized datasets with reliable ground truth, inconsistent evaluation metrics, and the complexity of creating
+labeled benchmarking data. While reported error metrics suggest improvement from early implementations (3-7 km/h errors) to recent
+methods (below 2-3 km/h), these claims cannot be directly compared due to different testing conditions. Future research needs standardized
+benchmarking across diverse scenarios to enable rigorous assessment of methodological advantages.
+4.1.3 Vehicle counting. Vehicle counting in TSS employs two complementary approaches designed for fundamentally different traffic
+scenarios: detection and tracking-based methods for dynamic analysis and direct regression-based methods for static estimation.
+Detection and tracking-based methods, shown in Figure 6(e), extract vehicle trajectories and implement counting rules using detection
+and tracking. Dai et al. [131] combined YOLO v3 with KCF for multi-directional counting, while Song et al. [77] developed YOLO v3+ORB
+for freeway analysis. Liu et al. [10] created a lane-specific method using YOLOv2 and Kalman filtering, and later [132] introduced a
+DTC framework for the AICity 2020 challenge. Majumder et al. [133] implemented bidirectional counting through intersection tracking.
+However, these methods face several critical limitations: (1) accuracy dependency on the performance of underlying detectors and trackers,
+where detection failures directly propagate to counting errors; (2) computational complexity from the sequential detection-tracking pipeline,
+making real-time processing challenging for high-resolution multi-camera systems; (3) association failures in dense traffic scenarios where
+target identity switches can cause significant counting discrepancies; and (4) environmental sensitivity to occlusions, lighting variations,
+and weather conditions that degrade both detection and tracking performance.
+
+12
+
+Wei Zhou et al.
+(a) Classification-based methods
+
+(b) Scoring-based methods
+Appearance
+Feature
+
+Appearance Branch
+
+𝑉𝑉𝑎𝑎
+
+No Crash
+
+Key frame
+
+Later
+Fusion
+
+Appearance CNNs
+
+Anomaly video
+
+Crash type 1
+
+···
+
+MIL Ranking Loss with Constraints
+
+𝐵𝐵𝑎𝑎
+
+Anomaly score
+
+Pretrained
+Feature
+Extractor
+
+Crash type k
+Temporal
+Attention
+
+Well-trained
+Optical Flow
+Learner
+
+Timeline
+
+Weakly supervised
+TAD
+
+2016
+
+2017
+
+Learned Optical Flow
+
+Motion Branch
+
+ConvLSTM
+
+Deep-Cascade
+2018
+
+2019
+
+GCN-AD
+2020
+
+Anomaly score
+
+Motion
+Feature
+
+𝑉𝑉𝑛𝑛
+Two stream
+
+MIST
+2021
+
+···
+
+Normal video
+
+Motion
+CNNs
+
+Timeline
+
+Video
+
+2024
+
+2023
+
+2022
+
+C3D+ MIL TAN+MIL
+2017
+
+2016
+
+𝐸𝐸𝑡𝑡
+
+Reconstructed frame
+
+Reconstruction error
+
+Conv-AE
+
+C3D-AE
+
+2016
+
+2017
+
+2018
+
+2019
+
+2020
+
+2021
+
+2022
+
+2022
+
+2023
+
+2024
+
+Ground truth
+
+2023
+
+𝐼𝐼�𝑡𝑡
+
+𝐸𝐸𝑡𝑡
+
+Predicted frame
+
+Prediction error
+
+𝐼𝐼𝑡𝑡
+
+𝐼𝐼𝑡𝑡−𝑘𝑘 , … , 𝐼𝐼𝑡𝑡−1
+
+LSTM
+STAE
+Hybrid autoencoder
+CNN-VAE + AL + ATD
+
+MemAE
+
+2021
+
+Prediction Network
+
+Previous frames
+
+2024
+
+Timeline
+
+Timeline
+
+Unsupervised TAD
+
+2020
+
+2019
+
+2018
+
+Positive Instance
+Dataflow for Anomaly
+
+MC-MIL
+NTCN-ML
+
+Self-reasoning
+framework
+
+Normal/
+Abnormal?
+
+Reconstruction Network
+
+𝐼𝐼𝑡𝑡
+
+Dataflow for Normal
+
+(d) Prediction-based methods
+
+𝐼𝐼�𝑡𝑡
+
+𝐼𝐼𝑡𝑡−𝑘𝑘 , … , 𝐼𝐼𝑡𝑡
+
+Negative Instance
+
+𝐵𝐵𝑛𝑛
+
+(c) Reconstruction-based methods
+
+Current frames
+
+MIL Regression
+
+2016
+
+2017
+
+U-Net+GAN
+
+Conv-VRNN
+AnoPCN
+
+2018
+
+2019
+
+HF2-VAD
+ROADMAP
+2020
+
+2021
+
+2022
+
+Normal/
+Abnormal?
+
+Ground truth
+
+GADNet
+
+ST-Transformer
+
+2023
+
+2024
+
+Fig. 7. Categorization and development timeline of current traffic anomaly detection (TAD), which includes weakly supervised and unsupervised learning
+approaches. Weakly supervised methods can be divided into classification-based and scoring-based categories, whereas unsupervised learning methods
+comprise reconstruction-based and prediction-based approaches.
+
+Direct regression-based methods, depicted in Figure 6(f), inspired by crowd counting [134], use end-to-end neural networks for direct
+vehicle counting. Oñoro-Rubio et al. [135] developed CCNN and Hydra CNN models, while Zhang et al. [136] introduced FCN-rLSTM
+combining CNN with LSTM. Yang et al. [137] proposed a TSI approach, and Guo et al. [138] created SRRNet with SLA and ORR features.
+Despite their efficiency advantages, these methods suffer from significant limitations: (1) dataset dependency requiring extensive training
+data representative of target deployment scenarios; (2) limited generalization across different camera viewpoints, traffic densities, and
+environmental conditions; (3) density estimation inaccuracy in highly congested scenes where vehicle overlap complicates counting; and (4)
+operational constraints including inability to provide lane-specific traffic volume, directional flow analysis, or individual vehicle trajectories
+essential for comprehensive traffic analysis.
+These two approaches serve distinct traffic monitoring needs rather than representing evolutionary improvements of the same
+technique. The selection between them should be guided by specific application requirements: dynamic trajectory analysis versus static
+density estimation, with careful consideration of their respective accuracy dependencies and operational limitations in target deployment
+environments.
+4.2
+
+Traffic Anomaly Detection
+
+Traffic anomaly detection in TSS identifies behaviors deviating from normal patterns, including accidents, violations, and unusual congestion.
+According to [139], approaches are categorized into weakly supervised and unsupervised learning paradigms, as shown in Figure 7. Weakly
+supervised learning uses video-level labels indicating anomaly presence, while unsupervised learning detects anomalies without labeled data.
+4.2.1 Weakly supervised traffic anomaly detection. Weakly Supervised Traffic Anomaly Detection (WSTAD) utilizes video-level labels and
+comprises two main approaches: classification-based and scoring-based methods.
+Classification-based methods directly classify videos as normal or anomalous. Sabokrou et al. [140] developed a cubic-patch-based
+approach with cascaded classifiers. Batanina et al. [141] created a 3D CNN for accident detection with dual classification heads. Lu et al.
+[142] integrated ResNet with attention modules for crash detection. Zhong et al. [143] employed graph convolutional networks, while Feng
+et al. [144] introduced the MIST framework. Zhou et al. [145] developed an appearance-motion network for crash detection (Figure 7 (a)).
+Yu et al. [146] proposed a transformer-based framework with the FAD database. These methods offer straightforward implementation with
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+13
+
+Training Stage: Normality Learning
+Date
+Pre-processing
+
+Normality
+Learning
+
+Well-trained
+Model
+
+Score
+Calculation
+
+Anomaly
+Score
+
+Normal videos
+Testing Stage: Anomaly Detection
+Date
+Pre-processing
+Test videos
+
+Fig. 8. Two-stage nature of Unsupervised Traffic Anomaly Detection (UTAD), which learns normal patterns at training stage and detects anomalies at
+testing stage.
+
+good detection accuracy, evolving from limited feature representation in early work to sophisticated architectures addressing temporal
+modeling, but continue to struggle with anomaly localization and generalization to novel anomaly types.
+Scoring-based methods assign anomaly scores using Multiple Instance Learning (MIL) ranking frameworks (Figure 7(b)). Sultani et al. [147]
+pioneered deep multiple instance ranking. Zhu et al. [148] enhanced MIL with attention mechanisms, while Zaheer et al. [149] developed selfreasoning through clustering. Shao et al. [150] introduced NTCN-ML, and Pereira et al. [151] proposed MC-MIL for multi-camera scenarios.
+These approaches excel at temporal localization and handling imbalanced datasets. Recent developments have focused on three primary
+improvement directions: enhanced feature extraction through attention mechanisms [148], label denoising techniques to handle noisy
+video-level annotations[143], and objective function refinements for better ranking performance [152]. However, these methods typically
+require more complex training procedures and remain computationally expensive due to their dependency on pre-trained feature extractors.
+Despite advances, WSTAD methods face three key limitations: coarse-grained video-level labels that miss subtle anomalies, limited
+generalization to novel anomaly types, and poor performance on imbalanced datasets where anomalous events are rare.
+4.2.2 Unsupervised traffic anomaly detection. Unsupervised Traffic Anomaly Detection (UTAD) identifies anomalies without labeled data,
+particularly valuable for undefined anomalies or scenarios lacking labeled data. As shown in Figure 8, UTAD methods follow a two-stage
+process (learning normal patterns, then detecting anomalies) and divide into reconstruction-based and prediction-based methods.
+Reconstruction-based methods [153–156] identify anomalies through reconstruction errors using autoencoder architectures. Hasan et al.
+[154] developed autoencoder approaches using both handcrafted features and end-to-end learning. Gong et al. [153] introduced MemAE
+with a memory module for normal patterns. Deepak et al. [155] proposed residual STAE for pattern reconstruction. For trajectory analysis,
+Santhosh et al. [156] developed a CNN-VAE architecture, while Zhou et al. [157] created an LSTM autoencoder with adversarial learning.
+These methods benefit from requiring no labeled anomaly data and effectively capturing spatial patterns, progressing from basic autoencoders
+to memory-augmented and adversarial approaches, though they still struggle with subtle anomalies that can be reconstructed accurately.
+Prediction-based methods [158–161] detect anomalies by comparing predicted patterns with actual observations. Liu et al. [158] pioneered
+future frame prediction with spatial-temporal constraints, later enhanced by Liu et al. [159] with HF2-VAD. Wang et al. [160] proposed
+multi-path ConvGRU for various scales, while Tran et al. [161] introduced a transformer-based approach for complex scenes. These
+approaches demonstrate superior performance in capturing temporal dynamics, with advancement from early frame prediction to multiscale and transformer-based models addressing limitations in handling complex scenes, though they remain computationally intensive and
+may struggle with purely appearance-based anomalies.
+While UTAD methods show progress, they primarily struggle with their dependence on extensive normal video data. This limitation
+complicates the definition of normal behavior, affecting model adaptability in dynamic real-world traffic scenarios where normality patterns
+continuously evolve.
+4.3
+
+Traffic Behavior Understanding
+
+Traffic behavior understanding in TSS analyzes traffic participants’ movements and interactions, focusing on recognition and prediction
+of behavioral patterns. Due to distinct characteristics between vehicles and vulnerable road users (pedestrians and cyclists), the field divides
+into two domains: Vehicle Behavior Understanding (VBU) and Vulnerable Road User Behavior Understanding (VRBU), as shown in Figure 9.
+
+14
+
+Wei Zhou et al.
+
+Participant Type
+
+Understanding — Recognition
+
+Vehicle Behavior Understanding
+
+Vehicle Behavior Recognition
+
+Understanding — Prediction
+Vehicle Trajectory Prediction
+
+Physics-based
+Rule-based
+[162]
+
+Vulnerable Road User
+Behavior Understanding
+
+Machine learning-based
+[163-166]
+
+Deep learning-based
+[7] [157] [167]
+
+Pedestrian/Cyclist Crossing Intention Recognition
+
+Learning-based
+
+Physics-based
+[168,169]
+
+CNN
+
+RNN
+
+[170,171]
+
+[172-174]
+
+GCN Transformer
+
+[176]
+
+[175]
+
+Pedestrian/Cyclist Trajectory Prediction
+
+Crossing probability : 0.85
+
+Trajectory-based
+
+Pose-based
+
+Hybrid
+
+Learning-based
+
+Physics-based
+LSTMs
+
+[178-180]
+
+[179,181-183]
+
+[1,58,184-187]
+
+[190,191]
+
+[192,193]
+
+GCNs
+
+Transformer
+
+[196-198]
+
+[194,195]
+
+Fig. 9. Categorization and literature of Vehicle Behavior Understanding (VBU) and Vulnerable Road User Behavior Understanding (VRBU).
+
+While TSS-specific research remains limited, methodologies from dashcam and UAV perspectives can be adapted to TSS applications.
+This section reviews traffic behavior understanding approaches across multiple viewpoints to derive TSS-applicable insights.
+4.3.1 Vehicle Behavior Understanding. Vehicle Behavior Understanding (VBU), as shown in Figure 9, aims to recognize and predict
+complex vehicle actions including lane changing, turning, speed variations, and traffic violations.
+Vehicle behavior recognition primarily relies on trajectory analysis through traditional and deep learning methods. Traditional approaches
+employ various techniques including decision rules [162], genetic algorithms [163], SVM [164], ensemble KNN [165], and LGBM [166]. While
+effective, these methods require extensive feature engineering. Deep learning approaches [7, 157, 167] demonstrate superior performance
+in complex scenarios, with Santhosh [7] developing a CNN-VAE architecture and Haghighat [167] achieving high accuracy in violation
+detection, though requiring substantial labeled data. The evolution reveals a paradigm shift from rule-based feature engineering to end-toend learning. Traditional methods offer interpretability and high deployment feasibility in resource-constrained environments due to
+their computational efficiency, but their real-world applicability is limited by poor adaptability to diverse conditions and environmental
+vulnerability. Deep learning approaches excel in generalization and robustness, offering better potential for complex real-world scenarios,
+but their high data dependency and computational intensity currently hinder widespread deployment feasibility.
+With the advancement of autonomous driving and V2X technologies, vehicle trajectory prediction has become increasingly crucial for
+safety warnings and decision-making. These predictions analyze current movement patterns and environmental context to forecast future
+trajectories. Methods fall into two categories: physics-based and learning-based models. Physics-based models [168, 169] use kinematic
+models, Gaussian processes, and Bayesian networks, offering interpretability but limited effectiveness in complex scenarios. Learning-based
+models leverage CNNs [170, 171], RNNs [172–174], GCNs [175], and Transformers [176]. Notable examples include Yuan et al.’s [177]
+TMMOE model and Pazho et al.’s [176] VT-Former for surveillance scenarios.
+Physics-based models provide theoretical guarantees and interpretability, making them suitable for scenarios where these are paramount
+and enhancing their deployment feasibility in safety-critical but simpler contexts; however, their simplified assumptions limit their
+real-world applicability in complex, dynamic environments. Learning-based models demonstrate superior real-world applicability in
+modeling complex interactions, yet their significant data requirements and generalization challenges across varied scenarios can impede
+straightforward deployment feasibility. The field progresses toward hybrid architectures, attention mechanisms, and uncertainty-aware
+predictions to improve overall reliability and make learning-based approaches more robust for real-world deployment.
+4.3.2 Vulnerable Road User Behavior Understanding. Vulnerable Road User Behavior Understanding primarily focuses on Crossing Intention
+Recognition (CIR) and Trajectory Prediction (TP). These areas are crucial for traffic safety, as pedestrian and cyclist behavior patterns
+strongly correlate with accident rates. Crossing intentions are categorized into Crossing (C) and Non-Crossing (NC), while trajectory
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+15
+
+prediction forecasts future positions over time. As shown in Figure 9, current methodologies classify into three categories: Trajectory-based
+[178–180], Pose-based [179, 181–183], and Hybrid CIR models [1, 58, 184–187].
+Early Trajectory-based CIR models [178–180] analyzed historical movement patterns, but showed insufficient prediction accuracy [188].
+This led to pose-based models [179, 181–183], incorporating body orientation and gestural signals. Notable examples include Xu et al.’s
+[183] work combining 3D pose estimation with adaptive graph networks, and Zhang et al.’s [181] approach using pose estimation for
+red-light crossing behavior prediction.
+Current hybrid models [1, 58, 184–187] integrate trajectories, poses, and environmental context, showing superior performance in
+complex scenarios. Key developments include the Dual-Channel Network [189] for modeling poses and environmental interactions, PIPNet [187] integrating multiple input types, and Zhou et al.’s [1] pedestrian-centric approach. While more accurate, these methods require
+higher computational resources.
+CIR evolution demonstrates progressive multimodal integration. Trajectory-based approaches offer high deployment feasibility due
+to their efficiency, but their real-world applicability is constrained by temporal limitations and an inability to capture subtle behavioral
+cues crucial for accurate intention recognition. Pose-based methods provide finer-grained analysis, improving real-world applicability for
+capturing subtle intentions, but their computational complexity can challenge deployment feasibility in real-time systems. Hybrid models
+achieve superior performance through comprehensive context modeling and represent the current mainstream, offering the best real-world
+applicability in complex scenes; however, they still face increased computational demands and multimodal fusion complexity, which are
+key hurdles for widespread deployment feasibility.
+Trajectory prediction approaches divide into physics-based [190, 191] and learning-based models [192–195]. Physics-based models utilize
+hand-crafted features and social force models to quantify interactions. Learning-based models have evolved along three paths: LSTMs
+[192, 193] for processing sequential data and capturing temporal dependencies, GCNs [196–198] for modeling spatial relationships, and
+Transformers [194, 195] for handling complex interactions in crowded scenarios.
+The evolution from physics-based to learning-based models reflects increasing sophistication in social interaction modeling. Physicsbased approaches provide excellent deployment feasibility due to computational efficiency and interpretability, making them suitable
+for simpler, well-defined scenarios, but their real-world applicability is limited in complex, crowded social interactions. Learning-based
+progression (LSTMs, GCNs, Transformers) demonstrates enhanced handling of complex dependencies, boosting their potential real-world
+applicability across diverse and crowded scenarios. However, the escalating computational complexity and significant training challenges
+associated with these advanced models pose substantial hurdles to their immediate deployment feasibility without further optimization
+and research into model efficiency.
+4.4
+
+Performance evaluation
+
+This section first details the datasets and evaluation metrics used for these high-level perception tasks in TSS, including traffic parameter
+estimation, traffic anomaly detection and traffic behavior understanding. After that, the results of some representative approaches are
+presented.
+4.4.1 Datasets for high-level perception. In the field of traffic parameter estimation, representative datasets include AI City Challenge
+[199], BrnoCompSpeed [111], UTFPR [200], and QMUL1 for speed evaluation, as well as Freeway-vehicle dataset [77], AI City 2020 Track-1
+[202], TRANCOS [203] and CARPK [204] for vehicle counting.
+In the field of video anomaly detection, representative general-purpose datasets include UCSD Ped1/Ped2 [205], CUHK-Avenue [206],
+Shanghai Tech [158], and UCF-Crime [147], which have been widely adopted for traffic anomaly detection despite their broader scope. For
+traffic-specific anomaly detection, specialized datasets have been developed, such as CADP [207], CDD [145], and UIT-ADrone [208].
+In the field of traffic behavior understanding, representative datasets can be categorized by their specific focuses. For pedestrian behavior
+analysis, datasets include trajectory prediction-oriented ETH/UCY [209, 210] and intention recognition-focused JAAD [184] and PIE [211].
+Vehicle behavior datasets comprise three categories: general behavior recognition datasets such as NGSIM 2 , HighD [212], and CitySim
+[213], autonomous driving datasets including Apolloscape [214] and Lyft L5 [215], and vehicle-infrastructure cooperative datasets like
+V2X-Seq [216]. More detailed statistics is shown in Table 3.
+1
+
+https://www.eecs.qmul.ac.uk/ sgg/QMUL_Junction_Datasets/Junction/Junction.html
+
+2
+
+https://data.transportation.gov/Automobiles/Next-Generation-Simulation-NGSIM-Vehicle-Trajector/8ect-6jq
+
+16
+
+Wei Zhou et al.
+
+Table 3. Overview of common datasets for high-level perception tasks in TSS (including traffic parameter estimation, traffic anomaly detection, and traffic behavior understanding),
+with sensor details and TSS relevance. Size units: I (Images), V (Videos), S (Samples).
+Task
+
+Sub-Task
+
+Speed
+Evaluation
+Traffic
+Parameter
+Estimation
+
+Vehicle
+Counting
+
+Generalpurpose
+Video
+Anomaly
+Detection
+
+TrafficSpecific
+
+Pedestrian
+Trajectory
+Prediction
+
+Pedestrian
+Intention
+Recognition
+Behavior
+Understanding
+Vehicle
+Behavior
+Recognition
+
+Vehicle
+Trajectory
+Prediction
+
+Dataset
+
+Year
+
+Size (I;V;S)
+
+Sensor Platform
+
+Key Characteristics & TSS Focus
+
+Link
+
+AI City 2018 Track
+1 [199]
+
+2018
+
+142 V
+
+Surveillance
+
+Traffic footage with vehicle-level annotations from 27 different camera views; Supports
+multi-camera traffic speed estimation and flow monitoring in signalized intersections.
+
+Link
+
+BrnoCompSpeed [111] 2018
+
+18 V
+
+Surveillance
+
+Highway surveillance with precise LIDAR-based speed measurements yet limited
+lighting/weather conditions; Enables development of speed measurement systems from
+different viewpoints.
+
+Link
+
+UTFPR [200]
+
+2014
+
+20 V
+
+Surveillance
+
+Low-cost sensor videos (varied conditions) with precise speed & license plate ground
+truth; Supports monocular speed estimation for cost-effective traffic monitoring.
+
+N/A
+
+QMUL[201]
+
+2012
+
+1V
+
+Surveillance
+
+Nearly one-hour continuous high-density traffic footage at a complex urban junction;
+Supports analysis of traffic patterns and anomaly detection at signalized intersections.
+
+Link
+
+Freewayvehicle [77]
+
+2019
+
+11,129 I
+
+Surveillance
+
+Large-scale HD highway surveillance imagery with fully annotated vehicles in diverse
+scenes, featuring significant scale variations; Enables development and evaluation of
+vehicle detection/counting algorithms.
+
+Link
+
+AI City 2020
+Track-1 [202]
+
+2020
+
+31 V
+
+Surveillance
+
+Multi-camera urban footage focused on counting vehicles (cars, trucks) executing
+pre-defined movements (turns, through traffic) at intersections; Supports detailed
+traffic demand analysis and optimization of signal timing for congestion mitigation.
+
+Link
+
+TRANCOS [203]
+
+2015
+
+1,244 I
+
+Surveillance
+
+Highly congested traffic images with over 46,000 annotated vehicles and perspective
+distortion; Supports density-based counting approaches for crowded traffic scenes with
+severe vehicle occlusion.
+
+Link
+
+CARPK [204]
+
+2017
+
+1,448 I
+
+UAV
+
+Aerial imagery of parking lots with nearly 90,000 annotated cars from various
+viewpoints; Facilitates development of automated parking management and occupancy
+monitoring applications.
+
+Link
+
+UCSD Ped1/2 [205]
+
+2013
+
+18,560 I
+
+Surveillance
+
+Pedestrian walkways with anomalies defined as non-pedestrian entities or unusual
+movement patterns; Enables detection of safety-critical events in pedestrian-oriented
+areas within traffic environments.
+
+Link
+
+CUHKAvenue [206]
+
+2013
+
+30,652 I
+
+Internet &
+Surveillance
+
+Campus avenue scenarios with abnormal events including running, wrong direction
+movement, and abandonment; Supports security monitoring for detecting unusual
+human behaviors in public transit areas.
+
+Link
+
+Shanghai Tech [158]
+
+2018
+
+300,308 I
+
+Surveillance
+
+Large-scale complex scenes from 13 different campus locations with diverse viewing
+angles; Enables robust anomaly detection across varied urban environments with
+challenging real-world conditions.
+
+Link
+
+UCF-Crime [147]
+
+2018
+
+13.7M I
+
+Surveillance
+
+Large-scale surveillance dataset (1900 videos) covering 13 public safety anomalies with
+video-level annotations; Supports both general anomaly detection and specific incident
+recognition in surveillance settings.
+
+Link
+
+CADP [207]
+
+2018
+
+1,416 V
+
+Surveillance
+
+YouTube-sourced traffic camera dataset focused on complex accident scenes; Enables
+research in accident detection, prediction, and small-object detection challenges in
+traffic surveillance.
+
+Link
+
+CDD [145]
+
+2023
+
+6,166 V
+
+Surveillance
+
+Large-scale traffic crash dataset with diverse crash types spanning single-vehicle,
+multi-vehicle, non-motorized, and pedestrian incidents; Enables real-time crash
+detection systems for immediate emergency response coordination.
+
+Link
+
+UIT-ADrone [208]
+
+2023
+
+206,194 I
+
+UAV
+
+Drone-captured dataset featuring 10 anomaly types at complex urban roundabouts in
+Vietnam; Enables development of aerial anomaly detection systems for challenging
+traffic environments.
+
+Link
+
+ETH[209]
+UCY [210]
+
+2009
+2007
+
+2,206 S
+
+UAV
+
+Widely-used combined benchmark of bird’s-eye view recordings with precise
+trajectory annotations across 5 diverse scenes; Standard evaluation platform for
+pedestrian trajectory prediction in varied urban environments.
+
+Link
+Link
+
+JAAD [184]
+
+2017
+
+2.8k S & 82k I
+
+Dashcam
+
+Urban driving dataset with rich annotations for pedestrian-driver joint attention
+behaviors and interactions; Features detailed bounding boxes, demographic attributes,
+behavioral labels, and scene elements to support research in pedestrian detection and
+behavior prediction.
+
+Link
+
+PIE [211]
+
+2019
+
+1.8k S & 911k I
+
+Dashcam
+
+Large-scale dataset specifically designed for pedestrian intention estimation and
+trajectory prediction in urban traffic environments; Facilitates predictive models for
+vulnerable road user safety at complex urban crossings.
+
+Link
+
+NGSIM
+
+2007
+
+1.75 hrs V
+
+UAV
+
+High-resolution trajectory data of vehicles on US highways with lane-level precision;
+Supports microscopic traffic flow modeling and car-following behavior analysis for
+traffic simulation.
+
+Link
+
+HighD [212]
+
+2018
+
+16.5 hrs V
+
+UAV
+
+Drone-recorded vehicle trajectories on German highways with 110,000+ vehicles;
+Enables analysis of naturalistic driving patterns and vehicle interactions for advanced
+traffic management.
+
+Link
+
+CitySim [213]
+
+2022
+
+19 hrs V
+
+UAV
+
+Comprehensive drone-based dataset with trajectories from 1,140 minutes of video
+across 12 diverse road locations; Enables accurate traffic monitoring, safety analysis,
+and trajectory prediction for traffic surveillance systems.
+
+Link
+
+Apolloscape [214]
+
+2019
+
+140k I & 73 V
+
+Dashcam
+
+Multi-sensor urban driving data with 3D perception and diverse traffic participants;
+Supports motion prediction modeling in complex urban scenarios for proactive traffic
+management.
+
+Link
+
+Lyft L5 [215]
+
+2021
+
+1k+ hrs V
+
+Dashcam
+
+Large-scale autonomous driving dataset with semantic maps and multi-agent
+trajectories; Enables advanced motion forecasting for diverse road users in dynamic
+urban environments.
+
+Link
+
+V2X-Seq [216]
+
+2023
+
+200k+ V
+
+Dashcam &
+Surveillance
+
+Vehicle-infrastructure cooperative sensing data with synchronized multi-view
+perspectives; Facilitates research on enhanced perception and prediction through V2X
+communication for intelligent traffic systems.
+
+Link
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+17
+
+4.4.2 Metrics and performance evaluation. For traffic parameter estimation, the performance of speed estimation is commonly evaluated
+using three primary metrics: Mean Absolute Error (MAE) expressed in km/h to measure average estimation error, Mean Square Error
+(MSE), and Root Mean Square Error (RMSE) [123–125]. As for vehicle counting, evaluation metrics vary by methodology: detection and
+tracking-based approaches commonly use Mean Percentage Error (MPE) and Mean Correct Rate (MCR) [131–133], while regression-based
+methods prefer Mean Absolute Error (MAE) and Grid Average Mean Error (GAME) [134, 135].
+For traffic anomaly detection, which generally operates as a binary classification task [139], the primary evaluation metrics include the
+Receiver Operating Characteristic (ROC) curve and its Area Under the Curve (AUC). Additionally, due to the inherent class imbalance in
+anomaly detection scenarios, F1-Score, which combines precision and recall, is commonly used alongside traditional accuracy measurements
+[145].
+Traffic behavior understanding tasks employ different evaluation metrics based on their specific objectives. For behavior recognition and
+intention prediction, which are classification tasks, common metrics include Accuracy, F1-score, Precision, Recall, and Average Precision
+(AP) [1]. For trajectory prediction of vehicles and vulnerable road users, which is treated as a regression problem, the primary metrics are
+Average Displacement Error (ADE) and Final Displacement Error (FDE) [192, 193], measuring the average and final position errors between
+predicted and ground truth trajectories. Additional metrics such as RMSE [177], collision rate [217, 218], and negative log-likelihood [218]
+are also employed in specific studies.
+Table 4 and Table 5 present performance benchmarks for representative methods in traffic parameter estimation, anomaly detection, and
+behavior understanding, revealing key evolutionary patterns and research trajectories.
+For traffic parameter estimation (Table 4), methods for speed and vehicle counting have transitioned from foundational techniques
+like virtual sections and basic detection/tracking towards more sophisticated learning-based approaches. While accuracy has improved,
+a consistent challenge remains in achieving robustness across diverse environmental conditions and traffic densities without complex
+calibration or extensive feature engineering. Traffic anomaly detection has seen significant advancements with both weakly supervised
+(often MIL-based) and unsupervised (typically reconstruction or prediction-based) deep learning models. These methods demonstrate high
+performance on established benchmarks, yet generalizing to novel anomaly types and reducing false positives in complex, unconstrained
+environments are ongoing research focuses.
+In behavior understanding (Table 5), vehicle trajectory prediction clearly shows learning-based models, particularly those leveraging
+recurrent, graph, and transformer architectures, outperforming traditional physics-based models in complex interactive scenarios, though
+physics-based approaches retain value for their interpretability in simpler contexts. For pedestrian behavior, crossing intention recognition
+has evolved from unimodal (trajectory or pose) to hybrid models that integrate multiple cues, consistently yielding better performance.
+Similarly, pedestrian trajectory prediction has progressed from social force models to deep learning techniques adept at capturing intricate
+social interactions. The overarching trend in behavior understanding is the increasing complexity and multimodality of models to capture
+nuanced interactions, though this often comes at the cost of computational load and data requirements.
+These performance trends suggest future research should prioritize: (1) Enhancing model generalization and robustness to real-world
+variability (e.g., diverse weather, lighting, unseen behaviors) with less reliance on extensive, scenario-specific datasets; (2) Developing
+computationally efficient and scalable architectures suitable for real-time deployment on edge devices, particularly for complex deep
+learning models; (3) Improving the interpretability of black-box models and the ability to quantify prediction uncertainty, especially for
+safety-critical applications like anomaly detection and trajectory prediction; (4) Advancing multi-modal fusion techniques and contextaware reasoning to build more comprehensive and reliable traffic understanding systems.
+Overall, while significant progress has been made, a clear direction for future research across all these tasks is the enhancement of
+model robustness and generalization. A critical limiting factor, particularly for traffic parameter estimation and surveillance-view traffic
+behavior understanding, is the scarcity of standardized, reliable, open-source, and sufficiently complex and diverse benchmark datasets.
+The development of such resources is crucial to facilitate fairer comparisons, rigorously evaluate generalization capabilities, and drive
+innovation towards solutions truly applicable in the complexities of real-world traffic environments.
+
+18
+
+Wei Zhou et al.
+Table 4. Performance of current representative methods for Traffic Parameter Estimation and Traffic Anomaly Detection
+
+Task
+
+Sub-task
+
+Category (-based)
+
+Virtual
+section
+Speed
+estimation
+Homography
+transformation
+
+Traffic
+Parameter
+Estimation
+
+Detection
+and tracking
+Vehicle
+counting
+
+Direct
+regression
+
+Classification
+
+Weakly
+supervised
+Scoring
+
+Traffic
+Anomaly
+Detection
+
+Reconstruction
+
+Unsupervised
+
+Prediction
+
+Method
+
+Year
+
+Benchmark: Metrics (Source)
+
+Celik & Kusetogullari [122]
+
+2009
+
+Proprietary: MAE=1.23 km/h (Link)
+
+Setiyono et al. [219]
+
+2017
+
+Proprietary: MAE =0.93 km/h (Link)
+
+Anandhalli et al. [124]
+
+2022
+
+Proprietary: MAE =3.13 km/h (Link)
+
+Ashraf et al. [125]
+
+2023
+
+Proprietary: MAE =1.60 km/h (Link)
+
+Huang [126]
+
+2018
+
+AI City Challenge: RMSE=3.91 (highway) (Link)
+
+Bell et al. [127]
+
+2020
+
+Proprietary: MAE =1.53 km/h (Link)
+
+Liu et al. [10]
+
+2020
+
+Proprietary: RMSE=1.85 (Link)
+
+Lashkov et al. [129]
+
+2023
+
+BrnoCompSpeed: MAE =0.82 km/h (Link)
+
+Yohannes et al. [128]
+
+2023
+
+BrnoCompSpeed: MSE =6.56;
+AI City Challenge: MSE =16.67 (Link)
+
+Song et al. [77]
+
+2019
+
+Freeway-vehicle: MCR = 93.2% (cross) (Link)
+
+Liu et al. [132]
+
+2020
+
+AI City 2020 Track-1: S1 score=93.89% (Link)
+
+Majumder et al. [133]
+
+2023
+
+Proprietary: MCR = 89.59% (Link)
+
+Zhang et al. [136]
+
+2017
+
+TRANCOS: MAE= 4.21% (Link)
+
+Yang et al. [137]
+
+2021
+
+UA-DETRAC: MAE= 5.27% (Link)
+
+Guo et al. [138]
+
+2023
+
+TRANCOS: MAE= 3.89% (Link)
+
+Deep-Cascade [140]
+
+2017
+
+UCSDped1/ped2: EER=9.1% & 8.2% (Link)
+
+ConvLSTM [142]
+
+2019
+
+Proprietary: ACC=87.78% (Link)
+
+GCN-AD [143]
+
+2020
+
+Shanghai Tech: AUC=84.44% (Link)
+
+MIST [144]
+
+2021
+
+Shanghai Tech: AUC=94.83% (Link)
+
+Two stream [145]
+
+2023
+
+CDD dataset: AUC=0.96 (Link)
+
+C3D+ MIL [147]
+
+2018
+
+Proprietary: AUC=75.41% (Link)
+
+TAN+ MIL [148]
+
+2019
+
+UCF Crime: AUC= 79.0% (Link)
+
+Self-reasoning
+framework [149]
+
+2020
+
+UCF-Crime: AUC=79.54%;
+Shanghai Tech: AUC= 84.16% (Link)
+
+NTCN-ML [150]
+
+2023
+
+UCF-Crime: AUC= 85.1%;
+Shanghai Tech: AUC= 95.3% (Link)
+
+MC-MIL [151]
+
+2023
+
+PETS 2009: AUC= 95.39% (Link)
+
+Conv-AE [154]
+
+2016
+
+UCSDped1/UCSDped2: AUC=92.7%/90.8%;
+CUHK Avenue: AUC=70.2% (Link)
+
+MemAE [153]
+
+2019
+
+UCSDped2: AUC: 94.1%;
+Shanghai Tech: AUC= 71.2% (Link)
+
+STAE [155]
+
+2021
+
+UCSDped2: AUC=83%;
+CUHK Avenue: AUC=82% (Link)
+
+Hybrid CNN-VAE [7]
+
+2021
+
+T15: ACC=99.0%; QMUL: ACC=97.3% (Link)
+
+LSTM autoencoder +
+AL + ATD [157]
+
+2022
+
+Proprietary: ACC=97.0% (Link)
+
+HF2-VAD [159]
+
+2020
+
+Shanghai Tech: AUC= 76.2%; UCSDped2: AUC=
+99.3%; CUHK Avenue: AUC= 91.1% (Link)
+
+ROADMAP [160]
+
+2022
+
+Shanghai Tech: AUC=76.6%;
+CUHK Avenue: AUC= 88.3% (Link)
+
+ST-Transformer [161]
+
+2024
+
+UIT-ADrone: AUC= 65.45%;
+Drone-Anomaly: AUC=67.80% (Link)
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+19
+
+Table 5. Performance of current representative methods for Behavior Understanding
+
+Task
+
+Sub-task
+
+Category (-based)
+Physics
+
+Vehicle
+trajectory
+prediction
+Learning
+
+Trajectory
+
+Pose
+
+Behavior
+Understanding
+
+Pedestrian
+crossing
+intention
+recognition
+Hybrid
+
+Physics
+
+Pedestrian
+trajectory
+prediction
+
+Learning
+
+Method
+
+Year
+
+Benchmark: Metrics (Source)
+
+IMMTP [168]
+
+2017
+
+Proprietary: APE=1.55m (PT =8s) (Link)
+
+Anderson et al. [169]
+
+2021
+
+NGSIM: ADE=3.14m, RMSE=4.08%;
+highD: ADE=1.51m, RMSE=1.92% (Link)
+
+DeepTrack [171]
+
+2022
+
+NGSIM: ADE=2.01m, FDE=3.25m (Link)
+
+D2-TPred [173]
+
+2022
+
+VTP-TL: ADE=16.9 pixel, FDE=34.6 pixel (Link)
+
+DACR-AMTP [220]
+
+2023
+
+NGSIM: ADE=1.61m, FDE=3.31m;
+highD: ADE=0.76m, FDE=1.69m (Link)
+
+VT-Former [176]
+
+2024
+
+NGSIM: ADE= 2.10m, FDE=4.91m;
+CHD dataset: ADE=25.33 pixel, FDE=88.99 pixel
+(Link)
+
+Goldhammer et al. [178]
+
+2019
+
+Proprietary: ACC=98.6% (Waiting), 77.1% (Starting), 88.1%(Walking), Stopping (60.9%) (Link)
+
+PIE𝑖𝑛𝑡 [184]
+
+2019
+
+PIE: ACC=69%, F1-score=79% (Link)
+
+Fang et al. [182]
+
+2020
+
+JAAD: ACC=88% (Link)
+
+Xu et al. [183]
+
+2022
+
+3D-HPT:
+ACC=88.34%
+(Cross-subject),
+ACC=89.62% (Cross-view) (Link)
+
+Zhang et al. [181]
+
+2022
+
+Proprietary: AUC=84.1% (2 sec) (Link)
+
+TrouSPI-Net [185]
+
+2021
+
+PIE: ACC=88%, AUC=88%, F1-score=80%;
+JAAD: ACC=85%, AUC=73%, F1-score=56% (Link)
+
+PCPA [186]
+
+2021
+
+PIE: ACC=87%, AUC=86%, F1-score=77%;
+JAAD: ACC=85%, AUC=86%, F1-score=68% (Link)
+
+PIP-Net [187]
+
+2024
+
+PIE: ACC=91%, AUC=90%, F1-score=84% (Link)
+
+PedCMT [221]
+
+2024
+
+PIE: ACC=93%, AUC=92%, F1-score=87%;
+JAAD: ACC=88%, AUC=77%, F1-score=65% (Link)
+
+W/CDM-MSFM [181]
+
+2021
+
+Proprietary: FDE=0.136 m (Link)
+
+Social LSTM [190]
+
+2016
+
+ETH: ADE=1.09m, FDE=2.35m;
+HOTEL: ADE=0.79m, FDE=1.76m (Link)
+
+Social GAN [193]
+
+2018
+
+ETH: ADE=0.60m, FDE=1.19m;
+HOTEL: ADE=0.67m, FDE=1.37m (Link)
+
+Social STGCN [222]
+
+2020
+
+ETH: ADE=0.64m, FDE=1.11m;
+HOTEL: ADE=0.49m, FDE=0.85m (Link)
+
+SGCN [196]
+
+2021
+
+ETH: ADE=0.63m, FDE=1.03m;
+HOTEL: ADE= 0.32m, FDE=0.55m (Link)
+
+SSAGCN [198]
+
+2023
+
+ETH: ADE=0.3m, FDE=0.59m;
+HOTEL: ADE=0.22m, FDE=0.42m (Link)
+
+TUTR [194]
+
+2023
+
+ETH: ADE=0.40m, FDE=0.61m;
+HOTEL: ADE=0.11m, FDE=0.18m (Link)
+
+Note: APE = Average Prediction Error, PT = Prediction Time, RMSE = Root Mean Square Error, ADE = Average Displacement Error, FDE = Final Displacement Error, AUC = Area
+Under the Curve, ACC = Accuracy
+
+20
+
+Wei Zhou et al.
+
+5
+
+LIMITATION ANALYSIS AND FUTURE OUTLOOK
+
+5.1
+
+Limitation Overview
+
+Building upon the comprehensive analysis of strengths and limitations of existing methods across different tasks, several fundamental
+limitations persist in TSS despite continued advances in vision technologies (as shown in Figure 10):
+a) Perceptual data degradation: The foundational quality and completeness of visual data are frequently compromised in complex
+traffic scenarios. Factors like high traffic density, congestion, nighttime conditions, and adverse weather lead to degraded or incomplete
+sensory input. Consequently, existing perception algorithms, particularly those reliant on consistent feature extraction or clear visual cues
+[16, 30, 145] , often falter, resulting in frequent false positives/negatives and a significant reduction in overall system reliability and safety.
+b) Data-driven learning constraints: The predominant deep neural network paradigm, while powerful, is inherently constrained by
+significant data-related challenges. The necessity for large-scale, meticulously annotated datasets is particularly problematic in traffic
+surveillance due to privacy concerns and the sheer effort involved. Moreover, the natural rarity of critical traffic events (e.g., accidents,
+violations) creates severe data imbalance. As a result, current supervised learning approaches [14, 223] are often hindered in their ability to
+generalize robustly, learn rapidly from limited samples, or adapt effectively to novel environments without extensive retraining.
+c) Semantic understanding gap: While proficient at feature-based detection and recognition, existing deep learning models [21, 97]
+typically operate with a limited grasp of the broader traffic context. They largely lack the capability for commonsense reasoning, struggling
+to interpret the intricate relationships between objects, their interactions with the environment, and the underlying causal dynamics
+within complex traffic scenarios. This gap prevents systems from moving beyond simple perception to a more holistic and predictive
+understanding of traffic behavior.
+d) Sensing coverage limitations: The inherent field-of-view restrictions of individual cameras significantly limit their capacity for
+effective monitoring of large-scale or complex traffic environments. While multi-camera systems can theoretically extend coverage, their
+practical effectiveness is often undermined by substantial challenges. These include cross-camera object association, spatio-temporal
+alignment, and robust data fusion, especially given variations in camera positioning, synchronization issues, and inconsistent imaging
+conditions. These issues directly impede the creation of a cohesive and comprehensive situational awareness picture.
+e) Computational resource demands: Many contemporary deep learning models achieving state-of-the-art accuracy in traffic
+surveillance demand substantial computational resources. This is particularly true for complex architectures required for robust perception
+and understanding. The imperative for real-time processing in dynamic traffic environments often clashes with the computational intensity
+of these models, posing a significant barrier to their deployment, especially on resource-constrained edge devices. This burden translates
+directly into increased energy consumption, higher hardware costs, and ultimately limits the scalability and widespread practical adoption
+of the most advanced TSS solutions.
+5.2
+
+Current Solutions and Potential Trends
+
+To address the limitations outlined in Section 5.1, researchers have proposed and developed a spectrum of technical solutions and
+methodological innovations, as illustrated in Figure 10. While some of these areas represent established research fields with significant
+advancements, their application and adaptation to the unique complexities of TSS continue to present challenges and offer avenues for
+future innovation. This section will review key approaches, critically assess their current standing and limitations within TSS, and provide
+a forward-looking perspective on emerging trends and necessary advancements.
+5.2.1 Advanced perception enhancement. Advanced perception enhancement techniques, including image enhancement, domain adaptation,
+and super-resolution, are vital for improving visual data quality under challenging TSS conditions.
+Image enhancement seeks to improve degraded image quality, with modern approaches utilizing Generative Adversarial Networks
+(GANs) (e.g., EnlightenGAN [224], N2DGAN [225] for low-light; CoMoGAN [226], IA-GAN [30] for day-to-night translation) and diffusion
+models (e.g., LightDiff [227]), alongside methods addressing specific conditions like domain shifts in lighting [228] or adverse weather
+[229, 230]. However, a critical challenge in TSS is achieving robust generalization across diverse, unconstrained adverse conditions without
+significant computational overhead or artifacts, especially as powerful diffusion models often face deployment feasibility issues due to high
+costs [231]. Future research should therefore focus on lightweight yet robust models, unsupervised/self-supervised enhancement requiring
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+Challenges
+
+Hard to recognize
+
+Few data
+
+Individual
+cameras’ view
+is limited!
+
+How to
+deploy?
+
+Hard to
+model
+
+overfitting
+
+How to
+distribute?
+
+① Variations in camera positioning
+② Temporal synchronization issues
+
+Deep networks
+
+Objects being
+severely occluded
+
+2. Data-Driven Constraints
+
+1. Perceptual Data Degradation
+
+Solutions
+
+Heavy parameters
+
+train
+
+Objects under low
+illumination
+
+Small-scale objects
+
+Potential Trends
+
+21
+
+① Image enhancement
+
+① Few-shot learning
+
+Spatio-temporal
+dynamics
+
+Causal
+relationships
+
+③ Inconsistent imaging conditions
+
+3. Semantic Understanding Gap
+
+4. Sensing Coverage Limitations
+
+① Spatiotemporal
+interaction modeling
+
+① Multi-source data fusion
+
+② Domain adaptation
+
+② Self-supervised learning
+
+③ Super resolution
+
+③ Synthetic data generation
+
+② Scene graph generation
+and reasoning
+
+② Multi-view collaborative
+perception
+
+① Next-Gen Few/Zero-Shot
+Learning
+
+① Neuro-Symbolic & Causal
+Reasoning
+
+① Scalable & Robust Multi-Agent
+Perception
+
+① Zero/Few-Shot Enhancement
+(leveraging FMs)
+② Advanced Generative Models for
+Restoration
+
+② SSL for Complex Spatiotemporal
+Data
+
+③ Robustness to Unseen Adverse
+Conditions
+
+③ Ultra-Realistic Synthetic Data
+Generation
+
+② Explainable Scene Understanding
+(XAI)
+③ FMs for Rich Event Narration &
+VQA
+
+ Continual & Lifelong Learning
+
+ Scalable Interaction & Dynamic
+
+……
+
+……
+
+ TSS-Specific Benchmarks for
+Degradation
+
+……
+
+Systems
+
+Scene Graph Models
+
+② Decentralized & PrivacyPreserving Fusion
+
+Powerful computing
+power
+
+Limited computing
+power
+
+5. Computational Resource Demands
+
+① Lightweight model design
+② Model compression
+③ Distributed computing
+① Automated Efficient Architecture
+Search (NAS)
+
+③ End-to-End Collaborative
+Systems
+
+② Efficient Foundation Model
+Deployment
+③ Hardware-Aware AI Co-Design
+for Edge
+
+ Robust Multi-View 3D Geometric
+
+ Energy-Efficient & Green AI
+
+Reasoning
+
+……
+
+for TSS
+
+……
+
+Fig. 10. Overview of challenges, solutions, and potential trends for vision technologies in traffic surveillance
+
+less paired data, creating TSS-specific benchmarks for diverse adverse conditions, and integrating foundation models for zero/few-shot
+enhancement in novel scenarios.
+Domain adaptation (DA) aims to mitigate performance drops when models encounter new domains by adapting feature representations
+[232–234], employing techniques like dual-level adaptation [232], multi-level calibration [233], and uncertainty-guided methods [234].
+Despite these advances, seamless adaptation between significantly different TSS domains (e.g., clear day vs. snowy night) remains difficult,
+particularly for fine-grained tasks, and the “black-box” nature of some DA methods can hinder interpretability. Consequently, future
+work should prioritize more explainable DA, continuous DA for evolving traffic environments, multi-target DA, and the development of
+TSS-specific DA benchmarks to systematically evaluate robustness against various domain shifts.
+Super-resolution (SR) reconstructs high-resolution images from low-resolution inputs, evolving from basic enhancement [16] to advanced
+structure restoration [235], with innovations including self-supervised [236] and GAN-based SR [237]. However, TSS faces unique challenges:
+ensuring SR improvements translate to better downstream performance (e.g., vehicle detection, license plate recognition) rather than mere
+perceptual enhancement; computational constraints for real-time processing in edge devices; and the “perception-performance gap” where
+visually appealing results may not improve analytical accuracy for distant or occluded objects. Future research should prioritize developing
+SR methods optimized for specific TSS tasks (e.g., detection, vehicle Re-ID), lightweight architectures suitable for edge deployment,
+evaluation frameworks that measure impact on end-to-end system performance, and adaptive SR that adjusts enhancement strategies
+based on traffic scene complexity and object importance.
+5.2.2 Efficient learning paradigms. Efficient learning paradigms, primarily few-shot learning (FSL), self-supervised learning (SSL), and
+synthetic data generation, are crucial for mitigating the heavy data dependency of deep learning in TSS. While established fields, their
+robust application in diverse TSS contexts is an active research area.
+Few-shot learning (FSL) enables models to learn from minimal examples, evolving from metric learning [238] to meta-learning frameworks
+[239], with TSS applications in equipment detection [14] and vehicle re-identification [223]. However, FSL performance can be sensitive to
+“shot” selection and may struggle with generalization to novel or fine-grained TSS categories; curating representative support sets for
+deployment also presents a hidden cost. Future directions therefore include developing more robust FSL methods, exploring meta-learning
+for continual adaptation, combining FSL with active learning, and creating standardized FSL benchmarks for diverse TSS tasks.
+Self-supervised learning (SSL) extracts features from unlabeled data via pretext tasks, progressing from rotation prediction [240] to
+contrastive learning and masked image modeling [241], with TSS applications in anomaly detection [242] and multi-task SSL [243]. A key
+challenge is designing pretext tasks that effectively capture complex spatio-temporal traffic semantics, as transferability of SSL-learned
+
+22
+
+Wei Zhou et al.
+
+representations to diverse downstream TSS tasks and geolocations is not guaranteed, with real-world applicability often hinging on pretexttarget task alignment. Future advancements should explore SSL pretext tasks for traffic dynamics, robust SSL across varying conditions,
+combining SSL with weak supervision or domain knowledge, and leveraging pre-trained foundation models as powerful starting points for
+SSL in TSS.
+Synthetic data generation creates large, auto-labeled datasets using simulation [244], domain randomization [245], physics-based
+rendering [246], and generative models [247], demonstrated in accident video generation [248] and realism enhancement [247]. The
+primary limitation remains the “domain gap” between synthetic and real data, which can degrade real-world performance, while ensuring
+diversity and realism for complex interactions and rare events is difficult [231]; over-reliance on synthetic data can lead to poor deployment
+outcomes. Future efforts should focus on reducing this gap (e.g., advanced domain randomization, GAN-based refinement), developing
+realistic traffic simulation platforms, methodologies for optimally blending synthetic/real data, and creating benchmark datasets that enable
+systematic evaluation of synthetic-to-real transfer performance.
+5.2.3
+
+Knowledge-Enhanced Understanding. Knowledge-enhanced approaches, focusing on spatiotemporal interaction modeling and scene
+
+graph generation and reasoning, aim for genuine comprehension of the evolving interactions and complex behaviors of vehicles and
+pedestrians within the traffic environment, moving beyond mere pattern recognition.
+Spatiotemporal interaction modeling captures dynamic relationships between traffic participants, often using GNNs [249], Attention
+Mechanisms [187], or Transformers [221] for tasks like pedestrian intent and trajectory prediction. Modeling complex, multi-agent
+interactions in dense, unpredictable traffic with high performance and real-time constraints remains difficult, and ensuring models capture
+causality, not just correlation, is a hurdle for real-world applicability in safety-critical systems. Future directions should include developing
+more scalable and interpretable interaction models, incorporating explicit reasoning modules (e.g., traffic rules, human behavior models),
+combining these with probabilistic approaches for uncertainty, and creating datasets with rich annotations of multi-agent interactions and
+outcomes.
+Scene graph generation and reasoning constructs semantic representations of scenes, which, while applied in VQA [250], multimedia [251],
+and captioning [252], are less mature in TSS. Key challenges include capturing temporal dynamics and evolving relationships in traffic
+scenarios, multi-granularity reasoning across spatial-temporal scales, handling uncertainty in traffic behaviors, and efficient reasoning
+over large, dynamic graphs, with deployment feasibility for real-time applications being a major concern. Future research should explore
+temporal scene graphs with memory mechanisms, integration with foundation models for zero-shot traffic reasoning, probabilistic graphs
+incorporating uncertainty quantification, and developing TSS benchmarks for comprehensive scene graph understanding.
+5.2.4 Cooperative sensing frameworks. Addressing limited sensing coverage involves multi-source data fusion and multi-view collaborative
+perception [253], though widespread, robust, and standardized implementation of collaborative perception in TSS is still evolving.
+Multi-source data fusion combines various data types like video/images [254], text [255], social media [254], mobile signaling [256],
+street/satellite imagery [257, 258], and structured data [259], using diverse methods [260–262] for applications like traffic state estimation
+[263]. Challenges include handling data heterogeneity across modalities, ensuring temporal synchronization and spatial calibration,
+managing inconsistent data quality and sensor reliability in dynamic traffic environments, real-time processing constraints for timely
+decision-making, and establishing rigorous evaluation frameworks for fusion performance across diverse TSS scenarios. Future trends
+point towards adaptive fusion algorithms that handle missing or degraded sensor inputs, intelligent sensor selection and weighting based
+on real-time quality assessment, standardized multi-modal TSS data frameworks with common interfaces, and comprehensive datasets
+with temporally aligned, diverse modalities under varying environmental conditions.
+Multi-view collaborative perception leverages multiple, primarily camera-based, viewpoints to create a superior 3D scene representation,
+overcoming single-view occlusions and field-of-view limits through data, feature, or result-level fusion [82, 264–268]. Key perceptual
+challenges involve robustly aligning features across varied, dynamic perspectives—often with imperfect calibration—requiring advanced
+geometric and view-invariant learning. Effective communication (sufficient bandwidth, low latency) is crucial for sharing rich visual data,
+but the ultimate aim is this enhanced collective visual understanding. Future perception-centric work should target: (1) robust cross-view
+feature matching and 3D reconstruction resilient to calibration and viewpoint shifts; (2) intelligent view/feature selection for task-optimized
+fusion; and (3) sophisticated multi-view datasets and simulations that rigorously test collaborative visual algorithms against real-world
+geometric complexities like inter-view occlusions and varied sensor arrangements, fostering a shared visual reality.
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+23
+
+5.2.5 Efficient computing frameworks. Efficient computing through lightweight model design, model compression, and distributed computing
+strategies is paramount for real-world applicability of advanced AI in TSS, especially on edge devices.
+Lightweight model design creates efficient architectures using techniques like depth-wise separable convolutions [269], channel attention
+[270], and NAS [271], exemplified by MobileViT [272], EfficientFormer [273], Deeptrack [171], and LightMOT [274]. The main challenge is
+achieving optimal accuracy-efficiency trade-offs for complex TSS tasks, as lightweight models often struggle with challenging scenarios
+like occlusion, low resolution, and adverse weather conditions. Future directions include TSS-specific NAS frameworks, adaptive models
+that dynamically adjust complexity based on scene complexity and resource availability, and efficient vision Transformer architectures
+optimized for traffic video analysis.
+Model compression reduces model size via quantization [275], pruning [276], and knowledge distillation [277], with innovations like
+hardware-aware [278] and dynamic compression [279]. However, aggressive compression can significantly degrade performance on
+critical TSS tasks, compression strategies show high variability across different model architectures and TSS applications, and standardized
+evaluation protocols for compressed models in TSS are lacking. Future work should explore automated compression pipelines tailored for
+TSS workloads, compression methods that maintain robustness to domain shifts and adverse conditions, and co-design approaches that
+integrate compression considerations into initial architecture development.
+Distributed computing strategies optimize resource use via edge-cloud collaboration [280], distributed intelligent systems [281], adaptive
+computation offloading [282], and federated learning [283]. Key challenges include managing communication overhead in bandwidthconstrained environments, ensuring data consistency and security across distributed nodes, designing effective task allocation strategies
+for heterogeneous edge devices, and balancing latency requirements with computational efficiency. Future trends involve enhanced
+edge intelligence with specialized accelerators, privacy-preserving federated learning frameworks for diverse TSS deployments, adaptive
+resource management systems, and efficient distributed deployment strategies for large foundation models through model partitioning and
+edge-specific optimization.
+5.3
+
+Foundation Model Prospects
+
+Foundation models (FMs), also known as large models, have recently transformed the landscape of artificial intelligence. These include
+Large Language Models (LLMs, e.g., ChatGPT 3.5), Large Vision Models (LVMs, e.g., SAM [4]), and Vision-Language Models (VLMs,
+e.g., CLIP [5], GPT-4V) that combine both capabilities, all demonstrating unprecedented capabilities in their respective domains. These
+models, pre-trained on massive datasets, exhibit remarkable zero-shot learning abilities, strong generalization, and sophisticated reasoning
+capabilities across diverse tasks.
+In the context of TSS, the emergence of FMs presents unique opportunities due to their distinctive advantages: the ability to understand
+complex visual scenes, reason about spatial-temporal relationships, and transfer knowledge across different traffic scenarios. These
+capabilities directly address several fundamental challenges in current TSS, particularly in alleviating data-driven learning constraints and
+bridging the semantic understanding gap. Additionally, foundation world models (FWMs) such as SORA3 , which can learn and simulate the
+dynamics of traffic environments, offer promising potential for controlled data and scene generation in TSS for enhancing visual perception
+capabilities, particularly in rare event detection and complex scenario understanding.
+Therefore, the subsequent sections will elaborate on four key aspects: (1) towards data-efficient learning, (2) bridging semantic gaps, (3)
+scene generation via FWMs, and (4) challenges and solutions.
+5.3.1 Towards data-efficient learning. FMs demonstrate remarkable capabilities in mitigating data dependency through their pre-trained
+knowledge and transfer learning abilities. Their few-shot and zero-shot learning capabilities are particularly valuable for TSS applications
+where labeled data is scarce or difficult to obtain. For instance, in traffic object detection, models like SAM [4] and CLIP [5] have shown the
+ability to segment and detect various traffic participants with minimal fine-tuning, reducing the annotation burden for specific deployment
+scenarios [284, 285] and enhancing the transferability and flexibility of detectors [286]. In traffic anomaly detection, where abnormal events
+are naturally rare, FMs can leverage their pre-trained knowledge to identify unusual patterns even with limited examples [287]. Moreover,
+their transfer learning capabilities enable rapid adaptation to new traffic environments [286] or object categories [288], addressing the
+challenge of dataset bias and environmental variations. For instance, open-vocabulary classification and detection capabilities in TSS
+3
+
+https://openai.com/sora/
+
+24
+
+Wei Zhou et al.
+
+applications enable models to identify novel traffic participants not present in the training set, such as emerging mobility devices, regionspecific vehicles (like tuk-tuks in Southeast Asia), and temporary traffic facilities.
+5.3.2 Bridging semantic gaps. FMs excel at understanding complex semantic relationships and contextual information, offering unprecedented opportunities for high-level traffic scene understanding. Their sophisticated reasoning capabilities, typically implemented through
+Visual Question Answering (VQA) or dense captioning mechanisms [289, 290], enable better interpretation of spatial-temporal relationships and complex interactions among traffic participants. This VQA-based approach has proven particularly effective in safety-critical
+events (SCEs) understanding, where models can analyze and describe complex scenarios such as crashes, near-crashes, and traffic violations. Additionally, some recent studies [291, 292] have explored FMs’ capabilities in performing higher-order tasks such as accident cause
+analysis and counterfactual reasoning, where models can infer potential causes of accidents, generate alternative scenarios (“what-if”
+analysis), and propose preventive measures based on comprehensive scene understanding and causal reasoning capabilities.
+Moreover, the multi-modal processing capabilities of FMs enable a more unified and efficient way to integrate various information sources
+(image, video, text and LiDAR point cloud). Unlike traditional methods requiring separate models for different modalities, FMs provide
+a unified framework that simplifies multi-modal processing, leading to more comprehensive scene understanding and risk assessment
+[293, 294]. This unified paradigm significantly reduces system complexity while enabling better cross-modal learning and feature transfer.
+The shared architectural framework facilitates more consistent interpretations across modalities and simplifies real-world deployment.
+5.3.3 Scene generation via FWMs. Foundation World Models (FWMs), exemplified by systems like SORA, demonstrate sophisticated
+capabilities in simulating complex physical interactions and dynamic scenes while exhibiting a deep understanding of real-world principles
+[295, 296]. These models showcase remarkable abilities in visual scene generation. A key advantage of FWMs in TSS is their ability to
+generate high-fidelity visual data for training perception models, particularly for rare but critical events that are challenging to capture in
+real-world datasets [297]. Through controllable scene generation, these models can produce diverse visual scenarios spanning different
+lighting conditions, weather situations, and traffic configurations, which significantly enhance the robustness of perception systems.
+Furthermore, the synthetic data generated by FWMs holds promise for training visual detection systems targeting rare events such as
+traffic violations, accidents, and near-miss scenarios. By providing large-scale, diverse, and accurately annotated training data, these models
+help overcome the data scarcity challenge in developing reliable event detection systems.
+Moreover, FWMs can significantly enhance models’ scene understanding and reasoning capabilities through their sophisticated
+simulation abilities [298]. By generating diverse sequences of traffic scenarios with explicit causal relationships, models can learn to better
+comprehend complex spatial-temporal interactions and identify critical risk factors [299, 300]. This systematic exposure to varied causal
+chains enables models to develop more nuanced understanding of traffic dynamics, leading to improved capabilities in both event detection
+and situation interpretation. Such enhanced understanding is particularly valuable for developing more intelligent surveillance systems
+that can anticipate potential risks rather than simply detecting events after occurrence [301].
+5.3.4 Challenges and Solutions. Despite their transformative potential, FMs face several critical challenges in TSS deployment that require
+systematic solutions:
+Computational overhead represents a primary concern, as FMs typically demand substantial computational resources that may conflict
+with real-time processing requirements in TSS applications. Solutions include developing TSS-specific lightweight FMs through model
+compression and distillation techniques, implementing edge-optimized architectures, and adopting hierarchical deployment strategies
+where complex reasoning is performed offline or in cloud environments while lightweight models handle real-time tasks.
+Domain adaptation issues present another significant challenge, as FMs trained on general datasets may not directly transfer to trafficspecific scenarios without substantial fine-tuning. Addressing this requires developing TSS-specific fine-tuning datasets, implementing
+progressive fine-tuning approaches that balance performance with resource constraints, and establishing transfer learning protocols that
+leverage traffic domain knowledge effectively.
+Interpretability and reliability concerns are particularly critical in safety-sensitive TSS applications, where model decisions must be
+transparent and trustworthy. Mitigation strategies include implementing uncertainty quantification in FM outputs, developing ensemble
+approaches that combine FMs with domain-specific models, establishing robust evaluation frameworks with TSS-specific benchmarks, and
+incorporating human-in-the-loop validation for safety-critical applications to prevent potential hallucination risks.
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+25
+
+Synthetic-real domain gaps specific to FWMs require careful attention to ensure that generated scenarios accurately reflect realworld traffic dynamics. Solutions include developing traffic-specific FWMs trained on comprehensive real TSS data, implementing domain
+adaptation techniques for synthetic data, and establishing validation frameworks that rigorously test the fidelity of synthetic scenarios
+against real-world observations. Addressing these limitations systematically will be crucial for realizing FMs’ full potential in advancing
+TSS capabilities while maintaining the safety and reliability standards required in traffic surveillance applications.
+6
+
+CONCLUSION
+
+This comprehensive review has systematically examined the current research, challenges, and future directions of vision technologies in
+TSS. Our analysis reveals that while significant progress has been made in both low-level and high-level perception tasks, five fundamental
+limitations persist: perceptual data degradation, data-driven learning constraints, semantic understanding gaps, sensing coverage limitations
+and computational resource demands.
+Current research efforts have explored approaches to address these challenges, though gaps remain: advanced perception enhancement
+techniques (e.g., image enhancement, domain adaptation) show promise for challenging conditions but face deployment feasibility issues
+with high computational costs and struggle with robust generalization across diverse adverse conditions; efficient learning paradigms
+(e.g., few-shot learning, self-supervised methods) offer pathways to reduce data dependency while requiring careful consideration of
+domain transfer and the synthetic-to-real gap; knowledge-enhanced understanding approaches (e.g., spatiotemporal modeling, scene graph
+generation) provide frameworks for bridging semantic gaps yet struggle with modeling complex multi-agent interactions while ensuring
+causality and real-time performance; cooperative sensing frameworks demonstrate potential for expanding coverage through multi-source
+fusion and multi-view collaboration but encounter challenges in data heterogeneity, temporal synchronization, and robust feature alignment
+across varied perspectives; and efficient computing frameworks optimize resource utilization through lightweight model design, model
+compression, and distributed computing while addressing TSS-specific robustness requirements and communication overhead management.
+Moreover, the emergence of foundation models offers transformative potential in TSS, as they exhibit remarkable zero-shot learning
+abilities, strong generalization, and sophisticated reasoning capabilities across diverse tasks.
+Looking forward, TSS development will likely focus on strategic integration of these complementary approaches to create more robust
+and deployment-ready systems, advancing knowledge-enhanced frameworks that capture complex traffic dynamics through scalable
+interaction models and temporal reasoning, developing adaptive cooperative sensing architectures that intelligently handle data quality
+variations and geometric complexities, and optimizing TSS-specific computing frameworks that dynamically balance performance with
+resource constraints through domain-aware optimization and enhanced edge intelligence. This evolution, combining traditional approaches
+with emerging technologies, will be crucial for advancing intelligent transportation infrastructure while addressing practical challenges in
+real-time performance, multi-modal data fusion, and deployment feasibility under diverse real-world conditions.
+ACKNOWLEDGMENTS
+This research is supported by the Major Research Plan of National Natural Science Foundation of China (92370203), the National Key
+Research and Development Program of China (2023YFE0106800) and the Science Fund for Distinguished Young Scholars of Jiangsu Province
+(BK20231531).
+REFERENCES
+[1] Wei Zhou, Yuqing Liu, Lei Zhao, Sixuan Xu, and Chen Wang. 2023. Pedestrian crossing intention prediction from surveillance videos for over-the-horizon safety warning.
+IEEE Transactions on Intelligent Transportation Systems (2023).
+[2] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. 2016. Deep residual learning for image recognition. In Proceedings of the IEEE conference on computer vision and
+pattern recognition. 770–778.
+[3] Dosovitskiy Alexey. 2020. An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint arXiv: 2010.11929 (2020).
+[4] Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chloe Rolland, Laura Gustafson, Tete Xiao, Spencer Whitehead, Alexander C Berg, Wan-Yen Lo, et al. 2023.
+Segment anything. In Proceedings of the IEEE/CVF International Conference on Computer Vision. 4015–4026.
+[5] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, et al. 2021.
+Learning transferable visual models from natural language supervision. In International conference on machine learning. PMLR, 8748–8763.
+[6] Sokemi Rene Emmanuel Datondji, Yohan Dupuis, Peggy Subirats, and Pascal Vasseur. 2016. A survey of vision-based traffic monitoring of road intersections. IEEE
+transactions on intelligent transportation systems 17, 10 (2016), 2681–2698.
+
+26
+
+Wei Zhou et al.
+
+[7] Kelathodi Kumaran Santhosh, Debi Prosad Dogra, and Partha Pratim Roy. 2020. Anomaly detection in road traffic using visual surveillance: A survey. ACM Computing
+Surveys (CSUR) 53, 6 (2020), 1–26.
+[8] Azzedine Boukerche and Zhijun Hou. 2021. Object detection using deep learning methods in traffic scenarios. ACM Computing Surveys (CSUR) 54, 2 (2021), 1–35.
+[9] Jorge E Espinosa, Sergio A Velastín, and John W Branch. 2020. Detection of motorcycles in urban traffic using video analysis: A review. IEEE Transactions on Intelligent
+Transportation Systems 22, 10 (2020), 6115–6130.
+[10] Chenghuan Liu, Du Q Huynh, Yuchao Sun, Mark Reynolds, and Steve Atkinson. 2020. A vision-based pipeline for vehicle counting, speed estimation, and classification.
+IEEE transactions on intelligent transportation systems 22, 12 (2020), 7547–7560.
+[11] Xingchen Zhang, Yuxiang Feng, Panagiotis Angeloudis, and Yiannis Demiris. 2022. Monocular visual traffic surveillance: A review. IEEE Transactions on Intelligent
+Transportation Systems 23, 9 (2022), 14148–14165.
+[12] Hadi Ghahremannezhad, Hang Shi, and Chengjun Liu. 2023. Object detection in traffic videos: A survey. IEEE Transactions on Intelligent Transportation Systems 24, 7 (2023),
+6780–6799.
+[13] Diego M Jiménez-Bravo, Álvaro Lozano Murciego, André Sales Mendes, Héctor Sánchez San Blás, and Javier Bajo. 2022. Multi-object tracking in traffic environments: A
+systematic literature review. Neurocomputing 494 (2022), 43–55.
+[14] Wei Zhou, Yuqing Liu, Chen Wang, Yunfei Zhan, Yulu Dai, and Ruiyu Wang. 2022. An automated learning framework with limited and cross-domain data for traffic
+equipment detection from surveillance videos. IEEE Transactions on Intelligent Transportation Systems 23, 12 (2022), 24891–24903.
+[15] Zhishan Li, Hongxu Chen, Battista Biggio, Yifan He, Haoran Cai, Fabio Roli, and Lei Xie. 2024. Toward effective traffic sign detection via two-stage fusion neural networks.
+IEEE Transactions on Intelligent Transportation Systems (2024).
+[16] Wei Zhou, Chen Wang, Jingxin Xia, Zhendong Qian, and Yuan Wu. 2023. Monitoring-based traffic participant detection in urban mixed traffic: A novel dataset and a
+tailored detector. IEEE Transactions on Intelligent Transportation Systems (2023).
+[17] Li Kang, Zhiwei Lu, Lingyu Meng, and Zhijian Gao. 2024. YOLO-FA: Type-1 fuzzy attention based YOLO detector for vehicle detection. Expert Systems with Applications 237
+(2024), 121209.
+[18] Jia-wei Liu, Da Yang, Ting-wei Feng, and Jun-jie Fu. 2024. MDFD2-DETR: A Real-Time Complex Road Object Detection Model Based on Multi-Domain Feature Decomposition
+and De-Redundancy. IEEE Transactions on Intelligent Vehicles (2024).
+[19] Shaoqing Ren, Kaiming He, Ross Girshick, and Jian Sun. 2016. Faster R-CNN: Towards real-time object detection with region proposal networks. IEEE transactions on
+pattern analysis and machine intelligence 39, 6 (2016), 1137–1149.
+[20] Zhaowei Cai and Nuno Vasconcelos. 2018. Cascade r-cnn: Delving into high quality object detection. In Proceedings of the IEEE conference on computer vision and pattern
+recognition. 6154–6162.
+[21] Zhengxia Zou, Keyan Chen, Zhenwei Shi, Yuhong Guo, and Jieping Ye. 2023. Object detection in 20 years: A survey. Proc. IEEE 111, 3 (2023), 257–276.
+[22] J Redmon. 2016. You only look once: Unified, real-time object detection. In Proceedings of the IEEE conference on computer vision and pattern recognition.
+[23] Joseph Redmon. 2018. Yolov3: An incremental improvement. arXiv preprint arXiv:1804.02767 (2018).
+[24] Ao Wang, Hui Chen, Lihao Liu, Kai Chen, Zijia Lin, Jungong Han, and Guiguang Ding. 2024. Yolov10: Real-time end-to-end object detection. arXiv preprint arXiv:2405.14458
+(2024).
+[25] Wei Liu, Dragomir Anguelov, Dumitru Erhan, Christian Szegedy, Scott Reed, Cheng-Yang Fu, and Alexander C Berg. 2016. Ssd: Single shot multibox detector. In Computer
+Vision–ECCV 2016: 14th European Conference, Amsterdam, The Netherlands, October 11–14, 2016, Proceedings, Part I 14. Springer, 21–37.
+[26] Z Tian, C Shen, H Chen, and T He. 2019. FCOS: Fully convolutional one-stage object detection. arXiv 2019. arXiv preprint arXiv:1904.01355 (2019).
+[27] Xingyi Zhou, Dequan Wang, and Philipp Krähenbühl. 2019. Objects as points. arXiv preprint arXiv:1904.07850 (2019).
+[28] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas Usunier, Alexander Kirillov, and Sergey Zagoruyko. 2020. End-to-end object detection with transformers. In
+European conference on computer vision. Springer, 213–229.
+[29] Yian Zhao, Wenyu Lv, Shangliang Xu, Jinman Wei, Guanzhong Wang, Qingqing Dang, Yi Liu, and Jie Chen. 2024. Detrs beat yolos on real-time object detection. In
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 16965–16974.
+[30] Wei Zhou, Chen Wang, Yiran Ge, Longhui Wen, and Yunfei Zhan. 2023. All-day vehicle detection from surveillance videos based on illumination-adjustable generative
+adversarial network. IEEE Transactions on Intelligent Transportation Systems 25, 5 (2023), 3326–3340.
+[31] Wei Zhou, Lei Zhao, Hongpu Huang, and Chen Wang. 2025. Data-Efficient Object Detection on Construction Sites Using Reweighting Mechanism and Cross-Batch
+Contrastive Learning. IEEE Transactions on Industrial Informatics (2025).
+[32] Matthijs H Zwemer, D Scholte, Rob GJ Wijnhoven, and Peter HN de With. 2022. 3D Detection of Vehicles from 2D Images in Traffic Surveillance.. In VISIGRAPP (5: VISAPP).
+97–106.
+[33] Markéta Dubská, Adam Herout, and Jakub Sochor. 2014. Automatic camera calibration for traffic understanding.. In BMVC, Vol. 4. 8.
+[34] Viktor Kocur and Milan Ftáčnik. 2020. Detection of 3D bounding boxes of vehicles using perspective transformation for accurate speed measurement. Machine Vision and
+Applications 31, 7 (2020), 62.
+[35] Yiqiang Chen, Feng Liu, and Ke Pei. 2022. Monocular vehicle 3d bounding box estimation using homograhy and geometry in traffic scene. In ICASSP 2022-2022 IEEE
+International Conference on Acoustics, Speech and Signal Processing (ICASSP). IEEE, 1995–1999.
+[36] Peixuan Li and Huaici Zhao. 2021. Monocular 3d detection with geometric constraint embedding and semi-supervised training. IEEE Robotics and Automation Letters 6, 3
+(2021), 5565–5572.
+[37] Xiaoqing Ye, Mao Shu, Hanyu Li, Yifeng Shi, Yingying Li, Guangjie Wang, Xiao Tan, and Errui Ding. 2022. Rope3d: The roadside perception dataset for autonomous driving
+and monocular 3d object detection task. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 21341–21350.
+[38] Garrick Brazil and Xiaoming Liu. 2019. M3d-rpn: Monocular 3d region proposal network for object detection. In Proceedings of the IEEE/CVF international conference on
+computer vision. 9287–9296.
+[39] Xinzhu Ma, Yinmin Zhang, Dan Xu, Dongzhan Zhou, Shuai Yi, Haojie Li, and Wanli Ouyang. 2021. Delving into localization errors for monocular 3d object detection. In
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 4721–4730.
+[40] Yunpeng Zhang, Jiwen Lu, and Jie Zhou. 2021. Objects are different: Flexible monocular 3d object detection. In Proceedings of the IEEE/CVF Conference on Computer Vision
+and Pattern Recognition. 3289–3298.
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+27
+
+[41] Lei Yang, Kaicheng Yu, Tao Tang, Jun Li, Kun Yuan, Li Wang, Xinyu Zhang, and Peng Chen. 2023. Bevheight: A robust framework for vision-based roadside 3d object
+detection. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 21611–21620.
+[42] Jia Jinrang, Zhenjia Li, and Yifeng Shi. 2024. MonoUNI: A unified vehicle and infrastructure-side monocular 3d object detection network with sufficient depth clues.
+Advances in Neural Information Processing Systems 36 (2024).
+[43] Yuanchang Ou, Huicheng Zheng, Shuyue Chen, and Jiangtao Chen. 2014. Vehicle logo recognition based on a weighted spatial pyramid framework. In 17th International
+IEEE Conference on Intelligent Transportation Systems (ITSC). IEEE, 1238–1244.
+[44] Li-Chih Chen, Jun-Wei Hsieh, Yilin Yan, and Duan-Yu Chen. 2015. Vehicle make and model recognition using sparse representation and symmetrical SURFs. Pattern
+Recognition 48, 6 (2015), 1979–1998.
+[45] Ye Yu, Jun Wang, Jingting Lu, Yang Xie, and Zhenxing Nie. 2018. Vehicle logo recognition based on overlapping enhanced patterns of oriented edge magnitudes. Computers
+& Electrical Engineering 71 (2018), 273–283.
+[46] Yue Huang, Ruiwen Wu, Ye Sun, Wei Wang, and Xinghao Ding. 2015. Vehicle logo recognition system based on convolutional neural networks with a pretraining strategy.
+IEEE Transactions on Intelligent Transportation Systems 16, 4 (2015), 1951–1960.
+[47] Foo Chong Soon, Hui Ying Khaw, Joon Huang Chuah, and Jeevan Kanesan. 2018. Hyper-parameters optimisation of deep CNN architecture for vehicle logo recognition. IET
+Intelligent Transport Systems 12, 8 (2018), 939–946.
+[48] Yang Li, Doudou Zhang, and Jianli Xiao. 2024. A New Method for Vehicle Logo Recognition Based on Swin Transformer. arXiv preprint arXiv:2401.15458 (2024).
+[49] Ye Yu, Hua Li, Jun Wang, Hai Min, Wei Jia, Jun Yu, and Changwen Chen. 2020. A multilayer pyramid network based on learning for vehicle logo recognition. IEEE
+Transactions on Intelligent Transportation Systems 22, 5 (2020), 3123–3134.
+[50] Yuqi Li, Yanghao Li, Hongfei Yan, and Jiaying Liu. 2017. Deep joint discriminative learning for vehicle re-identification and retrieval. In 2017 IEEE international conference on
+image processing (ICIP). IEEE, 395–399.
+[51] Yiheng Zhang, Dong Liu, and Zheng-Jun Zha. 2017. Improving triplet-wise training of convolutional neural network for vehicle re-identification. In 2017 IEEE International
+Conference on Multimedia and Expo (ICME). IEEE, 1386–1391.
+[52] Xiaobin Liu, Shiliang Zhang, Qingming Huang, and Wen Gao. 2018. Ram: a region-aware deep model for vehicle re-identification. In 2018 IEEE international conference on
+multimedia and expo (ICME). IEEE, 1–6.
+[53] Fuxiang Huang, Xuefeng Lv, and Lei Zhang. 2023. Coarse-to-fine sparse self-attention for vehicle re-identification. Knowledge-Based Systems 270 (2023), 110526.
+[54] Jiawei Lian, Da-Han Wang, Yun Wu, and Shunzhi Zhu. 2023. Multi-Branch Enhanced Discriminative Network for Vehicle Re-Identification. IEEE Transactions on Intelligent
+Transportation Systems (2023).
+[55] Fei Shen, Yi Xie, Jianqing Zhu, Xiaobin Zhu, and Huanqiang Zeng. 2023. Git: Graph interactive transformer for vehicle re-identification. IEEE Transactions on Image
+Processing 32 (2023), 1039–1051.
+[56] Ruihang Chu, Yifan Sun, Yadong Li, Zheng Liu, Chi Zhang, and Yichen Wei. 2019. Vehicle re-identification with viewpoint-aware metric learning. In Proceedings of the
+IEEE/CVF international conference on computer vision. 8282–8291.
+[57] Pirazh Khorramshahi, Amit Kumar, Neehar Peri, Sai Saketh Rambhatla, Jun-Cheng Chen, and Rama Chellappa. 2019. A dual-path model with adaptive attention for vehicle
+re-identification. In Proceedings of the IEEE/CVF international conference on computer vision. 6132–6141.
+[58] Rodolfo Quispe, Cuiling Lan, Wenjun Zeng, and Helio Pedrini. 2021. AttributeNet: Attribute enhanced vehicle re-identification. Neurocomputing 465 (2021), 84–92.
+[59] Zhi Yu, Zhiyong Huang, Jiaming Pei, Lamia Tahsin, and Daming Sun. 2023. Semantic-oriented feature coupling transformer for vehicle re-identification in intelligent
+transportation system. IEEE Transactions on Intelligent Transportation Systems 25, 3 (2023), 2803–2813.
+[60] David S Bolme, J Ross Beveridge, Bruce A Draper, and Yui Man Lui. 2010. Visual object tracking using adaptive correlation filters. In 2010 IEEE computer society conference
+on computer vision and pattern recognition. IEEE, 2544–2550.
+[61] João F Henriques, Rui Caseiro, Pedro Martins, and Jorge Batista. 2014. High-speed tracking with kernelized correlation filters. IEEE transactions on pattern analysis and
+machine intelligence 37, 3 (2014), 583–596.
+[62] Luca Bertinetto, Jack Valmadre, Stuart Golodetz, Ondrej Miksik, and Philip HS Torr. 2016. Staple: Complementary learners for real-time tracking. In Proceedings of the IEEE
+conference on computer vision and pattern recognition. 1401–1409.
+[63] Luca Bertinetto, Jack Valmadre, Joao F Henriques, Andrea Vedaldi, and Philip HS Torr. 2016. Fully-convolutional siamese networks for object tracking. In Computer
+Vision–ECCV 2016 Workshops: Amsterdam, The Netherlands, October 8-10 and 15-16, 2016, Proceedings, Part II 14. Springer, 850–865.
+[64] Bo Li, Junjie Yan, Wei Wu, Zheng Zhu, and Xiaolin Hu. 2018. High performance visual tracking with siamese region proposal network. In Proceedings of the IEEE conference
+on computer vision and pattern recognition. 8971–8980.
+[65] Yuechen Yu, Yilei Xiong, Weilin Huang, and Matthew R Scott. 2020. Deformable siamese attention networks for visual object tracking. In Proceedings of the IEEE/CVF
+conference on computer vision and pattern recognition. 6728–6737.
+[66] Hong Zhang, Wanli Xing, Yifan Yang, Yan Li, and Ding Yuan. 2023. SiamST: Siamese network with spatio-temporal awareness for object tracking. Information Sciences 634
+(2023), 122–139.
+[67] Alex Bewley, Zongyuan Ge, Lionel Ott, Fabio Ramos, and Ben Upcroft. 2016. Simple online and realtime tracking. In 2016 IEEE international conference on image processing
+(ICIP). IEEE, 3464–3468.
+[68] Nicolai Wojke, Alex Bewley, and Dietrich Paulus. 2017. Simple online and realtime tracking with a deep association metric. In 2017 IEEE international conference on image
+processing (ICIP). IEEE, 3645–3649.
+[69] Yifu Zhang, Peize Sun, Yi Jiang, Dongdong Yu, Fucheng Weng, Zehuan Yuan, Ping Luo, Wenyu Liu, and Xinggang Wang. 2022. Bytetrack: Multi-object tracking by
+associating every detection box. In European conference on computer vision. Springer, 1–21.
+[70] Yunhao Du, Zhicheng Zhao, Yang Song, Yanyun Zhao, Fei Su, Tao Gong, and Hongying Meng. 2023. Strongsort: Make deepsort great again. IEEE Transactions on Multimedia
+25 (2023), 8725–8737.
+[71] Yu-Hsiang Wang, Jun-Wei Hsieh, Ping-Yang Chen, Ming-Ching Chang, Hung-Hin So, and Xin Li. 2024. Smiletrack: Similarity learning for occlusion-aware multiple object
+tracking. In Proceedings of the AAAI Conference on Artificial Intelligence, Vol. 38. 5740–5748.
+[72] Zhongdao Wang, Liang Zheng, Yixuan Liu, Yali Li, and Shengjin Wang. 2020. Towards real-time multi-object tracking. In European conference on computer vision. Springer,
+107–122.
+
+28
+
+Wei Zhou et al.
+
+[73] Yifu Zhang, Chunyu Wang, Xinggang Wang, Wenjun Zeng, and Wenyu Liu. 2021. Fairmot: On the fairness of detection and re-identification in multiple object tracking.
+International journal of computer vision 129 (2021), 3069–3087.
+[74] Tim Meinhardt, Alexander Kirillov, Laura Leal-Taixe, and Christoph Feichtenhofer. 2022. Trackformer: Multi-object tracking with transformers. In Proceedings of the
+IEEE/CVF conference on computer vision and pattern recognition. 8844–8854.
+[75] Ruopeng Gao and Limin Wang. 2023. MeMOTR: Long-term memory-augmented transformer for multi-object tracking. In Proceedings of the IEEE/CVF International
+Conference on Computer Vision. 9901–9910.
+[76] Longyin Wen, Dawei Du, Zhaowei Cai, Zhen Lei, Ming-Ching Chang, Honggang Qi, Jongwoo Lim, Ming-Hsuan Yang, and Siwei Lyu. 2020. UA-DETRAC: A new benchmark
+and protocol for multi-object detection and tracking. Computer Vision and Image Understanding 193 (2020), 102907.
+[77] Huansheng Song, Haoxiang Liang, Huaiyu Li, Zhe Dai, and Xu Yun. 2019. Vision-based vehicle detection and counting system using deep learning in highway scenes.
+European Transport Research Review 11, 1 (2019), 1–16.
+[78] Zhiming Luo, Frederic Branchaud-Charron, Carl Lemaire, Janusz Konrad, Shaozi Li, Akshaya Mishra, Andrew Achkar, Justin Eichel, and Pierre-Marc Jodoin. 2018. MIO-TCD:
+A new benchmark dataset for vehicle classification and localization. IEEE Transactions on Image Processing 27, 10 (2018), 5129–5141.
+[79] Deng Yongqiang, Wang Dengjiang, Cao Gang, Ma Bing, Guan Xijia, Wang Yajun, Liu Jianchao, Fang Yanming, and Li Juanjuan. 2021. Baai-vanjee roadside dataset: Towards
+the connected automated vehicle highway technologies in challenging environments of china. arXiv preprint arXiv:2105.14370 (2021).
+[80] Huanan Wang, Xinyu Zhang, Zhiwei Li, Jun Li, Kun Wang, Zhu Lei, and Ren Haibing. 2022. Ips300+: a challenging multi-modal data sets for intersection perception system.
+In 2022 International Conference on Robotics and Automation (ICRA). IEEE, 2539–2545.
+[81] Christian Creß, Walter Zimmer, Leah Strand, Maximilian Fortkord, Siyi Dai, Venkatnarayanan Lakshminarasimhan, and Alois Knoll. 2022. A9-dataset: Multi-sensor
+infrastructure-based dataset for mobility research. In 2022 IEEE Intelligent Vehicles Symposium (IV). IEEE, 965–970.
+[82] Haibao Yu, Yizhen Luo, Mao Shu, Yiyi Huo, Zebang Yang, Yifeng Shi, Zhenglong Guo, Hanyu Li, Xing Hu, Jirui Yuan, et al. 2022. Dair-v2x: A large-scale dataset for
+vehicle-infrastructure cooperative 3d object detection. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 21361–21370.
+[83] Jonathan Krause, Michael Stark, Jia Deng, and Li Fei-Fei. 2013. 3d object representations for fine-grained categorization. In Proceedings of the IEEE international conference
+on computer vision workshops. 554–561.
+[84] Linjie Yang, Ping Luo, Chen Change Loy, and Xiaoou Tang. 2015. A large-scale car dataset for fine-grained categorization and verification. In Proceedings of the IEEE
+conference on computer vision and pattern recognition. 3973–3981.
+[85] Shuo Yang, Chunjuan Bo, Junxing Zhang, Pengxiang Gao, Yujie Li, and Seiichi Serikawa. 2021. VLD-45: A big dataset for vehicle logo recognition and detection. IEEE
+Transactions on Intelligent Transportation Systems 23, 12 (2021), 25567–25573.
+[86] Hongye Liu, Yonghong Tian, Yaowei Yang, Lu Pang, and Tiejun Huang. 2016. Deep relative distance learning: Tell the difference between similar vehicles. In Proceedings of
+the IEEE conference on computer vision and pattern recognition. 2167–2175.
+[87] Xinchen Liu, Wu Liu, Tao Mei, and Huadong Ma. 2016. A deep learning-based approach to progressive vehicle re-identification for urban surveillance. In Computer
+Vision–ECCV 2016: 14th European Conference, Amsterdam, The Netherlands, October 11-14, 2016, Proceedings, Part II 14. Springer, 869–884.
+[88] Zheng Tang, Milind Naphade, Ming-Yu Liu, Xiaodong Yang, Stan Birchfield, Shuo Wang, Ratnesh Kumar, David Anastasiu, and Jenq-Neng Hwang. 2019. Cityflow: A cityscale benchmark for multi-target multi-camera vehicle tracking and re-identification. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition.
+8797–8806.
+[89] Yan Bai, Jun Liu, Yihang Lou, Ce Wang, and Ling-Yu Duan. 2021. Disentangled feature learning network and a comprehensive benchmark for vehicle re-identification. IEEE
+Transactions on Pattern Analysis and Machine Intelligence 44, 10 (2021), 6854–6871.
+[90] UT Benchmark. 2016. A benchmark and simulator for UAV tracking. In European Conference on Computer Vision.
+[91] Pengfei Zhu, Longyin Wen, Xiao Bian, Haibin Ling, and Qinghua Hu. 2018. Vision meets drones: A challenge. arXiv preprint arXiv:1804.07437 (2018).
+[92] Patrick Dendorfer, Aljosa Osep, Anton Milan, Konrad Schindler, Daniel Cremers, Ian Reid, Stefan Roth, and Laura Leal-Taixé. 2021. Motchallenge: A benchmark for
+single-camera multiple target tracking. International Journal of Computer Vision 129 (2021), 845–881.
+[93] Ziying Song, Lin Liu, Feiyang Jia, Yadan Luo, Caiyan Jia, Guoxin Zhang, Lei Yang, and Li Wang. 2024. Robustness-aware 3d object detection in autonomous driving: A
+review and outlook. IEEE Transactions on Intelligent Transportation Systems (2024).
+[94] Andreas Geiger, Philip Lenz, Christoph Stiller, and Raquel Urtasun. 2013. Vision meets robotics: The kitti dataset. The International Journal of Robotics Research 32, 11 (2013),
+1231–1237.
+[95] Holger Caesar, Varun Bankiti, Alex H Lang, Sourabh Vora, Venice Erin Liong, Qiang Xu, Anush Krishnan, Yu Pan, Giancarlo Baldan, and Oscar Beijbom. 2020. nuscenes: A
+multimodal dataset for autonomous driving. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 11621–11631.
+[96] Ali Amiri, Aydin Kaya, and Ali Seydi Keceli. 2024. A Comprehensive Survey on Deep-Learning-based Vehicle Re-Identification: Models, Data Sets and Challenges. arXiv
+preprint arXiv:2401.10643 (2024).
+[97] Wenhan Luo, Junliang Xing, Anton Milan, Xiaoqin Zhang, Wei Liu, and Tae-Kyun Kim. 2021. Multiple object tracking: A literature review. Artificial intelligence 293 (2021),
+103448.
+[98] Yu-Jin Zhang. 2023. Camera calibration. In 3-D Computer Vision: Principles, Algorithms and Applications. Springer, 37–65.
+[99] Anup Basu and Kavita Ravi. 1997. Active camera calibration using pan, tilt and roll. IEEE Transactions on Systems, Man, and Cybernetics, Part B (Cybernetics) 27, 3 (1997),
+559–566.
+[100] Zhanfei Chen, Xuelong Si, Dan Wu, Fengnian Tian, Zhenxing Zheng, and Renfu Li. 2024. A novel camera calibration method based on known rotations and translations.
+Computer Vision and Image Understanding 243 (2024), 103996.
+[101] Tuan Hue Thi, Sijun Lu, and Jian Zhang. 2008. Self-calibration of traffic surveillance camera using motion tracking. In 2008 11th International IEEE Conference on Intelligent
+Transportation Systems. IEEE, 304–309.
+[102] Yuan Zheng and Silong Peng. 2012. Model based vehicle localization for urban traffic surveillance using image gradient based matching. In 2012 15th International IEEE
+Conference on Intelligent Transportation Systems. IEEE, 945–950.
+[103] Radu Orghidan, Joaquim Salvi, Mihaela Gordan, and Bogdan Orza. 2012. Camera calibration using two or three vanishing points. In 2012 Federated Conference on Computer
+science and information systems (FedCSIS). IEEE, 123–130.
+[104] Zhaoxiang Zhang, Tieniu Tan, Kaiqi Huang, and Yunhong Wang. 2012. Practical camera calibration from moving objects for traffic scene surveillance. IEEE transactions on
+circuits and systems for video technology 23, 3 (2012), 518–533.
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+29
+
+[105] Viktor Kocur and Milan Ftáčnik. 2021. Traffic camera calibration via vehicle vanishing point detection. In Artificial Neural Networks and Machine Learning–ICANN 2021:
+30th International Conference on Artificial Neural Networks, Bratislava, Slovakia, September 14–17, 2021, Proceedings, Part V 30. Springer, 628–639.
+[106] Wentao Zhang, Huansheng Song, and Lichen Liu. 2023. Automatic calibration for monocular cameras in highway scenes via vehicle vanishing point detection. Journal of
+transportation engineering, Part A: Systems 149, 7 (2023), 04023050.
+[107] Shusen Guo, Xianwen Yu, Yuejin Sha, Yifan Ju, Mingchen Zhu, and Jiafu Wang. 2024. Online camera auto-calibration appliable to road surveillance. Machine Vision and
+Applications 35, 4 (2024), 91.
+[108] Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang Wang, and Jifeng Dai. 2020. Deformable detr: Deformable transformers for end-to-end object detection. arXiv preprint
+arXiv:2010.04159 (2020).
+[109] Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, and Baining Guo. 2021. Swin transformer: Hierarchical vision transformer using shifted
+windows. In Proceedings of the IEEE/CVF international conference on computer vision. 10012–10022.
+[110] Jun-Wei Hsieh, Li-Chih Chen, and Duan-Yu Chen. 2014. Symmetrical SURF and its applications to vehicle detection and vehicle make and model recognition. IEEE
+Transactions on intelligent transportation systems 15, 1 (2014), 6–20.
+[111] Jakub Sochor, Jakub Špaňhel, and Adam Herout. 2018. Boxcars: Improving fine-grained recognition of vehicles using 3-d bounding boxes in traffic surveillance. IEEE
+transactions on intelligent transportation systems 20, 1 (2018), 97–108.
+[112] Wei Sun, Guoce Zhang, Xiaorui Zhang, Xu Zhang, and Nannan Ge. 2021. Fine-grained vehicle type classification using lightweight convolutional neural network with
+feature optimization and joint learning strategy. Multimedia Tools and Applications 80, 20 (2021), 30803–30816.
+[113] Azzedine Boukerche and Xiren Ma. 2021. A novel smart lightweight visual attention model for fine-grained vehicle recognition. IEEE Transactions on Intelligent Transportation
+Systems 23, 8 (2021), 13846–13862.
+[114] Hongchun Lu, Min Han, Chaoqing Wang, and Junlong Cheng. 2023. AMLNet: Attention Multibranch Loss CNN Models for Fine-Grained Vehicle Recognition. IEEE
+Transactions on Vehicular Technology (2023).
+[115] Ruilong Chen, Matthew Hawes, Lyudmila Mihaylova, Jingjing Xiao, and Wei Liu. 2016. Vehicle logo recognition by spatial-SIFT combined with logistic regression. In 2016
+19th International Conference on Information Fusion (FUSION). IEEE, 1228–1235.
+[116] Sugang Ma, Zhixian Zhao, Zhiqiang Hou, Lei Zhang, Xiaobao Yang, and Lei Pu. 2022. Correlation filters based on multi-expert and game theory for visual object tracking.
+IEEE Transactions on Instrumentation and Measurement 71 (2022), 1–14.
+[117] Zedu Chen, Bineng Zhong, Guorong Li, Shengping Zhang, and Rongrong Ji. 2020. Siamese box adaptive network for visual tracking. In Proceedings of the IEEE/CVF
+conference on computer vision and pattern recognition. 6668–6677.
+[118] Jing Liu, Han Wang, Chao Ma, Yuting Su, and Xiaokang Yang. 2024. Siamdmu: Siamese dual mask update network for visual object tracking. IEEE Transactions on Emerging
+Topics in Computational Intelligence (2024).
+[119] Romil Bhardwaj, Gopi Krishna Tummala, Ganesan Ramalingam, Ramachandran Ramjee, and Prasun Sinha. 2018. Autocalib: Automatic traffic camera calibration at scale.
+ACM Transactions on Sensor Networks (TOSN) 14, 3-4 (2018), 1–27.
+[120] Vojtěch Bartl, Roman Juranek, Jakub Špaňhel, and Adam Herout. 2020. Planecalib: Automatic camera calibration by multiple observations of rigid objects on plane. In 2020
+Digital Image Computing: Techniques and Applications (DICTA). IEEE, 1–8.
+[121] Vojtěch Bartl, Jakub Špaňhel, Petr Dobeš, Roman Juranek, and Adam Herout. 2021. Automatic camera calibration by landmarks on rigid objects. Machine Vision and
+Applications 32, 1 (2021), 2.
+[122] Turgay Celik and Huseyin Kusetogullari. 2009. Solar-powered automated road surveillance system for speed violation detection. IEEE Transactions on Industrial Electronics
+57, 9 (2009), 3216–3227.
+[123] Chomtip Pornpanomchai and Kaweepap Kongkittisan. 2009. Vehicle speed detection system. In 2009 IEEE international conference on signal and image processing applications.
+IEEE, 135–139.
+[124] Mallikarjun Anandhalli, Pavana Baligar, Santosh S Saraf, and Pooja Deepsir. 2022. Image projection method for vehicle speed estimation model in video system. Machine
+Vision and Applications 33, 1 (2022), 7.
+[125] Muhammad Hassaan Ashraf, Farhana Jabeen, Hamed Alghamdi, M Sultan Zia, and Mubarak S Almutairi. 2023. HVD-net: a hybrid vehicle detection network for visionbased vehicle tracking and speed estimation. Journal of King Saud University-Computer and Information Sciences 35, 8 (2023), 101657.
+[126] Tingting Huang. 2018. Traffic speed estimation from surveillance video data. In Proceedings of the IEEE conference on computer vision and pattern recognition workshops. 161–165.
+[127] D Bell, W Xiao, and P James. 2020. Accurate vehicle speed estimation from monocular camera footage. ISPRS Annals of the Photogrammetry, Remote Sensing and Spatial
+Information Sciences 2 (2020), 419–426.
+[128] Ervin Yohannes, Chih-Yang Lin, Timothy K Shih, Tipajin Thaipisutikul, Avirmed Enkhbat, and Fitri Utaminingrum. 2023. An improved speed estimation using deep
+homography transformation regression network on monocular videos. IEEE Access 11 (2023), 5955–5965.
+[129] Igor Lashkov, Runze Yuan, and Guohui Zhang. 2023. Edge-Computing-Empowered Vehicle Tracking and Speed Estimation Against Strong Image Vibrations Using
+Surveillance Monocular Camera. IEEE Transactions on Intelligent Transportation Systems (2023).
+[130] David Fernández Llorca, Antonio Hernández Martínez, and Iván García Daza. 2021. Vision-based vehicle speed estimation: A survey. IET Intelligent Transport Systems 15, 8
+(2021), 987–1005.
+[131] Zhe Dai, Huansheng Song, Xuan Wang, Yong Fang, Xu Yun, Zhaoyang Zhang, and Huaiyu Li. 2019. Video-based vehicle counting framework. IEEE Access 7 (2019),
+64460–64470.
+[132] Zhongji Liu, Wei Zhang, Xu Gao, Hao Meng, Xiao Tan, Xiaoxing Zhu, Zhan Xue, Xiaoqing Ye, Hongwu Zhang, Shilei Wen, et al. 2020. Robust movement-specific vehicle
+counting at crowded intersections. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops. 614–615.
+[133] Mishuk Majumder and Chester Wilmot. 2023. Automated vehicle counting from pre-recorded video using you only look once (YOLO) object detection model. Journal of
+imaging 9, 7 (2023), 131.
+[134] Muhammad Asif Khan, Hamid Menouar, and Ridha Hamila. 2023. Revisiting crowd counting: State-of-the-art, trends, and future perspectives. Image and Vision Computing
+129 (2023), 104597.
+[135] Daniel Onoro-Rubio and Roberto J López-Sastre. 2016. Towards perspective-free object counting with deep learning. In Computer Vision–ECCV 2016: 14th European
+Conference, Amsterdam, The Netherlands, October 11–14, 2016, Proceedings, Part VII 14. Springer, 615–629.
+
+30
+
+Wei Zhou et al.
+
+[136] Shanghang Zhang, Guanhang Wu, Joao P Costeira, and José MF Moura. 2017. Fcn-rlstm: Deep spatio-temporal neural networks for vehicle counting in city cameras. In
+Proceedings of the IEEE international conference on computer vision. 3667–3676.
+[137] Henglong Yang, Youmei Zhang, Yu Zhang, Hailong Meng, Shuang Li, and Xianglin Dai. 2021. A fast vehicle counting and traffic volume estimation method based on
+convolutional neural network. IEEe Access 9 (2021), 150522–150531.
+[138] Xiangyu Guo, Mingliang Gao, Wenzhe Zhai, Qilei Li, and Gwanggil Jeon. 2023. Scale region recognition network for object counting in intelligent transportation system.
+IEEE Transactions on Intelligent Transportation Systems (2023).
+[139] Yang Liu, Dingkang Yang, Yan Wang, Jing Liu, Jun Liu, Azzedine Boukerche, Peng Sun, and Liang Song. 2024. Generalized video anomaly event detection: Systematic
+taxonomy and comparison of deep models. Comput. Surveys 56, 7 (2024), 1–38.
+[140] Mohammad Sabokrou, Mohsen Fayyaz, Mahmood Fathy, and Reinhard Klette. 2017. Deep-cascade: Cascading 3d deep neural networks for fast anomaly detection and
+localization in crowded scenes. IEEE Transactions on Image Processing 26, 4 (2017), 1992–2004.
+[141] Elizaveta Batanina, Imad Eddine Ibrahim Bekkouch, Youssef Youssry, Adil Khan, Asad Masood Khattak, and Mikhail Bortnikov. 2019. Domain adaptation for car accident
+detection in videos. In 2019 ninth international conference on image processing theory, tools and applications (IPTA). IEEE, 1–6.
+[142] Zhenbo Lu, Wei Zhou, Shixiang Zhang, and Chen Wang. 2020. A New Video-Based Crash Detection Method: Balancing Speed and Accuracy Using a Feature Fusion Deep
+Learning Framework. Journal of advanced transportation 2020, 1 (2020), 8848874.
+[143] Jia-Xing Zhong, Nannan Li, Weijie Kong, Shan Liu, Thomas H Li, and Ge Li. 2019. Graph convolutional label noise cleaner: Train a plug-and-play action classifier for
+anomaly detection. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 1237–1246.
+[144] Jia-Chang Feng, Fa-Ting Hong, and Wei-Shi Zheng. 2021. Mist: Multiple instance self-training framework for video anomaly detection. In Proceedings of the IEEE/CVF
+conference on computer vision and pattern recognition. 14009–14018.
+[145] Wei Zhou, Longhui Wen, Yunfei Zhan, and Chen Wang. 2023. An appearance-motion network for vision-based crash detection: Improving the accuracy in congested traffic.
+IEEE transactions on intelligent transportation systems (2023).
+[146] Hongyang Yu, Xinfeng Zhang, Yaowei Wang, Qingming Huang, and Baocai Yin. 2024. Fine-grained accident detection: database and algorithm. IEEE transactions on image
+processing (2024).
+[147] Waqas Sultani, Chen Chen, and Mubarak Shah. 2018. Real-world anomaly detection in surveillance videos. In Proceedings of the IEEE conference on computer vision and
+pattern recognition. 6479–6488.
+[148] Yi Zhu and Shawn Newsam. 2019. Motion-aware feature for improved video anomaly detection. arXiv preprint arXiv:1907.10211 (2019).
+[149] Muhammad Zaigham Zaheer, Arif Mahmood, Hochul Shin, and Seung-Ik Lee. 2020. A self-reasoning framework for anomaly detection using video-level labels. IEEE Signal
+Processing Letters 27 (2020), 1705–1709.
+[150] Wenhao Shao, Ruliang Xiao, Praboda Rajapaksha, Mengzhu Wang, Noel Crespi, Zhigang Luo, and Roberto Minerva. 2023. Video anomaly detection with NTCN-ML: A
+novel TCN for multi-instance learning. Pattern Recognition 143 (2023), 109765.
+[151] Silas SL Pereira and José Everardo Bessa Maia. 2024. MC-MIL: video surveillance anomaly detection with multi-instance learning and multiple overlapped cameras. Neural
+Computing and Applications 36, 18 (2024), 10527–10543.
+[152] Yang Liu, Jing Liu, Wei Ni, and Liang Song. 2022. Abnormal event detection with self-guiding multi-instance ranking framework. In 2022 International Joint Conference on
+Neural Networks (IJCNN). IEEE, 01–07.
+[153] Dong Gong, Lingqiao Liu, Vuong Le, Budhaditya Saha, Moussa Reda Mansour, Svetha Venkatesh, and Anton van den Hengel. 2019. Memorizing normality to detect
+anomaly: Memory-augmented deep autoencoder for unsupervised anomaly detection. In Proceedings of the IEEE/CVF international conference on computer vision. 1705–1714.
+[154] Mahmudul Hasan, Jonghyun Choi, Jan Neumann, Amit K Roy-Chowdhury, and Larry S Davis. 2016. Learning temporal regularity in video sequences. In Proceedings of the
+IEEE conference on computer vision and pattern recognition. 733–742.
+[155] K Deepak, S Chandrakala, and C Krishna Mohan. 2021. Residual spatiotemporal autoencoder for unsupervised video anomaly detection. Signal, Image and Video Processing
+15, 1 (2021), 215–222.
+[156] Kelathodi Kumaran Santhosh, Debi Prosad Dogra, Partha Pratim Roy, and Adway Mitra. 2021. Vehicular trajectory classification and traffic anomaly detection in videos
+using a hybrid CNN-VAE architecture. IEEE Transactions on Intelligent Transportation Systems 23, 8 (2021), 11891–11902.
+[157] Wei Zhou, Yunhong Yu, Yunfei Zhan, and Chen Wang. 2022. A vision-based abnormal trajectory detection framework for online traffic incident alert on freeways. Neural
+Computing and Applications 34, 17 (2022), 14945–14958.
+[158] Wen Liu, Weixin Luo, Dongze Lian, and Shenghua Gao. 2018. Future frame prediction for anomaly detection–a new baseline. In Proceedings of the IEEE conference on
+computer vision and pattern recognition. 6536–6545.
+[159] Zhian Liu, Yongwei Nie, Chengjiang Long, Qing Zhang, and Guiqing Li. 2021. A hybrid video anomaly detection framework via memory-augmented flow reconstruction
+and flow-guided frame prediction. In Proceedings of the IEEE/CVF international conference on computer vision. 13588–13597.
+[160] Xuanzhao Wang, Zhengping Che, Bo Jiang, Ning Xiao, Ke Yang, Jian Tang, Jieping Ye, Jingyu Wang, and Qi Qi. 2021. Robust unsupervised video anomaly detection by
+multipath frame prediction. IEEE transactions on neural networks and learning systems 33, 6 (2021), 2301–2312.
+[161] Tung Minh Tran, Doanh C Bui, Tam V Nguyen, and Khang Nguyen. 2024. Transformer-based Spatio-Temporal Unsupervised Traffic Anomaly Detection in Aerial Videos.
+IEEE Transactions on Circuits and Systems for Video Technology (2024).
+[162] Huan-Sheng Song, Sheng-Nan Lu, Xiang Ma, Yuan Yang, Xue-Qin Liu, and Peng Zhang. 2014. Vehicle behavior analysis using target motion trajectories. IEEE Transactions
+on Vehicular Technology 63, 8 (2014), 3580–3591.
+[163] Aaron Christian P Uy, Rhen Anjerome Bedruz, Ana Riza Quiros, Argel Bandala, and Elmer P Dadios. 2015. Machine vision for traffic violation detection system through
+genetic algorithm. In 2015 International Conference on Humanoid, Nanotechnology, Information Technology, Communication and Control, Environment and Management
+(HNICEM). IEEE, 1–7.
+[164] Georges S Aoude, Vishnu R Desaraju, Lauren H Stephens, and Jonathan P How. 2012. Driver behavior classification at intersections and validation on large naturalistic data
+set. IEEE Transactions on Intelligent Transportation Systems 13, 2 (2012), 724–736.
+[165] Hailun Zhang and Rui Fu. 2021. An ensemble learning–online semi-supervised approach for vehicle behavior recognition. IEEE Transactions on Intelligent Transportation
+Systems 23, 8 (2021), 10610–10626.
+[166] Da Xu, Mengfei Liu, Xinpeng Yao, and Nengchao Lyu. 2023. Integrating surrounding vehicle information for vehicle trajectory representation and abnormal lane-change
+behavior detection. Sensors 23, 24 (2023), 9800.
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+31
+
+[167] Arya Haghighat and Anuj Sharma. 2023. A computer vision-based deep learning model to detect wrong-way driving using pan–tilt–zoom traffic cameras. Computer-Aided
+Civil and Infrastructure Engineering 38, 1 (2023), 119–132.
+[168] Guotao Xie, Hongbo Gao, Lijun Qian, Bin Huang, Keqiang Li, and Jianqiang Wang. 2017. Vehicle trajectory prediction by integrating physics-and maneuver-based
+approaches using interactive multiple models. IEEE Transactions on Industrial Electronics 65, 7 (2017), 5999–6008.
+[169] Cyrus Anderson, Ram Vasudevan, and Matthew Johnson-Roberson. 2021. A kinematic model for trajectory prediction in general highway scenarios. IEEE Robotics and
+Automation Letters 6, 4 (2021), 6757–6764.
+[170] Nishant Nikhil and Brendan Tran Morris. 2018. Convolutional neural network for trajectory prediction. In Proceedings of the European Conference on Computer Vision
+(ECCV) Workshops. 0–0.
+[171] Vinit Katariya, Mohammadreza Baharani, Nichole Morris, Omidreza Shoghli, and Hamed Tabkhi. 2022. Deeptrack: Lightweight deep learning for vehicle trajectory
+prediction in highways. IEEE Transactions on Intelligent Transportation Systems 23, 10 (2022), 18927–18936.
+[172] Lei Lin, Weizi Li, Huikun Bi, and Lingqiao Qin. 2021. Vehicle trajectory prediction using LSTMs with spatial–temporal attention mechanisms. IEEE Intelligent Transportation
+Systems Magazine 14, 2 (2021), 197–208.
+[173] Yuzhen Zhang, Wentong Wang, Weizhi Guo, Pei Lv, Mingliang Xu, Wei Chen, and Dinesh Manocha. 2022. D2-TPred: Discontinuous dependency for trajectory prediction
+under traffic lights. In European Conference on Computer Vision. Springer, 522–539.
+[174] Hongyan Guo, Qingyu Meng, Dongpu Cao, Hong Chen, Jun Liu, and Bingxu Shang. 2022. Vehicle trajectory prediction method coupled with ego vehicle motion trend
+under dual attention mechanism. IEEE Transactions on Instrumentation and Measurement 71 (2022), 1–16.
+[175] Yilong Ren, Zhengxing Lan, Lingshan Liu, and Haiyang Yu. 2024. Emsin: enhanced multi-stream interaction network for vehicle trajectory prediction. IEEE Transactions on
+Fuzzy Systems (2024).
+[176] Armin Danesh Pazho, Ghazal Alinezhad Noghre, Vinit Katariya, and Hamed Tabkhi. 2024. VT-Former: An Exploratory Study on Vehicle Trajectory Prediction for Highway
+Surveillance through Graph Isomorphism and Transformer. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 5651–5662.
+[177] Renteng Yuan, Mohamed Abdel-Aty, Qiaojun Xiang, Zijin Wang, and Xin Gu. 2023. A temporal multi-gate mixture-of-experts approach for vehicle trajectory and driving
+intention prediction. IEEE Transactions on Intelligent Vehicles (2023).
+[178] Michael Goldhammer, Sebastian Köhler, Stefan Zernetsch, Konrad Doll, Bernhard Sick, and Klaus Dietmayer. 2019. Intentions of vulnerable road users—Detection and
+forecasting by means of machine learning. IEEE transactions on intelligent transportation systems 21, 7 (2019), 3035–3045.
+[179] Khaled Saleh, Mohammed Hossny, and Saeid Nahavandi. 2018. Intent prediction of pedestrians via motion trajectories using stacked recurrent neural networks. IEEE
+Transactions on Intelligent Vehicles 3, 4 (2018), 414–424.
+[180] Chenxin Xu, Weibo Mao, Wenjun Zhang, and Siheng Chen. 2022. Remember intentions: Retrospective-memory-based trajectory prediction. In Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition. 6488–6497.
+[181] Shile Zhang, Mohamed Abdel-Aty, Yina Wu, and Ou Zheng. 2021. Pedestrian crossing intention prediction at red-light using pose estimation. IEEE transactions on intelligent
+transportation systems 23, 3 (2021), 2331–2339.
+[182] Zhijie Fang and Antonio M López. 2019. Intention recognition of pedestrians and cyclists by 2d pose estimation. IEEE Transactions on Intelligent Transportation Systems 21,
+11 (2019), 4773–4783.
+[183] Feiyi Xu, Feng Xu, Jiucheng Xie, Chi-Man Pun, Huimin Lu, and Hao Gao. 2021. Action recognition framework in traffic scene for autonomous driving system. IEEE
+Transactions on Intelligent Transportation Systems 23, 11 (2021), 22301–22311.
+[184] Amir Rasouli, Iuliia Kotseruba, and John K Tsotsos. 2017. Are they going to cross? a benchmark dataset and baseline for pedestrian crosswalk behavior. In Proceedings of the
+IEEE International Conference on Computer Vision Workshops. 206–213.
+[185] Joseph Gesnouin, Steve Pechberti, Bogdan Stanciulcscu, and Fabien Moutarde. 2021. TrouSPI-Net: Spatio-temporal attention on parallel atrous convolutions and U-GRUs for
+skeletal pedestrian crossing prediction. In 2021 16th IEEE International Conference on Automatic Face and Gesture Recognition (FG 2021). IEEE, 01–07.
+[186] Iuliia Kotseruba, Amir Rasouli, and John K Tsotsos. 2021. Benchmark for evaluating pedestrian action prediction. In Proceedings of the IEEE/CVF winter conference on
+applications of computer vision. 1258–1268.
+[187] Mohsen Azarmi, Mahdi Rezaei, He Wang, and Sebastien Glaser. 2024. PIP-Net: Pedestrian Intention Prediction in the Wild. arXiv preprint arXiv:2402.12810 (2024).
+[188] Chi Zhang and Christian Berger. 2023. Pedestrian behavior prediction using deep learning methods for urban scenarios: A review. IEEE Transactions on Intelligent
+Transportation Systems 24, 10 (2023), 10279–10301.
+[189] Biao Yang, Zhiwen Wei, Hongyu Hu, Rui Wang, Changchun Yang, and Rongrong Ni. 2023. DPCIAN: A novel dual-channel pedestrian crossing intention anticipation
+network. IEEE Transactions on Intelligent Transportation Systems (2023).
+[190] Alexandre Alahi, Vignesh Ramanathan, and Li Fei-Fei. 2014. Socially-aware large-scale crowd forecasting. In Proceedings of the IEEE Conference on Computer Vision and
+Pattern Recognition. 2203–2210.
+[191] Cao Ningbo, Wei Wei, Qu Zhaowei, Zhao Liying, and Bai Qiaowen. 2017. Simulation of pedestrian crossing behaviors at unmarked roadways based on social force model.
+Discrete Dynamics in Nature and Society 2017, 1 (2017), 8741534.
+[192] Alexandre Alahi, Kratarth Goel, Vignesh Ramanathan, Alexandre Robicquet, Li Fei-Fei, and Silvio Savarese. 2016. Social lstm: Human trajectory prediction in crowded
+spaces. In Proceedings of the IEEE conference on computer vision and pattern recognition. 961–971.
+[193] Agrim Gupta, Justin Johnson, Li Fei-Fei, Silvio Savarese, and Alexandre Alahi. 2018. Social gan: Socially acceptable trajectories with generative adversarial networks. In
+Proceedings of the IEEE conference on computer vision and pattern recognition. 2255–2264.
+[194] Liushuai Shi, Le Wang, Sanping Zhou, and Gang Hua. 2023. Trajectory unified transformer for pedestrian trajectory prediction. In Proceedings of the IEEE/CVF International
+Conference on Computer Vision. 9675–9684.
+[195] Weicheng Zhang, Hao Cheng, Fatema T Johora, and Monika Sester. 2023. ForceFormer: exploring social force and transformer for pedestrian trajectory prediction. In 2023
+IEEE Intelligent Vehicles Symposium (IV). IEEE, 1–7.
+[196] Liushuai Shi, Le Wang, Chengjiang Long, Sanping Zhou, Mo Zhou, Zhenxing Niu, and Gang Hua. 2021. SGCN: Sparse graph convolution network for pedestrian trajectory
+prediction. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 8994–9003.
+[197] Jing Lian, Weiwei Ren, Linhui Li, Yafu Zhou, and Bin Zhou. 2023. Ptp-stgcn: pedestrian trajectory prediction based on a spatio-temporal graph convolutional neural
+network. Applied Intelligence 53, 3 (2023), 2862–2878.
+
+32
+
+Wei Zhou et al.
+
+[198] Pei Lv, Wentong Wang, Yunxin Wang, Yuzhen Zhang, Mingliang Xu, and Changsheng Xu. 2023. SSAGCN: social soft attention graph convolution network for pedestrian
+trajectory prediction. IEEE transactions on neural networks and learning systems (2023).
+[199] Milind Naphade, Ming-Ching Chang, Anuj Sharma, David C Anastasiu, Vamsi Jagarlamudi, Pranamesh Chakraborty, Tingting Huang, Shuo Wang, Ming-Yu Liu, Rama
+Chellappa, et al. 2018. The 2018 nvidia ai city challenge. In Proceedings of the IEEE conference on computer vision and pattern recognition workshops. 53–60.
+[200] Diogo C Luvizon, Bogdan T Nassu, and Rodrigo Minetto. 2014. Vehicle speed estimation by license plate detection and tracking. In 2014 IEEE International Conference on
+Acoustics, Speech and Signal Processing (ICASSP). IEEE, 6563–6567.
+[201] Timothy Hospedales, Shaogang Gong, and Tao Xiang. 2012. Video behaviour mining using a dynamic topic model. International journal of computer vision 98 (2012), 303–323.
+[202] Ming-Ching Chang, Chen-Kuo Chiang, Chun-Ming Tsai, Yun-Kai Chang, Hsuan-Lun Chiang, Yu-An Wang, Shih-Ya Chang, Yun-Lun Li, Ming-Shuin Tsai, and HungYu Tseng. 2020. Ai city challenge 2020-computer vision for smart transportation applications. In Proceedings of the IEEE/CVF conference on computer vision and pattern
+recognition workshops. 620–621.
+[203] Ricardo Guerrero-Gómez-Olmedo, Beatriz Torre-Jiménez, Roberto López-Sastre, Saturnino Maldonado-Bascón, and Daniel Onoro-Rubio. 2015. Extremely overlapping vehicle
+counting. In Pattern Recognition and Image Analysis: 7th Iberian Conference, IbPRIA 2015, Santiago de Compostela, Spain, June 17-19, 2015, Proceedings 7. Springer, 423–431.
+[204] Meng-Ru Hsieh, Yen-Liang Lin, and Winston H Hsu. 2017. Drone-based object counting by spatially regularized regional proposal network. In Proceedings of the IEEE
+international conference on computer vision. 4145–4153.
+[205] Weixin Li, Vijay Mahadevan, and Nuno Vasconcelos. 2013. Anomaly detection and localization in crowded scenes. IEEE transactions on pattern analysis and machine
+intelligence 36, 1 (2013), 18–32.
+[206] Cewu Lu, Jianping Shi, and Jiaya Jia. 2013. Abnormal event detection at 150 fps in matlab. In Proceedings of the IEEE international conference on computer vision. 2720–2727.
+[207] Ankit Parag Shah, Jean-Bapstite Lamare, Tuan Nguyen-Anh, and Alexander Hauptmann. 2018. CADP: A novel dataset for CCTV traffic camera based accident analysis. In
+2018 15th IEEE International Conference on Advanced Video and Signal Based Surveillance (AVSS). IEEE, 1–9.
+[208] Tung Minh Tran, Tu N Vu, Tam V Nguyen, and Khang Nguyen. 2023. UIT-ADrone: A novel drone dataset for traffic anomaly detection. IEEE Journal of Selected Topics in
+Applied Earth Observations and Remote Sensing 16 (2023), 5590–5601.
+[209] Stefano Pellegrini, Andreas Ess, and Luc Van Gool. 2010. Improving data association by joint modeling of pedestrian trajectories and groupings. In Computer Vision–ECCV
+2010: 11th European Conference on Computer Vision, Heraklion, Crete, Greece, September 5-11, 2010, Proceedings, Part I 11. Springer, 452–465.
+[210] Alon Lerner, Yiorgos Chrysanthou, and Dani Lischinski. 2007. Crowds by example. In Computer graphics forum, Vol. 26. Wiley Online Library, 655–664.
+[211] Amir Rasouli, Iuliia Kotseruba, Toni Kunic, and John K Tsotsos. 2019. Pie: A large-scale dataset and models for pedestrian intention estimation and trajectory prediction. In
+Proceedings of the IEEE/CVF International Conference on Computer Vision. 6262–6271.
+[212] Robert Krajewski, Julian Bock, Laurent Kloeker, and Lutz Eckstein. 2018. The highd dataset: A drone dataset of naturalistic vehicle trajectories on german highways for
+validation of highly automated driving systems. In 2018 21st international conference on intelligent transportation systems (ITSC). IEEE, 2118–2125.
+[213] Ou Zheng, Mohamed Abdel-Aty, Lishengsa Yue, Amr Abdelraouf, Zijin Wang, and Nada Mahmoud. 2024. CitySim: a drone-based vehicle trajectory dataset for safetyoriented research and digital twins. Transportation research record 2678, 4 (2024), 606–621.
+[214] Xinyu Huang, Xinjing Cheng, Qichuan Geng, Binbin Cao, Dingfu Zhou, Peng Wang, Yuanqing Lin, and Ruigang Yang. 2018. The apolloscape dataset for autonomous
+driving. In Proceedings of the IEEE conference on computer vision and pattern recognition workshops. 954–960.
+[215] John Houston, Guido Zuidhof, Luca Bergamini, Yawei Ye, Long Chen, Ashesh Jain, Sammy Omari, Vladimir Iglovikov, and Peter Ondruska. 2021. One thousand and one
+hours: Self-driving motion prediction dataset. In Conference on Robot Learning. PMLR, 409–418.
+[216] Haibao Yu, Wenxian Yang, Hongzhi Ruan, Zhenwei Yang, Yingjuan Tang, Xu Gao, Xin Hao, Yifeng Shi, Yifeng Pan, Ning Sun, et al. 2023. V2x-seq: A large-scale sequential
+dataset for vehicle-infrastructure cooperative perception and forecasting. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 5486–5495.
+[217] Shaohua Liu, Haibo Liu, Huikun Bi, and Tianlu Mao. 2020. CoL-GAN: Plausible and collision-less trajectory prediction by attention-based GAN. IEEE Access 8 (2020),
+101662–101671.
+[218] Parth Kothari, Sven Kreiss, and Alexandre Alahi. 2021. Human trajectory forecasting in crowds: A deep learning perspective. IEEE Transactions on Intelligent Transportation
+Systems 23, 7 (2021), 7386–7400.
+[219] Budi Setiyono, Dwi Ratna Sulistyaningrum, Farah Fajriyah, Danang Wahyu Wicaksono, et al. 2017. Vehicle speed detection based on gaussian mixture model using
+sequential of images. In Journal of Physics: Conference Series, Vol. 890. IOP Publishing, 012144.
+[220] Peichao Cong, Yixuan Xiao, Xianquan Wan, Murong Deng, Jiaxing Li, and Xin Zhang. 2023. DACR-AMTP: adaptive multi-modal vehicle trajectory prediction for dynamic
+drivable areas based on collision risk. IEEE Transactions on Intelligent Vehicles (2023).
+[221] Xiaobo Chen, Shilin Zhang, Jun Li, and Jian Yang. 2024. Pedestrian Crossing Intention Prediction Based on Cross-Modal Transformer and Uncertainty-Aware Multi-Task
+Learning for Autonomous Driving. IEEE Transactions on Intelligent Transportation Systems (2024).
+[222] Abduallah Mohamed, Kun Qian, Mohamed Elhoseiny, and Christian Claudel. 2020. Social-stgcnn: A social spatio-temporal graph convolutional neural network for human
+trajectory prediction. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 14424–14432.
+[223] Eleni Kamenou, Jesús Martínez Del Rincón, Paul Miller, and Patricia Devlin-Hill. 2023. A meta-learning approach for domain generalisation across visual modalities in
+vehicle re-identification. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 385–393.
+[224] Yifan Jiang, Xinyu Gong, Ding Liu, Yu Cheng, Chen Fang, Xiaohui Shen, Jianchao Yang, Pan Zhou, and Zhangyang Wang. 2021. Enlightengan: Deep light enhancement
+without paired supervision. IEEE transactions on image processing 30 (2021), 2340–2349.
+[225] Mark Schutera, Mostafa Hussein, Jochen Abhau, Ralf Mikut, and Markus Reischl. 2020. Night-to-day: Online image-to-image translation for object detection within
+autonomous driving by night. IEEE Transactions on Intelligent Vehicles 6, 3 (2020), 480–489.
+[226] Fabio Pizzati, Pietro Cerri, and Raoul De Charette. 2021. CoMoGAN: continuous model-guided image-to-image translation. In Proceedings of the IEEE/CVF Conference on
+Computer Vision and Pattern Recognition. 14288–14298.
+[227] Jinlong Li, Baolu Li, Zhengzhong Tu, Xinyu Liu, Qing Guo, Felix Juefei-Xu, Runsheng Xu, and Hongkai Yu. 2024. Light the Night: A Multi-Condition Diffusion Framework
+for Unpaired Low-Light Enhancement in Autonomous Driving. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 15205–15215.
+[228] Jinlong Li, Zhigang Xu, Lan Fu, Xuesong Zhou, and Hongkai Yu. 2021. Domain adaptation from daytime to nighttime: A situation-sensitive vehicle detection and traffic flow
+parameter estimation framework. Transportation Research Part C: Emerging Technologies 124 (2021), 102946.
+[229] Jie Xiao, Xueyang Fu, Aiping Liu, Feng Wu, and Zheng-Jun Zha. 2022. Image de-raining transformer. IEEE Transactions on Pattern Analysis and Machine Intelligence 45, 11
+(2022), 12978–12995.
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+33
+
+[230] Xiang Chen, Hao Li, Mingqiang Li, and Jinshan Pan. 2023. Learning a sparse transformer network for effective image deraining. In Proceedings of the IEEE/CVF Conference
+on Computer Vision and Pattern Recognition. 5896–5905.
+[231] Wei Zhou, Nan Zheng, and Chen Wang. 2024. Synthesizing Realistic Traffic Events from UAV Perspectives: A Mask-guided Generative Approach Based on Style-modulated
+Transformer. IEEE Transactions on Intelligent Vehicles (2024).
+[232] Yuhua Chen, Wen Li, Christos Sakaridis, Dengxin Dai, and Luc Van Gool. 2018. Domain adaptive faster r-cnn for object detection in the wild. In Proceedings of the IEEE
+conference on computer vision and pattern recognition. 3339–3348.
+[233] Chaoqi Chen, Zebiao Zheng, Xinghao Ding, Yue Huang, and Qi Dou. 2020. Harmonizing transferability and discriminability for adapting object detectors. In Proceedings of
+the IEEE/CVF conference on computer vision and pattern recognition. 8869–8878.
+[234] Muhammad Akhtar Munir, Muhammad Haris Khan, M Saquib Sarfraz, and Mohsen Ali. 2023. Domain adaptive object detection via balancing between self-training and
+adversarial learning. IEEE Transactions on Pattern Analysis and Machine Intelligence (2023).
+[235] Syed Waqas Zamir, Aditya Arora, Salman Khan, Munawar Hayat, Fahad Shahbaz Khan, and Ming-Hsuan Yang. 2022. Restormer: Efficient transformer for high-resolution
+image restoration. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 5728–5739.
+[236] Xingjia Pan, Fan Tang, Weiming Dong, Yang Gu, Zhichao Song, Yiping Meng, Pengfei Xu, Oliver Deussen, and Changsheng Xu. 2020. Self-supervised feature augmentation
+for large image object detection. IEEE Transactions on Image Processing 29 (2020), 6745–6758.
+[237] Suvramalya Basak and S Suresh. 2024. Vehicle detection and type classification in low resolution congested traffic scenes using image super resolution. Multimedia Tools
+and Applications 83, 8 (2024), 21825–21847.
+[238] Oriol Vinyals, Charles Blundell, Timothy Lillicrap, Daan Wierstra, et al. 2016. Matching networks for one shot learning. Advances in neural information processing systems
+29 (2016).
+[239] Gongjie Zhang, Zhipeng Luo, Kaiwen Cui, Shijian Lu, and Eric P Xing. 2022. Meta-detr: Image-level few-shot detection with inter-class correlation exploitation. IEEE
+transactions on pattern analysis and machine intelligence 45, 11 (2022), 12832–12843.
+[240] Spyros Gidaris, Praveer Singh, and Nikos Komodakis. 2018. Unsupervised representation learning by predicting image rotations. arXiv preprint arXiv:1803.07728 (2018).
+[241] Kaiming He, Xinlei Chen, Saining Xie, Yanghao Li, Piotr Dollár, and Ross Girshick. 2022. Masked autoencoders are scalable vision learners. In Proceedings of the IEEE/CVF
+conference on computer vision and pattern recognition. 16000–16009.
+[242] Chao Huang, Zhihao Wu, Jie Wen, Yong Xu, Qiuping Jiang, and Yaowei Wang. 2021. Abnormal event detection using deep contrastive learning for intelligent video
+surveillance system. IEEE Transactions on Industrial Informatics 18, 8 (2021), 5171–5179.
+[243] Antonio Barbalau, Radu Tudor Ionescu, Mariana-Iuliana Georgescu, Jacob Dueholm, Bharathkumar Ramachandra, Kamal Nasrollahi, Fahad Shahbaz Khan, Thomas B
+Moeslund, and Mubarak Shah. 2023. SSMTL++: Revisiting self-supervised multi-task learning for video anomaly detection. Computer Vision and Image Understanding 229
+(2023), 103656.
+[244] Haohan Luo and Feng Wang. 2023. A simulation-based framework for urban traffic accident detection. In ICASSP 2023-2023 IEEE International Conference on Acoustics,
+Speech and Signal Processing (ICASSP). IEEE, 1–5.
+[245] Xiangyu Yue, Yang Zhang, Sicheng Zhao, Alberto Sangiovanni-Vincentelli, Kurt Keutzer, and Boqing Gong. 2019. Domain randomization and pyramid consistency:
+Simulation-to-real generalization without accessing target domain data. In Proceedings of the IEEE/CVF international conference on computer vision. 2100–2110.
+[246] Xuan Li, Haibin Duan, Bingzi Liu, Xiao Wang, and Fei-Yue Wang. 2023. A novel framework to generate synthetic video for foreground detection in highway surveillance
+scenarios. IEEE Transactions on Intelligent Transportation Systems 24, 6 (2023), 5958–5970.
+[247] Stephan R Richter, Hassan Abu AlHaija, and Vladlen Koltun. 2022. Enhancing photorealism enhancement. IEEE Transactions on Pattern Analysis and Machine Intelligence 45,
+2 (2022), 1700–1715.
+[248] Thakare Kamalakar Vijay, Debi Prosad Dogra, Heeseung Choi, Gipyo Nam, and Ig-Jae Kim. 2022. Detection of road accidents using synthetically generated multi-perspective
+accident videos. IEEE Transactions on Intelligent Transportation Systems 24, 2 (2022), 1926–1935.
+[249] Yancheng Ling, Zhenliang Ma, Qi Zhang, Bangquan Xie, and Xiaoxiong Weng. 2024. PedAST-GCN: Fast Pedestrian Crossing Intention Prediction Using Spatial–Temporal
+Attention Graph Convolution Networks. IEEE Transactions on Intelligent Transportation Systems (2024).
+[250] Rajat Koner, Hang Li, Marcel Hildebrandt, Deepan Das, Volker Tresp, and Stephan Günnemann. 2021. Graphhopper: Multi-hop scene graph reasoning for visual question
+answering. In The Semantic Web–ISWC 2021: 20th International Semantic Web Conference, ISWC 2021, Virtual Event, October 24–28, 2021, Proceedings 20. Springer, 111–127.
+[251] Edward Curry, Dhaval Salwala, Praneet Dhingra, Felipe Arruda Pontes, and Piyush Yadav. 2022. Multimodal event processing: A neural-symbolic paradigm for the internet
+of multimedia things. IEEE Internet of Things Journal 9, 15 (2022), 13705–13724.
+[252] Xu Yang, Hanwang Zhang, and Jianfei Cai. 2020. Auto-encoding and distilling scene graphs for image captioning. IEEE transactions on pattern analysis and machine
+intelligence 44, 5 (2020), 2313–2327.
+[253] Danfei Xu, Dragomir Anguelov, and Ashesh Jain. 2018. Pointfusion: Deep sensor fusion for 3d bounding box estimation. In Proceedings of the IEEE conference on computer
+vision and pattern recognition. 244–253.
+[254] Kong Li, Zhe Dai, Chen Zuo, Xuan Wang, Hua Cui, Huansheng Song, and Mengying Cui. 2024. Scene adaptation in adverse conditions: a multi-sensor fusion framework for
+roadside traffic perception. Journal of Intelligent Transportation Systems (2024), 1–21.
+[255] Farman Ali, Amjad Ali, Muhammad Imran, Rizwan Ali Naqvi, Muhammad Hameed Siddiqi, and Kyung-Sup Kwak. 2021. Traffic accident detection and condition analysis
+based on social networking data. Accident Analysis & Prevention 151 (2021), 105973.
+[256] Jingxiao Liu, Siyuan Yuan, Yiwen Dong, Biondo Biondi, and Hae Young Noh. 2023. TelecomTM: A fine-grained and ubiquitous traffic monitoring system using pre-existing
+telecommunication fiber-optic cables as sensors. Proceedings of the ACM on Interactive, Mobile, Wearable and Ubiquitous Technologies 7, 2 (2023), 1–24.
+[257] Alexander Swerdlow, Runsheng Xu, and Bolei Zhou. 2024. Street-view image generation from a bird’s-eye view layout. IEEE Robotics and Automation Letters (2024).
+[258] Qingyi Wang, Shenhao Wang, Yunhan Zheng, Hongzhou Lin, Xiaohu Zhang, Jinhua Zhao, and Joan Walker. 2024. Deep hybrid model with satellite imagery: How to
+combine demand modeling and computer vision for travel behavior analysis? Transportation Research Part B: Methodological 179 (2024), 102869.
+[259] Jinchao Song, Chunli Zhao, Shaopeng Zhong, Thomas Alexander Sick Nielsen, and Alexander V Prishchepov. 2019. Mapping spatio-temporal patterns and detecting the
+factors of traffic congestion with multi-source data fusion and mining techniques. Computers, Environment and Urban Systems 77 (2019), 101364.
+[260] Lin Zhu, Fangce Guo, John W Polak, and Rajesh Krishnan. 2018. Urban link travel time estimation using traffic states-based data fusion. IET Intelligent Transport Systems 12,
+7 (2018), 651–663.
+
+34
+
+Wei Zhou et al.
+
+[261] Pu Wang, Zhiren Huang, Jiyu Lai, Zhihao Zheng, Yang Liu, and Tao Lin. 2021. Traffic speed estimation based on multi-source GPS data and mixture model. IEEE Transactions
+on Intelligent Transportation Systems 23, 8 (2021), 10708–10720.
+[262] Hao Peng, Hongfei Wang, Bowen Du, Md Zakirul Alam Bhuiyan, Hongyuan Ma, Jianwei Liu, Lihong Wang, Zeyu Yang, Linfeng Du, Senzhang Wang, et al. 2020. Spatial
+temporal incidence dynamic graph neural networks for traffic flow forecasting. Information Sciences 521 (2020), 277–290.
+[263] Medhavi Mishra, Sumit Mishra, and Dongsoo Har. 2024. Integrating Multi-sourced Sensor Data for Enhanced Traffic State Estimation. IEEE Sensors Journal (2024).
+[264] Eduardo Arnold, Mehrdad Dianati, Robert de Temple, and Saber Fallah. 2020. Cooperative perception for 3D object detection in driving scenarios using infrastructure
+sensors. IEEE Transactions on Intelligent Transportation Systems 23, 3 (2020), 1852–1864.
+[265] Li Chen, Penghao Wu, Kashyap Chitta, Bernhard Jaeger, Andreas Geiger, and Hongyang Li. 2024. End-to-end autonomous driving: Challenges and frontiers. IEEE
+Transactions on Pattern Analysis and Machine Intelligence (2024).
+[266] Sanbao Su, Yiming Li, Sihong He, Songyang Han, Chen Feng, Caiwen Ding, and Fei Miao. 2023. Uncertainty quantification of collaborative detection for self-driving. In 2023
+IEEE International Conference on Robotics and Automation (ICRA). IEEE, 5588–5594.
+[267] Runsheng Xu, Hao Xiang, Xin Xia, Xu Han, Jinlong Li, and Jiaqi Ma. 2022. Opv2v: An open benchmark dataset and fusion pipeline for perception with vehicle-to-vehicle
+communication. In 2022 International Conference on Robotics and Automation (ICRA). IEEE, 2583–2589.
+[268] Xin Gao, Xinyu Zhang, Yiguo Lu, Yuning Huang, Lei Yang, Yijin Xiong, and Peng Liu. 2024. A Survey of Collaborative Perception in Intelligent Vehicles at Intersections.
+IEEE Transactions on Intelligent Vehicles (2024).
+[269] Saquib Mazhar, Nadeem Atif, MK Bhuyan, and Shaik Rafi Ahamed. 2023. Rethinking DABNet: Light-weight Network for Real-time Semantic Segmentation of Road Scenes.
+IEEE Transactions on Artificial Intelligence (2023).
+[270] Jiahao Zheng, Longqi Yang, Yiying Li, Ke Yang, Zhiyuan Wang, and Jun Zhou. 2023. Lightweight Vision Transformer with Spatial and Channel Enhanced Self-Attention. In
+Proceedings of the IEEE/CVF International Conference on Computer Vision. 1492–1496.
+[271] Yuqiao Liu, Yanan Sun, Bing Xue, Mengjie Zhang, Gary G Yen, and Kay Chen Tan. 2021. A survey on evolutionary neural architecture search. IEEE transactions on neural
+networks and learning systems 34, 2 (2021), 550–570.
+[272] Sachin Mehta and Mohammad Rastegari. 2021. Mobilevit: light-weight, general-purpose, and mobile-friendly vision transformer. arXiv preprint arXiv:2110.02178 (2021).
+[273] Yanyu Li, Geng Yuan, Yang Wen, Ju Hu, Georgios Evangelidis, Sergey Tulyakov, Yanzhi Wang, and Jian Ren. 2022. Efficientformer: Vision transformers at mobilenet speed.
+Advances in Neural Information Processing Systems 35 (2022), 12934–12949.
+[274] Lie Guo, Pingshu Ge, Yibing Zhao, Dongxing Wang, and Liang Huang. 2023. LightMOT: a lightweight convolution neural network for real-time multi-object tracking.
+International Journal of Bio-Inspired Computation 22, 3 (2023), 152–161.
+[275] Kang Yang, Tianzhang Xing, Yang Liu, Zhenjiang Li, Xiaoqing Gong, Xiaojiang Chen, and Dingyi Fang. 2019. cDeepArch: A compact deep neural network architecture for
+mobile sensing. IEEE/ACM Transactions on Networking 27, 5 (2019), 2043–2055.
+[276] Pavlo Molchanov, Arun Mallya, Stephen Tyree, Iuri Frosio, and Jan Kautz. 2019. Importance estimation for neural network pruning. In Proceedings of the IEEE/CVF conference
+on computer vision and pattern recognition. 11264–11272.
+[277] Seyed Iman Mirzadeh, Mehrdad Farajtabar, Ang Li, Nir Levine, Akihiro Matsukawa, and Hassan Ghasemzadeh. 2020. Improved knowledge distillation via teacher assistant.
+In Proceedings of the AAAI conference on artificial intelligence, Vol. 34. 5191–5198.
+[278] Jinqi Xiao, Chengming Zhang, Yu Gong, Miao Yin, Yang Sui, Lizhi Xiang, Dingwen Tao, and Bo Yuan. 2023. HALOC: hardware-aware automatic low-rank compression for
+compact neural networks. In Proceedings of the AAAI Conference on Artificial Intelligence, Vol. 37. 10464–10472.
+[279] Jie Hu, Peng Lin, Huajun Zhang, Zining Lan, Wenxin Chen, Kailiang Xie, Siyun Chen, Hao Wang, and Sheng Chang. 2023. A dynamic pruning method on multiple sparse
+structures in deep neural networks. IEEE Access 11 (2023), 38448–38457.
+[280] Yingchao Wang, Chen Yang, Shulin Lan, Liehuang Zhu, and Yan Zhang. 2024. End-edge-cloud collaborative computing for deep learning: A comprehensive survey. IEEE
+Communications Surveys & Tutorials (2024).
+[281] Qi Chen, Sihai Tang, Qing Yang, and Song Fu. 2019. Cooper: Cooperative perception for connected autonomous vehicles based on 3d point clouds. In 2019 IEEE 39th
+International Conference on Distributed Computing Systems (ICDCS). IEEE, 514–524.
+[282] Ehzaz Mustafa, Junaid Shuja, Faisal Rehman, Ahsan Riaz, Mohammed Maray, Muhammad Bilal, and Muhammad Khurram Khan. 2024. Deep Neural Networks meet
+computation offloading in mobile edge networks: Applications, taxonomy, and open issues. Journal of Network and Computer Applications (2024), 103886.
+[283] Pian Qi, Diletta Chiaro, Antonella Guzzo, Michele Ianni, Giancarlo Fortino, and Francesco Piccialli. 2024. Model aggregation techniques in federated learning: A
+comprehensive survey. Future Generation Computer Systems 150 (2024), 272–293.
+[284] Danesh Shokri, Christian Larouche, and Saeid Homayouni. 2024. Proposing an Efficient Deep Learning Algorithm Based on Segment Anything Model for Detection and
+Tracking of Vehicles through Uncalibrated Urban Traffic Surveillance Cameras. Electronics 13, 14 (2024), 2883.
+[285] Wei Zhou, Hongpu Huang, Hancheng Zhang, and Chen Wang. 2024. Teaching Segment-Anything-Model Domain-Specific Knowledge for Road Crack Segmentation From
+On-Board Cameras. IEEE Transactions on Intelligent Transportation Systems (2024).
+[286] Guoyang Zhao, Fulong Ma, Weiqing Qi, Chenguang Zhang, Yuxuan Liu, Ming Liu, and Jun Ma. 2024. TSCLIP: Robust CLIP Fine-Tuning for Worldwide Cross-Regional
+Traffic Sign Recognition. arXiv preprint arXiv:2409.15077 (2024).
+[287] Aaron Lohner, Francesco Compagno, Jonathan Francis, and Alessandro Oltramari. 2024. Enhancing Vision-Language Models with Scene Graphs for Traffic Accident
+Understanding. arXiv preprint arXiv:2407.05910 (2024).
+[288] Jianzong Wu, Xiangtai Li, Shilin Xu, Haobo Yuan, Henghui Ding, Yibo Yang, Xia Li, Jiangning Zhang, Yunhai Tong, Xudong Jiang, et al. 2024. Towards open vocabulary
+learning: A survey. IEEE Transactions on Pattern Analysis and Machine Intelligence (2024).
+[289] George Tom, Minesh Mathew, Sergi Garcia-Bordils, Dimosthenis Karatzas, and CV Jawahar. 2023. Reading Between the Lanes: Text VideoQA on the Road. In International
+Conference on Document Analysis and Recognition. Springer, 137–154.
+[290] Mohammad Abu Tami, Huthaifa I Ashqar, Mohammed Elhenawy, Sebastien Glaser, and Andry Rakotonirainy. 2024. Using Multimodal Large Language Models (MLLMs) for
+Automated Detection of Traffic Safety-Critical Events. Vehicles 6, 3 (2024), 1571–1590.
+[291] Kan Guo, Daxin Tian, Yongli Hu, Chunmian Lin, Zhen Qian, Yanfeng Sun, Jianshan Zhou, Xuting Duan, Junbin Gao, and Baocai Yin. 2024. CFMMC-Align: Coarse-Fine
+Multi-Modal Contrastive Alignment Network for Traffic Event Video Question Answering. IEEE Transactions on Circuits and Systems for Video Technology (2024).
+[292] Jiarui Zhang, Filip Ilievski, Kaixin Ma, Aravinda Kollaa, Jonathan Francis, and Alessandro Oltramari. 2023. A study of situational reasoning for traffic understanding. In
+Proceedings of the 29th ACM SIGKDD Conference on Knowledge Discovery and Data Mining. 3262–3272.
+
+Vision Technologies with Applications in Traffic Surveillance Systems: A Holistic Survey
+
+35
+
+[293] Xu Cao, Tong Zhou, Yunsheng Ma, Wenqian Ye, Can Cui, Kun Tang, Zhipeng Cao, Kaizhao Liang, Ziran Wang, James M Rehg, et al. 2024. MAPLM: A Real-World Large-Scale
+Vision-Language Benchmark for Map and Traffic Scene Understanding. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 21819–21830.
+[294] Lening Wang, Yilong Ren, Han Jiang, Pinlong Cai, Daocheng Fu, Tianqi Wang, Zhiyong Cui, Haiyang Yu, Xuesong Wang, Hanchu Zhou, et al. 2023. Accidentgpt: Accident
+analysis and prevention from v2x environmental perception with multi-modal large model. arXiv preprint arXiv:2312.13156 (2023).
+[295] Joseph Cho, Fachrina Dewi Puspitasari, Sheng Zheng, Jingyao Zheng, Lik-Hang Lee, Tae-Ho Kim, Choong Seon Hong, and Chaoning Zhang. 2024. Sora as an agi world
+model? a complete survey on text-to-video generation. arXiv preprint arXiv:2403.05131 (2024).
+[296] Lening Wang, Wenzhao Zheng, Yilong Ren, Han Jiang, Zhiyong Cui, Haiyang Yu, and Jiwen Lu. 2024. OccSora: 4D Occupancy Generation Models as World Simulators for
+Autonomous Driving. arXiv preprint arXiv:2405.20337 (2024).
+[297] Indu Joshi, Marcel Grimmer, Christian Rathgeb, Christoph Busch, Francois Bremond, and Antitza Dantcheva. 2024. Synthetic data in human analysis: A survey. IEEE
+Transactions on Pattern Analysis and Machine Intelligence (2024).
+[298] Runnan Chen, Youquan Liu, Lingdong Kong, Nenglun Chen, Xinge Zhu, Yuexin Ma, Tongliang Liu, and Wenping Wang. 2024. Towards label-free scene understanding by
+vision foundation models. Advances in Neural Information Processing Systems 36 (2024).
+[299] Brian HW Guo, Yang Zou, Yihai Fang, Yang Miang Goh, and Patrick XW Zou. 2021. Computer vision technologies for safety science and management in construction: A
+critical review and future research directions. Safety science 135 (2021), 105130.
+[300] Xiao Wen, Yuanchang Xie, Lingtao Wu, and Liming Jiang. 2021. Quantifying and comparing the effects of key risk factors on various types of roadway segment crashes
+with LightGBM and SHAP. Accident Analysis & Prevention 159 (2021), 106261.
+[301] Byeongjoon Noh and Hwasoo Yeo. 2022. A novel method of predictive collision risk area estimation for proactive pedestrian accident prevention system in urban surveillance
+infrastructure. Transportation research part C: emerging technologies 137 (2022), 103570.
+
+

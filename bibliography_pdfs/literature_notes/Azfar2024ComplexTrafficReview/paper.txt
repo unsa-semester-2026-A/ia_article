@@ -1,0 +1,2151 @@
+1
+
+Deep Learning based Computer Vision Methods for
+Complex Traffic Environments Perception: A
+Review
+
+arXiv:2211.05120v1 [cs.CV] 9 Nov 2022
+
+Talha Azfar Student Member, IEEE, Jinlong Li, Hongkai Yu, Ruey Long Cheu Senior Member, IEEE,
+Yisheng Lv Senior Member, IEEE, and Ruimin Ke Member, IEEE
+
+Abstract—Computer vision applications in intelligent transportation systems (ITS) and autonomous driving (AD) have
+gravitated towards deep neural network architectures in recent
+years. While performance seems to be improving on benchmark
+datasets, many real-world challenges are yet to be adequately
+considered in research. This paper conducted an extensive
+literature review on the applications of computer vision in ITS
+and AD, and discusses challenges related to data, models, and
+complex urban environments. The data challenges are associated
+with the collection and labeling of training data and its relevance
+to real world conditions, bias inherent in datasets, the high
+volume of data needed to be processed, and privacy concerns.
+Deep learning (DL) models are commonly too complex for realtime processing on embedded hardware, lack explainability and
+generalizability, and are hard to test in real-world settings.
+Complex urban traffic environments have irregular lighting and
+occlusions, and surveillance cameras can be mounted at a variety
+of angles, gather dirt, shake in the wind, while the traffic
+conditions are highly heterogeneous, with violation of rules and
+complex interactions in crowded scenarios. Some representative
+applications that suffer from these problems are traffic flow
+estimation, congestion detection, autonomous driving perception,
+vehicle interaction, and edge computing for practical deployment.
+The possible ways of dealing with the challenges are also explored
+while prioritizing practical deployment.
+Index Terms—deep learning, intelligent transportation systems,
+computer vision, autonomous driving, complex traffic environment
+
+I. I NTRODUCTION
+Video cameras have been used to monitor traffic and provide
+valuable information to traffic management center (TMC)
+operators. The manual process of having TMC operators
+observe numerous video screens has given way to automated
+and semi-automated computer vision approaches for faster
+processing and response times with some humans in the loop
+to interpret and verify the data. Artificial neural networks
+are being increasingly used in computer vision in ITS and
+autonomous driving (AD) applications, showing benefits in
+Talha Azfar is with the Department of Electrical and Computer Engineering, University of Texas at El Paso, El Paso, TX, 79968 USA, e-mail:
+tazfar@miners.utep.edu. Jinlong Li and Hongkai Yu are with Cleveland State
+University, Cleveland, OH 44115 USA, e-mails: j.li56@vikes.csuohio.edu
+and h.yu19@csuohio.edu. Ruey Long Cheu and Ruimin Ke are with the
+Department of Civil Engineering, University of Texas at El Paso, El Paso,
+TX, 79968 USA, e-mails: rcheu@utep.edu and rke@utep.edu. Yisheng Lv
+is with the Institute of Automation, Chinese Academy of Sciences, Beijing,
+100190 China, e-mail: yisheng.lv@ia.ac.cn
+This work was supported in part by NSF 2215388.
+* Corresponding author: Ruimin Ke, e-mail: rke@utep.edu
+
+Fig. 1. Applications of deep learning based computer vision methods in
+transportation and associated challenges in real world deployment.
+
+traffic monitoring, traffic flow estimation, incident detection,
+etc. However, the use of deep neural networks (DNN) brings
+some issues and concerns that should be studied in further
+detail as they need to be more accurate, more reliable, and
+practical enough for large-scale deployment as part of ITS
+infrastructure or in autonomous vehicles.
+Deep learning (DL) refers to machine learning architectures
+of multiple layers such as large (deep) neural networks spanning many layers in a variety of configurations. Advances in
+computational hardware and algorithmic efficiency have made
+DL popular in every field that deals with big data. DNNs have
+been applied to solve computer vision problems such as object
+detection, classification, motion tracking, and prediction [1].
+ITS and AD researchers have adapted these models, training
+them for specific use cases with specially curated datasets and
+benchmarks such as KITTI [2] and AI City [3].
+Automated analysis of traffic surveillance videos in ITS
+systems is important for incident and congestion management,
+while perception in autonomous vehicles is critical for vehicle
+control and navigation. Computer vision algorithms used for
+these purposes must therefore be scrutinized in detail and
+all of the possible problems should be addressed in advance
+before real-world deployment. In the course of this literature
+review, a number of recurrent issues were discovered related to
+the data, models, and complex urban environments which are
+detailed in this paper. Large quantities of data are necessary
+for training DNNs and evaluating their performance, but this
+poses issues such as over-representation of common events or
+
+2
+
+classes, time and effort required to label and select data, and a
+lack of consistent benchmarks for a fair evaluation. Complex
+DL models can be trained to infer more accurately but this
+comes at the cost of efficiency, lack of explainability, and
+difficulty in adapting the solution to diverse or unseen use
+cases (not present in the training set). Real-world uncertainties
+involved in complex urban environments like shadow, lighting,
+and occlusion are common issues, while variable surveillance
+camera angles and heterogeneous traffic conditions present
+further challenges to DNNs even after training on these
+conditions.
+While these issues have been mentioned in some of the
+literature, only a few approaches have been developed to
+address them, and even fewer real-world implementation examples were found. Computer vision in transportation is a
+very active research field, and over 200 papers were selected
+and reviewed for this article. Figure 1 gives an overview of
+the applications and challenges for quick reference, while
+Table I summarizes the methods used in each application
+and associated challenges. The following sections (II, III, IV)
+discuss the specific challenges for data, models, and complex
+traffic environments. A number of representative applications
+and solutions to meet the challenges are explained in section V.
+This is followed by section VI, a collection of future directions
+that research in this area should take. Finally, section VII
+presents some concluding remarks.
+The contributions of this paper are:
+• Classification of common challenges faced by computer
+vision DL methods in complex traffic environments.
+• A review of DL models used for some representative
+computer vision applications susceptible to the challenges.
+• Specific techniques already being used to mitigate the
+challenges.
+• Future directions of research to improve DL models for
+real world complex traffic environments.
+II. DATA CHALLENGES
+A. Data communication
+Data communication, while not considered in most ITS and
+AV computer vision studies in the lab, is critical in practical
+applications. Individual-camera-based deep learning tasks in
+practice commonly require data communication between the
+camera and the cloud server at TMC. Video data is in rich
+volume, which can cause potential data communication issues,
+such as transmission delay and package loss. In a cooperative
+camera-sensing environment, there are not only data communications with the server but also among different sensors.
+Therefore, two additional issues are multi-sensor calibration
+and data synchronization.
+Calibration in a cooperative environment aims to determine
+the perspective transformation between sensors to be able to
+merge acquired data from several views at a given frame [4].
+This task is quite challenging in a multi-user environment,
+because the transformation matrix between sensors constantly
+changes as the vehicles move. In a cooperative context,
+calibration relies on the synchronization of the elements in
+
+Fig. 2. Illustration of representative challenges associated with data in
+computer vision applications for transportation.
+
+a background image to determine the transformation between
+static or mobile sensors [5]. There are multiple sources of
+desynchronization, such as an offset between the clocks or
+variable communication delays. Although clocks may be synchronized, it is difficult to ensure the data acquisitions are
+triggered at the same moment which adds uncertainty towards
+merging the acquired data. Similarly, different sampling rates
+require interpolation between acquired or predicted data, also
+adding uncertainty.
+B. Quality of training data and benchmarks
+Traffic cameras are widely deployed on roadways and vehicles [6]. TMCs at DOTs and cities constantly collect networkwide traffic camera data, which are valuable for various ITS
+applications, such as event recognition and vehicle detection.
+However, labeled training data is much less common than
+unlabeled data [7], [8]. The lack of annotated datasets for many
+applications is slowly being overcome with synthetic data, as
+graphical fidelity and simulated physics have become more
+and more realistic. For example, ground truth 3D information
+in [9] needs high accuracy during training for monocular
+3D detection and tracking, so video game data was used.
+In addition to realistic appearance, simulated scenarios do
+not need to be manually labeled as the labels are already
+generated by the simulation, and can support a wide variety
+of illuminations, viewpoints, and vehicle behaviors [10]. The
+2020 AI City challenge for vehicle re-identification winner utilized a hybrid dataset to significantly improve the performance
+[11] by generating examples from real-world data and adding
+other simulated views and environments. However, if using
+synthetic data, additional learning procedures, e.g., domain
+adaptation, are still needed for real-world applications. Lowfidelity simulated data were used to train a real-world object
+detector with domain randomization transfer learning [12].
+The lack of good quality crash and near-crash data is often
+cited as a practical limitation [13]. More crash data will
+update the attention guidance in AD, allowing it to capture
+long-term crash characteristics, thereby improving crash risk
+estimation [14]. There is also a lack of representation in the
+literature regarding bicycles as the ego vehicle as mentioned
+in [15]. A near-miss incident database was developed in [16]
+
+3
+
+to compensate for the unavailability, however, it is private
+because of copyright issues. A review of vehicle behavior
+prediction methods [17] discusses the lack of a benchmark
+for evaluating existing studies, preventing a fair comparison
+of different DL techniques, or classical methods like Bayesian
+or Markov decision process. It also highlights that faulty
+or limited sensors, constrained computational resources, and
+generalizability to any driving scenario are current barriers
+to practical deployment and represent a significant research
+gap. Some of these issues can be addressed by sensor fusion,
+internet of vehicles (IoV), and edge computing [18].
+C. Data bias
+Although current vehicle detection algorithms perform well
+on balanced datasets, they suffer from performance degradation on tail classes when facing imbalanced datasets. In
+real-world scenarios, data tends to obey the Zipfian distribution [19] where a large number of tail categories have few
+samples. In long-tail datasets, a few head classes (frequent
+classes) contribute most of the training samples, while tail
+classes (rare classes) are underrepresented. Most DL models
+trained with such data minimize empirical risk on long-tail
+training data and are biased towards head categories since they
+contribute most of the training data [20], [21]. Some methods
+like data re-sampling [22] and loss re-weighting [23], can
+compensate the underrepresented classes. However, they need
+to partition the categories into several groups based on their
+category frequency prior. Such hard division between head
+and tail classes brings two problems: training inconsistency
+between adjacent categories and lack of discriminative power
+for rare categories [24].
+An object detection study focusing on construction vehicles
+found that training a deep model with huge general training
+dataset did not perform as well as a smaller model trained
+specifically on construction vehicles [25]. Another model
+based on YOLOv2 for vehicle size estimation performed
+well on commonly seen sizes but varied considerably with
+uncommon sizes [26]. The dataset used by [27] for autonomous vehicle object detection had severe class imbalance
+with only 1% cyclists represented. A number of weight based
+learning strategies were employed to address this, giving
+higher weight to underrepresented classes, showing significant
+improvements.
+General object detectors can be improved using transfer
+learning with the underrepresented data for task specific performance benefits [28]. Also, it is noted in [29] that model
+bias may not always be apparent from just the training set,
+and explanability methods are needed to address the problem.
+D. High data volume
+Visual data is composed of over 90% of the Internet traffic
+and video transmission, computation, and storage pose increasing challenges in ITS and AV fields [6]. The high volume
+of traffic and vehicular-based video data from the roadside
+and onboard sensors via the traffic camera network or the
+Internet of Vehicles (IoV) network poses computational and
+bandwidth bottlenecks that cannot be solved by using more
+
+powerful equipment [30]. As many applications in connected
+or autonomous vehicles rely on DL, vehicle-cloud architecture
+is emerging as an effective distributed computing technique
+[31]. With the integration of Road Side Units (RSU), these
+edge nodes can process faster and provide low communication
+latency.
+E. Security and Privacy
+Privacy concerns are an important human factor that cannot
+be overlooked in the design and operation of ITS applications [32]. Observing and tracking the massive amounts of
+the pedestrian and vehicle information causes security and
+privacy concerns in ITS environments. For example, UAVs
+are capable of collecting traffic data (through onboard video
+cameras). However, privacy concerns restrict them from being
+a regular part of the ITS sensor network [33]. Video surveillance systems constantly collect human faces and license
+plates. Personal privacy is exchanged for security or safety
+services provided by the surveillance [34]. Systems deployed
+in practice might need to de-identify faces and license plates
+in real-time if raw video data is being sent or stored [35].
+Any processing would ideally be done on the local edge unit,
+limiting the propagation of private information. Full anonymity
+is difficult to guarantee, for example, an uncommon model car
+with distinctive paint pattern can be traced to its owner by
+correlating with other information, even with a blurred license
+plate.
+
+Fig. 3. Illustration of representative model challenges. Some demo images
+are adopted from [36], [37].
+
+III. M ODEL CHALLENGES
+A. Complexity
+DL computer vision models have a high complexity with
+respect to neural network structures and training procedures.
+Many DL models are designed to run on high-performance
+cloud centers or AI workstations, and a good model requires
+weeks or months of training as well as high power consumption driven by modern Graphical Processing Units (GPUs) or
+Tensor Processing Units (TPUs).
+
+4
+
+In ITS and AV field applications, a lot of them have a
+requirement for real-time or near real-time operations [6] for
+the sake of functionality and traffic safety. The DL model
+complexity adds a high cost to the training and inference in
+real-time applications; particularly, the trend of ITS and AV
+is towards large-scale on-device processing closer to where
+the traffic data is generated, e.g., crowdsensing. Three popular
+embedded devices are compared in [25], with the Nvidia
+Jetson Nano yielding the highest inference efficiency but it
+is too little computation power for complex applications.
+Real-time applications usually make some modifications
+like resizing video to lower resolution or model quantization
+and pruning which can lead to loss of performance. The model
+complexity of the state-of-the-art DL methods needs to be
+reduced in many practical applications in order to meet the
+efficiency and accuracy requirements. For example, multi-scale
+deformable attention has been used with vision transformer
+neural networks in object detection for high performance and
+fast convergence leading to faster training and inference [38].
+B. Lack of explainability
+DNNs are largely seen as black boxes with many layers
+of processing, the working of which can be examined using
+statistics, but the learned internal representations of the network are based on millions or billions of parameters, making
+analysis extremely difficult [29]. This means that the behavior
+is essentially unpredictable, and very little explanation can be
+given of the decisions. It also makes system validation and
+verification impossible for critical use cases like autonomous
+driving [39].
+The common assumption that a complex black box is necessary for good performance is being challenged [40]. Recent
+research is attempting to make DNNs more explainable. A
+visualization tool for vision transformers is presented in [41],
+which can be used to see the inner mechanisms, such as
+hidden parameters, and gain insight into specific parts of
+the input that influenced the predictions. A framework for
+safety, explainability, and regulations for autonomous driving
+was evaluated in post-accident scenarios [42]. The results
+showed many benefits including transparency and debugging.
+A convolutional neural network (CNN) based architecture is
+proposed to detect action-inducing objects for autonomous
+vehicles, while also providing explanations for the actions
+[43].
+C. Transferability and generalizability
+Generalization to out-of-distribution data is natural to humans yet challenging for machines because most learning
+algorithms strongly rely on the independent and identically
+distributed (i.i.d.) assumption training at testing data, which is
+often violated in practice due to domain shift. Domain generalization aims to generalize models to new domains without
+knowledge about the target distribution during training. Different methods have been proposed for learning generalizable
+and transferable representations [44].
+Most existing approaches belong to the category of domain
+alignment, where the main idea is to minimize the difference
+
+among source domains for learning domain-invariant representations. Features that are invariant to the source domain shift
+should also be robust to any unseen target domain shift. Data
+augmentation has been a common practice to regularize the
+training of machine learning models to avoid overfitting and
+improve generalization [45], which is particularly important
+for over-parameterized DNNs.
+Visual attention in CNNs can be used to highlight the
+regions of the image involved in a decision, with causal
+filtering to find the most relevant parts [46]. The importance
+of individual pixels is estimated in [47] by using randomly
+masked versions of images and comparing the output predictions. This approach does not apply to spatio-temporal
+methods or those that consider relationships between objects
+in complex environments.
+D. Real-world testing
+In general, DL methods have been shown to be prone to
+underspecification, a problem that appears regardless of model
+type or application. Among other domains, underspecification
+in computer vision is analyzed in [48], specifically for DL
+models such as the commonly used ResNet-50 and a scaledup transfer learning image classification model, Big Transfer
+(BiT) [49]. It is shown that while benchmark scores improved
+with more model complexity and training data, testing with
+real-world distortions results in poor and highly varied performance that depends strongly on the random seeds used to
+initialize training.
+Practical systems need to be efficient in terms of memory
+and computation for real-time processing on a variety of
+low-cost hardware [50]. Some approaches towards efficient
+and low-cost computation include parameter pruning, network
+quantization, low-rank factorization, and model distillation.
+Approaches like [51] are efficient and capable of real-time
+trajectory prediction but are not end-to-end because they
+assume the prior existence of an object tracking system to
+estimate the states of surrounding vehicles.
+Vulnerable road users (VRU) such as pedestrians and bicyclists present a unique problem, since they can change their
+direction and speeds very rapidly, and interact with the traffic
+environment differently than vehicles [52].
+Some of the major barriers to the practical deployment of
+computer vision models in ITS are the heterogeneity of data
+sources and software, sensor hardware failure, and extreme or
+unusual sensing cases [53]. Furthermore, recent frameworks
+such as those based on edge computing directly expose the
+wireless communication signals of a multitude of heterogeneous devices with various security implementations, creating an ever-increasing potential attack surface for malicious
+actors [54]. Deep learning models have been developed to
+detect these attacks, however real-time application and online
+learning are still areas of active research [55].
+IoV faces fundamental practical issues arising from the fact
+that moving vehicles will present highly variable processing
+requirements on the edge nodes, while each vehicle can also
+have many concurrent edge and cloud related applications
+running, along with harsh wireless communication environments [56]. Other challenges related to edge computing for
+
+5
+
+objects such as moving vehicles or other road users may
+occlude one another, such as in crowds. Occlusion is also a
+common issue in object tracking [65] because once the tracked
+vehicle disappears from view and reappears, it is considered
+a different vehicle causing tracking and trajectory information
+to be inaccurate.
+C. Camera angle
+
+Fig. 4. Illustration of representative scenarios in complex traffic environments.
+Some demo images are adopted from [58].
+
+autonomous vehicles include cooperative sensing, cooperative
+decisions, and cybersecurity [57]. Attackers can use lasers and
+bright infrared light to interfere with cameras and LiDAR,
+change traffic signage, and replay attacks over the communication channel. A visual depiction of model challenges can be
+seen in Figure 3.
+IV. C OMPLEX T RAFFIC E NVIRONMENTS
+A. Shadow, lighting, weather
+Situations like shadows, adverse weather, similarity between
+background and foreground, strong or insufficient illumination
+in the real world are cited as common issues [59], [60]. The
+appearance of camera images is known to be affected by
+adverse weather conditions, such as heavy fog, sleeting rain,
+snowstorms, and dust storms [61].
+A real-time crash detection method in [62] utilizes foreground extraction using Gaussian Mixture Model, then tracks
+vehicles using a mean shift algorithm. The position, speed,
+and acceleration o the vehicles are passed through threshold
+functions to determine the detection of a crash. While computationally efficient, such methods suffer significantly in the
+presence of noise, complex traffic environment, and change in
+weather.
+In harsh weather conditions, vehicles captured by traffic
+surveillance cameras exhibit issues such as underexposure,
+blurring, and partial occlusion. At the same time, raindrops,
+and snowflakes that appear in traffic scenes add difficulty
+for the algorithm to extract vehicle targets [58]. At night,
+or in tunnels with vehicles driving towards the camera, the
+scene may be masked completely because of the high beam
+glare [63].
+B. Occlusion
+Occlusion is one of the most challenging issues, where a
+target object is only partially available to the camera or sensor
+due to obstruction by another foreground object. Occlusion
+exists in various forms ranging from partial occlusion to
+heavy occlusion [64]. In AD, target objects can be occluded
+by static objects such as buildings and lampposts. Dynamic
+
+In the applications of transportation infrastructure, the diversity of surveillance cameras and their viewing angles pose
+challenges to DL methods trained on limited types of camera
+views [66][67]. While the algorithm in [68] is computationally
+efficient and can work in varying lighting conditions and traffic
+density scenarios, lower-pitch camera views and road marking
+corners can introduce significant errors. The model in [69] can
+identify anomalies near the camera, including their start and
+end times, but is not accurate for anomalies in the distance
+since the vehicles occupy only a few pixels.
+An earlier survey on anomaly detection from surveillance
+video concluded that illumination, camera angle, heterogeneous objects, and a lack of real-world datasets are the major
+challenges [67]. The methods used for sparse and dense traffic
+conditions are different and lack generalizability. Matching
+objects in different views is another major problem in a multiview vision scene, as multi-view ITS applications need to
+process data across the different images captured by different
+cameras at the same time [70].
+D. Camera blur and degraded images
+Surveillance cameras are subject to weather elements. Water, dust, and particulate matter can accumulate on the lens
+causing image quality degradation. Strong wind can cause
+a camera to shake, resulting in motion blur in the whole
+image. Front-facing cameras on autonomous vehicles also face
+this, as insects can smash onto the glass, causing blind spots
+in the camera’s field of view. Specifically, object detection
+and segmentation algorithms suffer greatly [71], and unless
+preparations are made in the model, false detections can cause
+serious safety issues in AD and miss important events in
+surveillance applications. Some approaches to address this
+include using degraded images for training, image restoration
+preprocessing, and fine-tuning pre-trained networks to learn
+from degraded images. For example, Dense-Gram networks
+are used in [72] which improve image segmentation performance in degraded images.
+E. Heterogeneous, urban traffic conditions
+Dense urban traffic scenarios are full of complex visual
+elements, not only in quantity but also in the variety of
+different vehicles and their interactions, as shown in Figure
+4. The presence of cars, buses, bicycles, and pedestrians in
+the same intersection is a significant problem for autonomous
+navigation and trajectory computation [73]. The different sizes,
+turning radii, speeds, and driver behaviors are further compounded by the interactions between these road users. From
+a DL perspective, it is easy to find videos of heterogeneous
+
+6
+
+urban traffic, but labeling for ground truth is very timeconsuming. Simulation software usually cannot capture the
+complex dynamics of such scenarios, especially the traffic
+rule-breaking behaviors seen in dense urban centers. In fact,
+a specific dataset was created to represent these behaviors in
+[74]. A simulator for unregulated dense traffic was created in
+[75] which is useful for autonomous driving perception and
+control but does not represent the trajectory and interactions
+of real-world road users.
+V. A PPLICATIONS
+A. Traffic flow estimation
+1) Models and algorithms: Traffic flow variables include
+traffic volume, density, speed, and queue length. The algorithms and models to detect and track objects to estimate
+traffic flow variables from videos may be classified into
+one-stage and two-stage methods. In one-stage methods, the
+variables are estimated from detection results and there is no
+further classification and location optimization, for example:
+1) YOLOv3 + DeepSORT tracker [76]; 2) YOLOv2 + spatial
+pyramid pooling [77]; 3) AlexNet + optical flow + Gaussian
+mixture model [78]; 4) CNN + optical flow based on UAV
+video [79]; 5) SSD (single shot detection) based on UAV
+video [80].
+Two-stage methods first generate region proposals that contain all potential targets in the input images and then conduct
+classification and location optimization. Examples of twostage methods are: 1) Faster R-CNN + SORT tracker [81];
+2) Faster R-CNN [82], [83]; 3) Faster R-CNN based on UAV
+video [84], [85].
+2) Current methods to overcome challenge: A DL method
+at the edge of the ITS that performs real-time vehicle detection,
+tracking, and counting in traffic surveillance video has been
+proposed in [86]. The neural network detects individual vehicles at the single-frame level by capturing appearance features
+with the YOLOv3 object-detection method, deployed on edge
+devices to minimize bandwidth and power consumption. A
+vehicle detection and tracking approach in adverse weather
+conditions that achieves the best trade-off between accuracy
+and detection speed in various traffic environments is discussed
+in [61]. Also, a novel dataset called DAWN is introduced for
+vehicle detection and tracking in adverse weather conditions
+like heavy fog, rain, snow, and sandstorms, in order to make
+training less biased.
+B. Traffic congestion detection
+1) Models and algorithms: The methods that detect traffic
+congestion based on computer vision may also be divided
+into one-stage methods and multi-step methods. The onestage methods identify vehicles from the video images and
+directly perform traffic congestion detection. Among the onestage methods are: (1) AlexNet and YOLO [87] to distinguish congestion and non-congestion, (2) AlexNet and
+VGGNet [88] which classify ‘jam’ and ‘no jam’; and (3)
+YOLO and Mask R-CNN [89] recognize light, medium, and
+heavy congestion (identifying the number of vehicles in each
+frame and then classify). The multi-step methods first apply
+
+traffic flow estimation models to measure traffic variables
+and then use the traffic flow variables to infer congestion.
+Examples of two-stage traffic congestion detection models are:
+(1) YOLOv3 [90] and YOLOv4 [63] for vehicle detection and
+counting, (2) counting vehicles using Faster R-CNN [91] and
+applying regression for traffic congestion. Beside these, the
+traffic congestion can be evaluated by the traffic flow detection
+algorithms [92] using vehicle detection and tracking.
+2) Current methods to overcome challenge: Congestion
+detection performance can be improved using multiple sensors
+based solutions including radar, lasers, and sensor fusion
+since it is hard to achieve ideal performance and accuracy
+using a single sensor in real-world scenarios. There is a wide
+use of decision-making algorithms for processing fusion data
+acquired from multiple sensors [93]. A CNN-based model
+trained with bad weather condition datasets can improve
+the detection performance [94], while generative adversarial
+network (GAN) based Style Transfer methods have also been
+applied [95][96]. These approaches help to minimize the
+model challenges related to generalizability, which in turn
+improves real-world performance.
+C. Autonomous driving perception: detection
+1) Models and algorithms: Common detection tasks that
+assist in AD are categorized into traffic sign detection, traffic
+signal detection, road/lane detection, pedestrian detection, and
+vehicle detection.
+There are two tasks in a typical traffic sign recognition
+system: finding the locations and sizes of traffic signs in
+natural scene images (traffic sign detection) and classifying
+the traffic signs into their specific sub-classes (traffic sign
+classification) [97]. An improved Sparse R-CNN was used for
+traffic sign detection in [98], while an efficient algorithm based
+on YOLOv3 model for traffic sign detection was implemented
+in [99]. SegU-Net, formed by merging the state-of-the-art
+segmentation architectures SegNet and U-Net to detect traffic
+signs from video sequences has been proposed [100]. Several
+adaptations to Mask R-CNN were tested in [101] for detection
+and recognition with end-to-end learning on the domain of
+traffic signs. They also proposed a data augmentation technique based on the distribution of geometric and appearance
+distortions.
+A method that uses an encoder-decoder DNN with focal
+regression loss to detect small traffic signals is proposed in
+[102]. It is shown in [103] that Faster R-CNN with InceptionResnet-v2 model is more suitable for traffic light detection
+than others. A practical traffic light detection system in [104]
+combines CNN classifier model and heuristic region of interest
+(ROI) candidate detection on self-driving hardware platform
+Nvidia Jetpack Tx1/2 that can handle high-resolution images.
+The recognition accuracy and processing speed are improved
+by combining detection and tracking in [105] to enhance the
+practicality of the traffic signal recognition system in autonomous vehicles using CNN and integrated channel feature
+tracking to determine the coordinates and color for traffic
+lights.
+Lane detection aims to identify the left and right lane boundaries from a processed image and apply an algorithm to track
+
+7
+
+the road ahead. A novel hybrid neural network combining
+CNN and recurrent neural network (RNN) for robust lane
+detection in driving scenes has been proposed [106]. Features
+on each frame of the input video were first abstracted by
+a CNN encoder and the sequential encoded features were
+processed by a ConvLSTM. The outputs were fed into the
+CNN decoder for information reconstruction and lane prediction. Another lane detection method is an anchor-based singlestage lane detection model called LaneATT [107]. It uses a
+feature pooling method with a relatively lightweight backbone
+CNN, while maintaining high accuracy. A novel anchor-based
+attention mechanism to aggregate global information was
+also proposed. A new method to impose structure on badly
+posed semantic segmentation problems is proposed in [108]
+by using a generative adversarial network architecture with a
+discriminator that is trained on both predictions and labels at
+the same time.
+A two-stage detector SDS-RCNN [109] jointly learned
+pedestrian detection and bounding-box aware semantic segmentation, thus encouraging model learning on pedestrian regions. RPN+BF [110] used a boosted forest to replace secondstage learning and leveraged hard mining for proposals.
+However, involving such downstream classifiers could bring
+more training complexity. AR-Ped [111] exploited sequential
+labeling policy in the region proposal network to gradually
+filter out better proposals. The work of [112] employed a
+two-stage pretrained person detector (Faster R-CNN) and an
+instance segmentation model for person re-identification. Each
+detected person is cropped out from the original image and fed
+to another network. Wang et al. [113] introduced repulsion
+losses that prevent a predicted bounding box from shifting to
+neighboring overlapped objects to counter occlusions. Twostage detectors need to generate proposals in the first stage,
+and thus are slow for inference in practice. One-stage detector
+GDFL [114] included semantic segmentation, which guided
+feature layers to emphasize pedestrian regions. Liu et al. [115]
+extended the single-stage architecture with an asymptotic
+localization fitting module storing multiple predictors to evolve
+default anchor boxes. This improves the quality of positive
+samples while enabling hard negative mining with increased
+thresholds. Similar to pedestrian detection, vehicle detection
+in ITS also is a popular and challenging computer vision
+task [116]. Current generic vehicle detectors are divided into
+two categories: CNN-based two-stage detectors and CNNbased one-stage detectors. the representative two-stage detectors include Faster R-CNN [110], spatial pyramid pooling (SPP)-net [117], feature pyramid networks (FPN) [118],
+and Mask R-CNN [119]. And the representative one-stage
+detectors include YOLO [120], Single Shot MultiBox Detector (SSD) [121], and deeply supervised object detectors
+(DSOD) [122]. The two-step framework is a region proposalbased method, giving a coarse scan of the whole image first
+and then focusing on regions of interest (RoIs). While onestep frameworks are based on global regression/ classification,
+mapping straightly from image pixels to bounding box coordinates and class probabilities. Based on these two frameworks,
+most of the works get promising results in vehicle detection
+by combining other methods, such as multitask learning [123],
+
+multi-scale representation [124], and context modeling [125].
+2) Current methods to overcome challenge: In traffic sign
+detection, existing traffic sign datasets are limited in terms
+of the type and severity of challenging conditions. Metadata
+corresponding to these conditions is unavailable and it is not
+possible to investigate the effect of a single factor because
+of the simultaneous changes in numerous conditions. To
+overcome this, [126] introduced the CURE-TSDReal dataset,
+based on simulated conditions that correspond to real-world
+environments. An end-to-end traffic sign detection framework
+Feature Aggregation Multipath Network (FAMN) is proposed
+in [127]. It consists of two main structures named Feature
+Aggregation and Multipath Network structure to solve the
+problems of small object detection and fine-grained classification in traffic sign detection.
+A vehicle highlight information-assisted neural network
+for vehicle detection at night is presented in [128], which
+included two innovations: establishing the label hierarchy for
+vehicles based on their highlights and designing a multi-layer
+fused vehicle highlight information network. Real-time vehicle
+detection for nighttime situations is presented in [129], where
+images include flashes that occupy large image regions, and
+the actual shape of vehicles is not well defined. By using a
+global image descriptor along with a grid of foveal classifiers,
+vehicle positions are accurately and efficiently estimated. AugGAN [95] is an unpaired image-to-image translation network
+for domain adaptation in vehicle detection. It quantitatively
+surpassed competing methods for achieving higher nighttime
+vehicle detection accuracy because of better image-object
+preservation. A stepwise domain adaptation (SDA) detection
+method is proposed to further improve the performance of
+CycleGAN by minimizing the divergence in cross-domain
+object detection tasks in [130]. In the first step, an unpaired
+image-to-image translator is trained to construct a fake target
+domain by translating the source images to similar ones in
+the target domain. In the second step, to further minimize
+divergence across domains, an adaptive CenterNet is designed
+to align distributions at the feature level in an adversarial
+learning manner.
+D. Autonomous driving perception: segmentation
+1) Models and algorithms: Image segmentation contains
+three sub-tasks: semantic segmentation, instance segmentation,
+and panoptic segmentation. Semantic segmentation is a fine
+prediction task to label each pixel of an image with a corresponding object class, instance segmentation is designed to
+identify and segment pixels that belong to each object instance,
+while panoptic segmentation unifies semantic segmentation
+and instance segmentation such that all pixels are given both
+a class label and an instance ID [131].
+YOLACT [132] splits instance segmentation into two parallel sub-architectures. Protonet architecture extracts spatial
+information by generating a certain number of prototype
+masks, and Head architecture generates the mask coefficients
+and object locations. In addition, it employs Fast NMS rather
+than traditional NMS to reduce post-processing time. CenterMask [133] is an efficient anchor-free instance segmenta-
+
+8
+
+tion, that adds a novel spatial attention-guided mask (SAGMask) branch to a one-stage object detector in the same vein
+as Mask R-CNN. Path Aggregation Network (PANet) [134]
+is proposed to integrate comprehensively low-level location
+information and high-level semantic information. Based on
+Feature Pyramid Networks (FPN) [118], PANet designs a
+bottom-up context information aggregation structure, which
+can integrate different levels of features. A learning-based
+snake algorithm [135] is proposed for real-time instance
+segmentation, which introduces the circular convolution for
+efficient feature learning on the contour and regresses vertexwise offsets for the contour deformation. A top-down instance
+segmentation framework based on explicit shape encoding,
+named ESE-Seg, is proposed to reduce the computational
+time of instance segmentation by decoding the multiple object
+shapes with tensor operations, thus performing the instance
+segmentation at almost the same speed as the object detection
+[136]. Multi-task Network Cascades (MNC) [137] divide
+the instance segmentation task into three cascaded sub-tasks:
+instance discrimination (discriminating different instances with
+non-semantic bounding boxes), mask generation (generating
+pixel-level masks), and object classification (assigning a semantic label to each instance). Hybrid Task Cascade (HTC)
+is proposed for instance segmentation in [138]. It interweaves
+box and mask branches for joint multi-stage processing, adopts
+a semantic segmentation branch to provide spatial context, and
+integrates complementary features together in each stage.
+2) Current methods to overcome challenge: Recent directions in segmentation include weakly-supervised semantic
+segmentation [139], [140], domain adaptation [141], [142],
+multi-modal data fusion [143], [144], and real-time semantic
+segmentation [145], [146], [147].
+TS-Yolo [148] is a CNN-based model for accurate traffic
+detection under severe weather conditions using new samples
+from data augmentation. The data augmentation was conducted using copy-paste strategy, and a large number of new
+samples were constructed from existing traffic-sign instances.
+Based on YoloV5, MixConv was also used to mix different
+kernel sizes in a single convolution operation so that patterns
+with various resolutions can be captured. Detecting and classifying real-life small traffic signs from large input images
+is difficult due to them occupying fewer pixels relative to
+larger targets. To address this, Dense-RefineDet [149] applies a
+single-shot, object-detection framework to maintain a suitable
+accuracy–speed trade-off. An end-to-end traffic sign detection
+framework Feature Aggregation Multipath Network is proposed in [127] to solve the problems of small object detection
+and fine-grained classification in traffic sign detection.
+E. Cooperative perception
+1) Models and algorithms: In connected autonomous vehicles (CAV), cooperative perception can be performed at three
+levels depending on the type of data: early fusion (raw data),
+intermediate fusion (preprocessed data), where intermediate
+neural features are extracted and transmitted, and late fusion
+(processed data), where detection outputs (3D bounding box
+position, confidence score) are shared. Cooperative perception studies how to leverage visual cues from neighboring
+
+connected vehicles and infrastructure to boost the overall
+perception performance [150].
+1) Early fusion: [151] fuses the sensor data collected from
+different positions and angles of connected vehicles using
+raw-data level LiDAR 3D point clouds, and a point cloudbased 3D object detection method is proposed to work on a
+diversity of aligned point clouds. DiscoNet [152] leverages
+knowledge distillation to enhance training by constraining the
+corresponding features to the ones from the network for early
+fusion.
+2) Intermediate fusion: F-Cooper [153] provides both a new
+framework for applications On-Edge, servicing autonomous
+vehicles as well as new strategies for 3D fusion detection.
+Wang, et al. [154] proposed a vehicle-to-vehicle (V2V) approach for perception and prediction that transmits compressed
+intermediate representations of the P&P neural network. Xu,
+et al. [155] proposed an Attentive Intermediate Fusion pipeline
+to better capture interactions between connected agents within
+the network. A robust cooperative perception framework with
+vehicle-to-everything (V2X) communication using a novel
+vision Transformer is presented in [150].
+3) Late fusion: Car2X-based perception [156] is modeled as
+a virtual sensor in order to integrate it into a high-level sensor
+data fusion architecture.
+2) Current methods to overcome challenge: To reduce
+the communications load and overhead, an improved algorithm for message generation rules in collective perception
+is proposed [157], which improves the reliability of V2X
+communications by reorganizing the transmission and content
+of collective perception messages. This paper [158] presents
+and evaluates a unified cooperative perception framework
+containing a decentralized data association and fusion process
+that is scalable with respect to participation variances. The
+evaluation considers the effects of communication losses in
+the ad-hoc V2V network and the random vehicle motions in
+traffic by adopting existing models along with a simplified
+algorithm for individual vehicle’s on-board sensor field of
+view. AICP is proposed in [159], the first solution that focuses on optimizing informativeness for pervasive cooperative
+perception systems with efficient filtering at both the network
+and application layers. To facilitate system networking, they
+also use a networking protocol stack that includes a dedicated
+data structure and a lightweight routing protocol specifically
+for informativeness-focused applications.
+F. Vehicle interaction
+1) Models and algorithms: Computer vision methods can
+be used to detect and classify crash and near-crash events
+based on motion and trajectories. CNN, in the form of modified YOLOv3, is used to detect objects and extract semantic
+information about the road scene from onboard camera data
+from the SHRP2 dataset in [13]. Optical flow is calculated
+from consecutive frames to track objects and to generate
+features (hard deceleration, the maximum area of the largest
+vehicle, time to collision, etc.) that are combined with telematics data (speed and 3-axis acceleration) to train a random
+forest classifier on safe, near-crash, and crash events.
+
+9
+
+Dashcam videos were used to train a Dynamic Spatial
+Assistance (DSA) network to distribute attention to objects and
+model temporal dependencies in [160]. The method was able
+to predict crashes around 2 seconds in advance. Understanding
+multi-vehicle interaction in urban environments is challenging,
+and model-based methods may require prior knowledge, so a
+more general approach is explored in [161], where YOLOv3
+is used for object tracking from traffic camera video from
+the NGSIM dataset and a Gaussian velocity field is used to
+describe the interaction behaviors between multiple vehicles.
+From this, an 11-layer deep autoencoder learns the latent
+low dimensional representations for each frame, followed by
+a hidden semi-Markov model with a hierarchical Dirichlet
+process, which optimizes the number of interaction patterns,
+to cluster representations into traffic primitives corresponding
+to the interaction patterns. The pipeline can be used to analyze
+complex multi-agent interactions from traffic video. DL methods are able to extract semantic descriptions from video, like
+in [14], which can give advance warning of risky situations. A
+scenario-wise spatio-temporal attention guidance system was
+created by data mining from descriptive semantic variables
+in fatal crash data to support the design of a model based on
+YOLOv3 for evaluating crash risk from dashcam footage. The
+attention guidance extracted semantic descriptions like “pedestrian”, “school bus” and “atmospheric condition”, followed by
+DL to optimize attention on these variables to identify clusters
+and associate scene features with crash features.
+2) Current methods to overcome challenges: While most
+vehicle interaction methods reviewed thus far make little mention of the practical challenges in variable weather and lighting, [162] highlights a background learning method specifically to adapt to changing lighting conditions and headlight illumination in surveillance footage and even utilizes a threshold
+based noise removal for rainy conditions to detect near-miss
+events at grade crossings. Domain adaptation, an example of
+transfer learning, was employed in [96] to make use of labeled
+daytime footage for vehicle detection in unlabeled nighttime
+images by a generative adversarial network called CycleGAN
+[163], which can be used with many real-world deep learning
+computer vision applications. YouTube dashcam footage was
+used for crash detection in an ensemble multimodal DL
+method, based on the gated recurrent unit (GRU) and CNN,
+that uses both video and audio data [164]. The real-world data
+consists of positive clips containing crashes and negative clips
+containing normal driving. A crowd-sourced dashcam video
+dataset was also contributed by [160] for accident anticipation
+containing scenarios like crowded streets, complicated road
+environments, and diversity of accidents. To address lowvisibility conditions like rain, fog, and nighttime footage, [165]
+used Retinex image enhancement algorithm for preprocessing
+and YOLOv3 for object detection, followed by a decision tree
+to classify crashes. It balances dynamic range and enhances
+edges, but congested mixed-flow traffic, lower-quality video,
+and fast vehicles are still major sources of error. The use of
+deep convolutional autoencoders for representation learning
+complemented with vehicle tracking is used to detect accidents
+from surveillance footage in [166]. The testing was performed
+on data collected during bright sunlight, night, early morning,
+
+and also from a variety of cameras and angles. However, there
+are significant false alarms caused by low visibility, occlusions,
+and large variations in traffic patterns. The lack of near-miss
+data can be met with combining vehicle event recorder data
+and object detection from an onboard camera as proposed
+in [167]. By extracting two deep feature representations that
+consider the car status and the surrounding objects, the deep
+learning method can label near-miss events. While the method
+does not claim to be real-time, it can generate large volumes
+of labeled training data for near-crash events.
+A method to detect cycling near-misses from front view
+video is developed in [15] using optical flow, CNN, LSTM,
+and a fully connected prediction stage. The method was trained
+with complex urban environments and also contributes to a
+large dataset containing labeled near-miss events. A ResNetbased model was used to detect pedestrians and evaluate
+risk from a near-miss dataset in [168]. The dataset contains
+videos from different vehicles, places (intersections, city,
+major roads), day and night time, and weather conditions.
+However, the model suffers from overfitting as a result of
+having only near-miss data for training.
+G. Road user behavior prediction
+1) Models and algorithms: Trajectory prediction from
+videos is useful for autonomous driving, traffic forecasting,
+and congestion management. Older works in this domain
+focused on homogeneous agents such as cars on a highway
+or pedestrians in a crowd, whereas heterogeneous agents were
+only considered in sparse scenarios with certain assumptions
+like lane-based driving. A long short-term memory (LSTM)
+and CNN hybrid network, that learns the relationship between
+pairs of heterogeneous agents, was developed in [74] to extract
+agent shape, velocity, and traffic concentration, which are
+passed through LSTMs to generate horizon and neighborhood
+maps, which then go through convolution networks to produce
+latent representations that are passed through a final LSTM
+to predict the trajectory. It can perform accurately in dense,
+heterogeneous, urban traffic conditions in real time. The paper
+also contributes a new labeled dataset captured from crowded
+Asian cities. In order to be useful, trajectory prediction needs
+to take into account the motion of surrounding objects and
+inter-object interactions in real time. Therefore, a different
+approach to motion prediction is discussed in [169] based on
+the graph convolutional model, which takes trajectory data as
+input and represents the interactions of nearby objects and
+extracts features. The graph model output is then passed into
+an encoder-decoder LSTM model for robust predictions that
+can consider the interaction between vehicles. The method
+enables 30% higher prediction accuracy in addition to 5x faster
+execution. The algorithm uses trajectory data that has already
+been extracted from surveillance video data like NGSIM [170].
+In [171], vehicle trajectory of vehicles is calculated using
+Lucas-Kanade algorithm on dashcam video. Synthetic data
+was also used for augmenting the dataset to train an LSTM
+network to predict future motion and an SVM is used to
+classify the action, for eg. changing lanes. The method predicts
+the next 6 seconds of motion on highways with 92% accuracy.
+
+10
+
+2) Current methods to overcome challenges: The dynamics
+of vulnerable road users are described by a Switching Linear
+Dynamical System (SLDS) in [172] and extended with a
+dynamic bayesian network using context from features extracted from vehicle-mounted stereo cameras focusing on both
+static and dynamic cues. The approach can work in real-time,
+providing accurate predictions of road user trajectories. It can
+be improved by the inclusion of more context like traffic lights
+and pedestrian crossings. The use of onboard camera and
+LiDAR along with V2V communication is explored in [173]
+to predict trajectories using the random forest and LSTM architecture. YOLO is used to detect cars and provide bounding
+boxes, while LiDAR provides subtle changes in position, and
+V2V communication transmits raw values like steering angles
+to reduce the uncertainty and latency of predictions.
+The TRAF dataset was used in [174] for robust end-to-end
+real-time trajectory prediction from still or moving cameras.
+Mask R-CNN and reciprocal velocity obstacles algorithm are
+used for multi-vehicle tracking. The last 3 seconds of tracking
+are used to predict the next 5 seconds of trajectory as in [74],
+with the added advantage of being end-to-end trainable and not
+requiring annotated trajectory data. The paper also contributes
+TrackNPred, a python-based library that contains implementations of different trajectory prediction methods. It is a common
+interface for many trajectory prediction approaches and can
+be used for performance comparisons using standard error
+measurement metrics on real-world dense and heterogeneous
+traffic datasets.
+Most DL methods for trajectory prediction do not uncover
+the underlying reward function, instead, they only rely on
+previously seen examples, which hinders generalizability and
+limits their scope. In [175], inverse reinforcement learning
+is used to find the reward function so that the model can
+be said to have a tangible goal, allowing it to be deployed
+in any environment. Transformer-based motion prediction is
+performed in [176] to achieve state-of-the-art multimodal
+trajectory prediction in the Agroverse dataset. The network
+models both the road geometry and interactions between the
+vehicles. Pedestrian intention in complex urban scenarios is
+predicted by graph convolution networks on spatio-temporal
+graphs in [177]. The method considers the relationship between pedestrians waiting to cross and the movement of
+vehicles. While achieving 80% accuracy on multiple datasets,
+it predicts intent to cross one second in advance. On the
+other hand, pedestrians modeled as automatons, combined
+with SVM without the need for pose information, result in
+longer predictions but lack the consideration of contextual
+information [178].
+H. Traffic anomaly detection
+1) Models and Algorithms: Traffic surveillance cameras
+can be used to automatically detect traffic anomalies like
+stopped vehicles and queues. The detection of low-level image
+features like corners of vehicles has been used by [68] to
+demonstrate queue detection and queue length estimation
+without object tracking or background removal in different
+lighting conditions. Tracking methods based on optical flow
+
+can not only provide queue length, but also speed, vehicle
+count, waiting time, and time headway. In [179], the authors
+use optical flow assuming constant short-term brightness to
+detect vehicle features and successfully track them even with
+occlusions. The speed of individual vehicles can be estimated,
+allowing the detection of stopped vehicles or queue formation.
+Trajectory analysis has also been used to identify illegal or
+dangerous movements [65]. The background subtraction-based
+approaches are, however, limited to favorable scenarios and do
+not generalize well. On the other hand, the system has been
+physically deployed to analyze surveillance camera video.
+An interesting method is applied in [180] involving partitioning the video into spatial and temporal blocks, local
+invariant features are then learned from traffic footage to create
+a visual codebook of the image descriptors using Localityconstrained Linear Coding. Then, a Gaussian distribution
+model is trained to learn the probabilities corresponding to
+normal traffic, which can be used to detect anomalies. The
+image description makes it more robust to lighting, perspective, and occlusions. Armstrong, et al. [69] proposed a decision
+tree-based DL approach for anomaly detection using YOLOv5
+for vehicle detection, followed by background estimation, then
+a decision tree considers factors like vehicle size, likelihood,
+and road feature mask to eliminate false positives. Adaptive
+thresholding allows for robustness under variable illumination
+and weather conditions. A perspective map approach is discussed by [181], which models the background using road
+segmentation based on a traffic flow frequency map, then the
+perspective is detected from linear regression of object sizes
+based on ResNet50. Finally, a spatial-temporal matrix discriminating module does thresholding on consecutive frames to
+detect anomalous states.
+2) Current methods to overcome challenges: Anomaly detection relies on surveillance cameras which usually provide
+a view far along the road, but vehicles in the distance occupy
+only a few pixels which make detection difficult. Thus, [182]
+uses pixel-level tracking in addition to box-level tracking
+for multi-granularity. The key idea is mask extraction based
+on frame difference and vehicle trajectory tracking based
+on Gaussian Mixture Model to eliminate moving vehicles
+combined with segmentation based on frame changes to also
+eliminate parking zones. Anomaly fusion uses the box and
+pixel-level tracking features with backtracking optimization to
+refine predictions. Surveillance cameras are prone to shaking
+in the wind, so video stabilization preprocessing was performed before using two-stage vehicle detection in the form of
+Faster R-CNN and Cascade R-CNN [183]. An efficient realtime method for anomaly detection from surveillance video
+decouples the appearance and motion learning into two parts
+[184]. First, an autoencoder learns appearance features, then
+3D convolutional layers can use latent codes from multiple
+past frames to predict features for future frames. A significant
+difference between predicted and actual features indicates an
+anomaly. The model can be deployed on edge nodes near the
+traffic cameras, and the latent features appear to be robust
+to illumination and weather changes compared to pixel-wise
+methods.
+To shed reliance on annotated data for anomalies, an unsu-
+
+11
+
+pervised one-class approach in [185] applies spatio-temporal
+convolutional autoencoder to get latent features, stacks them
+together, and a sequence-to-sequence LSTM learns the temporal patterns. The method performs well on multiple real-world
+surveillance footage datasets, but not better than supervised
+training methods. The advantage is that it can be indefinitely
+trained on normal traffic data without any labeled anomalies.
+I. Edge computing
+1) Models and algorithms: Computer vision in ITS requires
+efficient infrastructure architecture to analyze data in real time.
+If all acquired video streams are sent to a single server,
+the required bandwidth and computation would not be able
+to provide a usable service. For example, edge computing
+architecture for real-time automatic failure detection using a
+video usefulness metric was explored in [193]. Only video
+deemed to be useful is transmitted to the server, while malfunction of the surveillance camera, or obstruction of view,
+is automatically reported. Edge-cloud-based computing can
+implement DL models, not just for computer vision tasks,
+but also for resource allocation and efficiency [194]. Passive
+surveillance has now been superseded in literature by the
+increasing availability of sensor-equipped vehicles that can
+perform perception and mapping cooperatively [56].
+Onboard computing resources in vehicles are often not
+powerful enough to process all sensor data in real time, and
+applications like localization and mapping can be very computationally intensive. The internet of things (IoT) architecture
+allows for edge nodes to offload that computation and provide
+results at low latency to nearby users [195]. This approach
+can avoid multiple cars doing the same computation with
+similar inputs. One technique to offload computation tasks
+is discussed in [186], combining integer linear programming
+for offline scheduling optimization and heuristics for online,
+real-world deployment. The authors compress 3D point cloud
+LIDAR data collected from the vehicle’s sensor and send
+it to the edge node for classification and feature extraction.
+A deep reinforcement learning algorithm known as Deep
+Deterministic Policy Gradient is proposed in [188], which
+can dynamically allocate computing and caching resources
+throughout the network. Future work in this direction will
+handle multiple communication channels, interference management, forecast handover, and bandwidth allocation. In the
+macro scale, V2V communication can be used for traffic parameter estimation and management with sparse connectivity,
+while higher connected vehicle market penetration will allow
+safety applications like collision avoidance [196].
+Applications for vehicles can include near-crash detection,
+navigation, video streaming, and smart traffic lights. The
+onboard unit can also be used as a mobile cache, and communicate with other vehicles via V2V networking. Real-time
+near-crash detection using edge computing was developed
+in [187]. The system uses dashcam video for SSD vehicle
+and pedestrian detection, followed by SORT for tracking to
+estimate the time to collision (TTC). It was tested on online
+datasets and on real cars and buses. The detected events,
+along with CAN bus messages was used to filter irrelevant
+
+data, saving bandwidth for data collection. A practical deployment of parking surveillance using edge-cloud computing was
+presented in [197], the edge device performs detection and
+transmits the bounding box and object types to the server,
+which uses this information for labeling and tracking. A
+different approach by [198] focused on vehicle tracking from
+top view cameras and number plate recognition from groundlevel cameras for real-time occupancy information and to
+automatically charge a vehicle for the time it was parked.
+Large-scale traffic monitoring using computer vision and edge
+computing was detailed in [189] where edge nodes close
+to surveillance cameras can process low-resolution videos
+to monitor traffic, detect congestion, and detect speed if
+the available bandwidth is low. If high bandwidth to the
+server is available, high-quality video will be sent for similar
+processing. Edge computing for vehicle detection is examined
+in [190]. The algorithm divides the traffic video into segments
+of interest and then uses YOLOv3 for vehicle detection in
+real-time on the edge node, and the extracted clips are used
+as training data for the edge server.
+2) Current methods to overcome challenges: One problem
+with large-scale DL is that the huge quantity of data produced
+cannot be sent to a cloud computer for training. Federated
+learning [199] has emerged as a solution to this problem,
+especially considering the heterogeneous data sources, bandwidth, and privacy issues [53]. Training can be performed
+on edge nodes or edge servers, with the results being sent
+to the cloud to aggregate in the shared deep learning model
+[56]. Federated learning is also robust to failure of individual
+edge nodes [191]. Concerns of bandwidth, data privacy, and
+power requirements are addressed in [200] by transferring
+only inferred data from edge nodes to the cloud, in the
+form of incremental and unsupervised learning. In general, the
+processing of data on the edge to reduce bandwidth has the
+pleasant side effect of anonymizing the transmitted data [201].
+Another effort to reduce bandwidth requirements employs
+spectral clustering compression performed on spatio-temporal
+features needed for traffic flow prediction [192].
+Deep learning models cannot be directly exported to mobile
+edge nodes, as they are usually too computationally intensive.
+Neural network pruning both in terms of storage and computation was introduced in [202], while implementation of the
+resulting sparse network on hardware is discussed in [203],
+achieving multiple orders of magnitude increase in efficiency.
+A general lightweight CNN model was developed for mobile
+edge units in [204], matching or outperforming AlexNet and
+VGG-16 while being a fraction of the size and computation
+cost. Edge computing-based traffic flow detection using deep
+learning was deployed by [86] where YOLOv3 was trained
+and pruned, along with DeepSORT, to be deployed on the
+edge device for real-time performance. A thorough review
+of deploying compact DNNs on low-power edge computers
+for IoT applications can be found in [205]. They note that
+the diversity and quantity of DNN applications require an
+automated method for model compression beyond traditional
+pruning techniques.
+
+12
+
+TABLE I
+C OMPUTER V ISION A PPLICATIONS IN T RANSPORTATION
+Application
+Traffic flow parameter estimation
+
+Congestion detection and prediction
+
+Autonomous driving perception: detection
+
+Autonomous driving perception: segmentation
+
+Cooperative perception
+
+Vehicle interaction
+
+Road user behavior prediction
+
+Traffic anomaly detection
+
+Edge computing
+
+Methods
+YOLOv3 + DeepSORT on surveillance videos
+[76], YOLOv2 + SPP [77], AlexNet + optical
+flow + Gaussian mixture model [78], Faster RCNN + SORT [81]
+AlexNet + YOLO [87], AlexNet + VGGNet [88],
+YOLO + Mask R-CNN [89], YOLOv3 [90],
+YOLOv4 [63], Faster R-CNN [91]
+Sparse R-CNN [98], YOLOv3 [99], SegNet + UNet [100], Faster R-CNN + Inception-Resnet-v2
+[103], CNN + ConvLSTM [106], GAN [108]
+YOLACT [132], CenterMask [133], Path Aggregation Network [134], ESE-Seg [136]
+Early fusion [151], DiscoNet [152], Intermediate
+fusion F-Cooper [153], V2V intermediate fusion
+[154], Attentive intermediate fusion [155], V2X
++ Vision transformer [150], Late fusion [156]
+YOLOv3 + optical flow [13], Dynamic Spatial
+Assistance (DSA) RNN [160], YOLOv3 + Gaussian velocity field + hidden semi-Markov [161],
+spatio-temporal attention guidance + YLOv3
+[14], Domain adaptation + GAN [96], Gated
+recurrent unit + CNN [164], Retinex + YOLOv3
+[165], optical flow + CNN + LSTM [15], ResNet
+[168]
+LSTM + CNN [74], LSTM + SVM [171],
+Switching Linear Dynamical System + bayesian
+network [172], YOLO + LSTM + random forest
+[173], Transformer [176]
+Gaussian mixture model + Optical flow [179],
+GMM background modeling + AdaBoost classifier + Modified Hausdorff Distance [65],
+Locality-constrained Linear Coding + Gaussian
+distribution model [180], YOLOv5 + decision
+tree + adaptive thresholding [69], ResNet50 +
+spatial-temporal matrix discriminating module
+[181], spatio-temporal convolutional autoencoder
++ LSTM [185]
+Integer linear programming + fast heuristics
+[186], SSD + SORT [187], Deep Deterministic
+Policy Gradient + V2V networking [188], cloudedge hybrid + Global foreground modeling +
+Gaussian mixture model [189], YOLOv3 [190],
+federated learning [191], spectral clustering compression [192]
+
+VI. F UTURE D IRECTIONS
+A. For solving data challenges
+While a large quantity of data is essential for training deep
+learning models, often the quality is the limiting factor in
+training performance. Data curation is a necessary process to
+include edge cases and train the model on representative data
+from the real world. Labeling vision data, especially in complex urban environments is a labor-intensive task performed
+by humans. It can be sped up by first using existing object
+detection or segmentation algorithms based on the relevant
+task to automatically label the data. Then this can be further
+checked by humans to eliminate errors by the machine, thus
+creating a useful labeled dataset. There is also a need for
+datasets that include multiple sensors from different views
+for training cooperative perception algorithms. Collecting such
+
+Main Challenges
+Single metric for performance evaluation,
+weather and illumination, realtime video
+processing, diversity of surveillance camera view
+angles
+Multi-lane highways with exits or barriers, parked
+vehicles, lack of lane markings, weather and illumination, realtime processing, variety of surveillance camera angles
+Weather, shadows, complex road environment,
+occlusion, small objects, degraded lane markings,
+motion blur
+Accuracy vs. processing speed trade-off, occlusion, illumination, shadows, weather, lack of generalizability
+Delay, packet loss, calibration, synchronization,
+non-overlapping points of view, computational
+cost
+Lack of near-crash data or other specific situations, underrepresentation of bicycles, complex
+urban traffic, weather, illumination, occlusion
+
+Lack of benchmark to evaluate methods, realtime
+computation, faulty sensors, generalizability to
+different driving scenarios, occlusion
+Vehicles far from camera, camera angles, illumination, lack of generalizability between sparse
+and dense conditions, camera shaking by wind
+
+Power consumption, heterogeneous data sources,
+cybersecurity, wireless noise, scalability, neural
+network pruning and model compression, installation and maintenance costs
+
+data is bound to be challenging because of hardware requirements and synchronization issues but it is possible to do with
+connected vehicles and instrumented intersections similar to
+the configuration that will be deployed.
+The problems associated with poor quality or viewing angle
+of real-world cameras can be mitigated by using realistic
+CCTV benchmarks and datasets that include a wide variety of surveillance footage, including synthetic video [206].
+Data-driven simulators like [207] use high-fidelity datasets to
+simulate cameras and LiDAR, which can be used to train
+DL models with data that is hard to capture in the real
+world [208]. Such an approach has shown promise in endto-end reinforcement learning of autonomous vehicle control
+[209]. Domain adaptation techniques are expected to be further
+extended to utilize synthetic data and conveniently collected
+data.
+
+13
+
+Sub-fields in transfer learning, especially few-shot learning
+and zero-shot learning, will be extensively applied with expert
+knowledge to address the lack of data challenges, such as
+corner case recognition in ITS and AD. Likewise, new unsupervised learning and semi-supervised learning models are
+expected in the general field of real-world computer vision.
+Future work in vision transformer explainability will allow
+for more comprehensive insights based on aggregated metrics
+over multiple samples [41]. Interpretability research is also
+expected to evaluate differences between model-based and
+model-free reinforcement learning approaches [42].
+Data decentralization is a well-recognized trend in ITS. To
+address issues like data privacy, large-scale data processing,
+and efficiency, crowdsensing [210] and federated learning on
+vision tasks [211] are unavoidable future directions in ITS and
+AD. Additionally, instead of the traditional way of training
+a single model for a single task, multiple downstream tasks
+learning with a generalized foundation model, e.g., Florence
+[212], is a promising trend to deal with various data challenges. Another mechanism is data processing parallelism in
+ITS coupled with edge computing for multi-task (e.g., traffic
+surveillance and road surveillance) learning [213].
+
+in the input that correspond with the classification. Generic
+solutions for explainability have been presented in [218]
+for both self-attention and co-attention transformer networks.
+While it is not straightforward to apply these methods to
+transportation applications, some efforts have been made to
+understand deep spatio-temporal neural networks dealing with
+video object segmentation and action recognition quantifying
+the static and dynamic information in the network and giving
+insight into the models and highlighting biases learned from
+datasets [219].
+Cooperative sensing model development is a necessary
+future direction for better perception in 3D, in order to
+mitigate the effects of occlusion, noise, and sensor faults.
+V2X networks and vision transformers have been used for
+robust cooperative perception, which can support sensing in
+connected autonomous vehicle platforms [155][150]. Connected autonomous vehicles will also host other deep learning
+models that can learn from new data in a distributed manner.
+Consensus-driven distributed perception is expected to make
+use of future network technologies like 6G V2X, resulting
+in low latency model training that can enable true level 5
+autonomous vehicles [220].
+
+B. For solving model challenges
+
+C. For solving complex traffic environment challenges
+
+Deep learning models are trained until they achieve good
+accuracy, but real-world testing often reveals weaknesses in
+edge cases and complex environmental conditions. There is
+a need for online learning for such models to continue to
+improve and adapt to real-world scenarios otherwise they
+cannot be of practical use. If online training is not possible due
+to a lack of live feedback on the correctness of the predictions,
+the performance must be analyzed periodically with real data
+stored and labeled by humans. This can serve as a sort of
+iterative feedback loop, where the model does not need to be
+significantly changed, just incrementally retrained based on the
+inputs it finds most challenging. One possible way to partially
+automate this would be to have multiple different redundant
+architectures using the same input data to make predictions
+along with confidence scores. If the outputs do not agree, or
+if the confidence scores are low for a certain output, that data
+point can be manually labeled and added to the training set
+for the next training iteration.
+Complex deep learning models deployed to edge devices
+need to be more efficient through methods such as pruning
+[202]. Simple pruning methods can improve CNN performance by over 30% [214]. Depending on the specific architecture, the models may also be split into different functional
+blocks deployed on separate edge units to minimize bandwidth
+and computation time [215]. A foreseeable future stage of edge
+AI is ”model training and inference both on the edge,” without
+the participation of cloud datacenters.
+In recent years much work has been done towards explainable AI, especially in computer vision. CNNs have been
+approached with three explainability methods: gradient-based
+saliency maps, Class Activation Mapping, and Excitation
+Backpropagation [216]. These methods were extended for
+graph convolutional networks in [217], pointing out patterns
+
+Multimodal sensing and cooperative perception are necessary future avenues of practical research. Different modalities
+like video, LiDAR, and audio can be used in combinations to
+improve the performance of methods purely based on vision.
+Audio is especially useful for detecting anomalies earlier
+among pedestrians like fights or commotions, and for vehicles
+in crowded intersections where the visual chaos may not
+immediately reveal problems like mechanical faults, or minor
+accidents. Cooperative perception will allow multiple sensor
+views of the same environment from different vehicles to build
+a common picture that contains more information than any
+single agent can perceive thus solving problems of occlusion
+and illumination.
+There is an increasing trend of using transfer learning
+to improve model performance in real-world tasks. Initially
+training the model on synthetic data and fine-tuning with taskspecific data reduces the reliability on complex, single use
+deep learning models and improve real-world performance by
+retraining on challenging urban scenarios. As aforementioned,
+domain adaptation, zero-shot learning, few-shot learning, and
+foundation models are expected transfer learning areas that
+serve this purpose.
+The results of unsupervised methods like in [185] can be
+further improved by online learning in crowded and challenging scenarios after deployment on embedded hardware,
+as there is an unlimited supply of unlabeled data. The lack
+of theoretical performance analysis regarding the upper bound
+on false alarm rate in complex environments is discussed as
+an important aspect of deep learning methods for anomaly
+detection in [221]. Future research is recommended to include
+this analysis as well. It is hard to imagine complete reliance on
+surveillance cameras for robust, widespread, and economical
+traffic anomaly detection. The method in [222] includes traffic,
+
+14
+
+network, demographic, land use, and weather data sources to
+detect traffic. Such ideas can be used in tandem with computer
+vision applications for better overall performance.
+Future directions in the application of edge computing in
+ITS will consider multi-source data fusion along with online
+learning [223]. Many factors like unseen shapes of vehicles,
+new surrounding environments, variable traffic density, and
+rare events can be too challenging for DL models [195]. This
+new data could be used for online training of the system.
+Traditional applications can be extended using edge computing
+and IoV/IoT frameworks. Vehicle re-identification from video
+is emerging as the most robust solution to occlusion [224].
+However, the inclusion of more spatio-temporal information
+for learning leads to greater memory and computational usage.
+Tracklets from one camera view can be matched with other
+views at different points in time using known features. Instead
+of using a fixed window, adaptive feature aggregation based on
+similarity and quality, can be generalized to many multi-object
+tracking tasks [225].
+Transformers are particularly useful at learning dynamic
+interactions between heterogenous agents which will be particularly useful in crowded urban environments for detection and
+trajectory prediction. They can also be used for the detection
+of anomalies and prediction of potentially hazardous situations
+like collisions in a multi-user heterogeneous scenario.
+VII. C ONCLUSIONS
+In real-world scenarios, most of the DL computer vision
+methods suffer from severe performance degradation when
+facing different challenges. In this paper, we review the specific challenges for data, models, and complex environments
+in ITS and autonomous driving. Many related deep learningbased computer vision methods are reviewed, summarized,
+compared, and discussed. Furthermore, a number of representative deep learning-based applications of ITS and autonomous
+driving are summarized and analyzed. Based on our analysis
+and review, several potential future research directions are
+provided. We expect that this paper could provide useful
+research insights and inspire more progress in the community.
+R EFERENCES
+[1] N. O’Mahony, S. Campbell, A. Carvalho, S. Harapanahalli, G. V.
+Hernandez, L. Krpalkova, D. Riordan, and J. Walsh, “Deep learning
+vs. traditional computer vision,” in Science and information conference.
+Springer, 2019, pp. 128–144.
+[2] A. Geiger, P. Lenz, and R. Urtasun, “Are we ready for autonomous
+driving? the kitti vision benchmark suite,” in 2012 IEEE Conference
+on Computer Vision and Pattern Recognition, 2012, pp. 3354–3361.
+[3] M. Naphade, Z. Tang, M.-C. Chang, D. C. Anastasiu, A. Sharma,
+R. Chellappa, S. Wang, P. Chakraborty, T. Huang, J.-N. Hwang et al.,
+“The 2019 ai city challenge.” in CVPR workshops, vol. 8, 2019, p. 2.
+[4] A. Caillot, S. Ouerghi, P. Vasseur, R. Boutteau, and Y. Dupuis,
+“Survey on cooperative perception in an automotive context,” IEEE
+Transactions on Intelligent Transportation Systems, 2022.
+[5] Q. Yang, S. Fu, H. Wang, and H. Fang, “Machine-learning-enabled
+cooperative perception for connected autonomous vehicles: Challenges
+and opportunities,” IEEE Network, vol. 35, no. 3, pp. 96–101, 2021.
+[6] R. Ke, Real-Time Video Analytics Empowered by Machine Learning
+and Edge Computing for Smart Transportation Applications. University of Washington, 2020.
+[7] A. Halevy, P. Norvig, and F. Pereira, “The unreasonable effectiveness
+of data,” IEEE intelligent systems, vol. 24, no. 2, pp. 8–12, 2009.
+
+[8] Z. Luo, F. Branchaud-Charron, C. Lemaire, J. Konrad, S. Li, A. Mishra,
+A. Achkar, J. Eichel, and P.-M. Jodoin, “Mio-tcd: A new benchmark
+dataset for vehicle classification and localization,” IEEE Transactions
+on Image Processing, vol. 27, no. 10, pp. 5129–5141, 2018.
+[9] H.-N. Hu, Q.-Z. Cai, D. Wang, J. Lin, M. Sun, P. Krahenbuhl,
+T. Darrell, and F. Yu, “Joint monocular 3d vehicle detection and
+tracking,” in Proceedings of the IEEE/CVF International Conference
+on Computer Vision (ICCV), October 2019.
+[10] Y. Yao, L. Zheng, X. Yang, M. Naphade, and T. Gedeon, “Simulating
+content consistent vehicle datasets with attribute descent,” in European
+Conference on Computer Vision. Springer, 2020, pp. 775–791.
+[11] Z. Zheng, M. Jiang, Z. Wang, J. Wang, Z. Bai, X. Zhang, X. Yu,
+X. Tan, Y. Yang, S. Wen et al., “Going beyond real data: A robust
+visual representation for vehicle re-identification,” in Proceedings of
+the IEEE/CVF Conference on Computer Vision and Pattern Recognition
+Workshops, 2020, pp. 598–599.
+[12] J. Tobin, R. Fong, A. Ray, J. Schneider, W. Zaremba, and P. Abbeel,
+“Domain randomization for transferring deep neural networks from
+simulation to the real world,” in 2017 IEEE/RSJ international conference on intelligent robots and systems (IROS). IEEE, 2017, pp.
+23–30.
+[13] L. Taccari, F. Sambo, L. Bravi, S. Salti, L. Sarti, M. Simoncini, and
+A. Lori, “Classification of crash and near-crash events from dashcam
+videos and telematics,” in 2018 21st International Conference on
+Intelligent Transportation Systems (ITSC). IEEE, 2018, pp. 2460–
+2465.
+[14] Y. Li, M. M. Karim, R. Qin, Z. Sun, Z. Wang, and Z. Yin,
+“Crash report data analysis for creating scenario-wise, spatio-temporal
+attention guidance to support computer vision-based perception of
+fatal crash risks,” Accident Analysis & Prevention, vol. 151, p.
+105962, 2021. [Online]. Available: https://www.sciencedirect.com/
+science/article/pii/S0001457520317826
+[15] M. R. Ibrahim, J. Haworth, N. Christie, and T. Cheng, “Cyclingnet:
+Detecting cycling near misses from video streams in complex urban
+scenes with deep learning,” IET Intelligent Transport Systems, vol. 15,
+no. 10, pp. 1331–1344, 2021.
+[16] H. Kataoka, T. Suzuki, S. Oikawa, Y. Matsui, and Y. Satoh, “Drive
+video analysis for the detection of traffic near-miss incidents,” in 2018
+IEEE International Conference on Robotics and Automation (ICRA),
+2018, pp. 3421–3428.
+[17] S. Mozaffari, O. Y. Al-Jarrah, M. Dianati, P. Jennings, and A. Mouzakitis, “Deep learning-based vehicle behavior prediction for autonomous
+driving applications: A review,” IEEE Transactions on Intelligent
+Transportation Systems, vol. 23, pp. 33–47, 1 2022.
+[18] Z. Wang, Y. Wu, and Q. Niu, “Multi-sensor fusion in automated
+driving: A survey,” IEEE Access, vol. 8, pp. 2847–2868, 2020.
+[19] W. J. Reed, “The pareto, zipf and other power laws,” Economics letters,
+vol. 74, no. 1, pp. 15–19, 2001.
+[20] T. Wang, Y. Zhu, Y. Chen, C. Zhao, B. Yu, J. Wang, and M. Tang,
+“C2am loss: Chasing a better decision boundary for long-tail object
+detection,” in Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition, 2022, pp. 6980–6989.
+[21] L. Fu, H. Yu, F. Juefei-Xu, J. Li, Q. Guo, and S. Wang, “Let there
+be light: Improved traffic surveillance via detail preserving night-today transfer,” IEEE Transactions on Circuits and Systems for Video
+Technology, 2021.
+[22] D. Mahajan, R. Girshick, V. Ramanathan, K. He, M. Paluri, Y. Li,
+A. Bharambe, and L. Van Der Maaten, “Exploring the limits of weakly
+supervised pretraining,” in Proceedings of the European conference on
+computer vision (ECCV), 2018, pp. 181–196.
+[23] J. Wang, W. Zhang, Y. Zang, Y. Cao, J. Pang, T. Gong, K. Chen, Z. Liu,
+C. C. Loy, and D. Lin, “Seesaw loss for long-tailed instance segmentation,” in Proceedings of the IEEE/CVF conference on computer vision
+and pattern recognition, 2021, pp. 9695–9704.
+[24] T. Wang, Y. Zhu, C. Zhao, W. Zeng, J. Wang, and M. Tang, “Adaptive
+class suppression loss for long-tail object detection,” in Proceedings of
+the IEEE/CVF conference on computer vision and pattern recognition,
+2021, pp. 3103–3112.
+[25] S. Arabi, A. Haghighat, and A. Sharma, “A deep-learning-based
+computer vision solution for construction vehicle detection,” ComputerAided Civil and Infrastructure Engineering, vol. 35, no. 7, pp. 753–767,
+2020.
+[26] Z. Wu, J. Sang, Q. Zhang, H. Xiang, B. Cai, and X. Xia, “Multi-scale
+vehicle detection for foreground-background class imbalance with
+improved yolov2,” Sensors, vol. 19, no. 15, 2019. [Online]. Available:
+https://www.mdpi.com/1424-8220/19/15/3336
+
+15
+
+[27] M. Carranza-Garcı́a, P. Lara-Benı́tez, J. Garcı́a-Gutiérrez, and J. C.
+Riquelme, “Enhancing object detection for autonomous driving
+by optimizing anchor generation and addressing class imbalance,”
+Neurocomputing, vol. 449, pp. 229–244, 2021. [Online]. Available:
+https://www.sciencedirect.com/science/article/pii/S0925231221005191
+[28] Z.-Q. Zhao, P. Zheng, S.-T. Xu, and X. Wu, “Object detection with
+deep learning: A review,” IEEE Transactions on Neural Networks and
+Learning Systems, vol. 30, no. 11, pp. 3212–3232, 2019.
+[29] G. Ras, M. van Gerven, and P. Haselager, “Explanation methods in
+deep learning: Users, values, concerns and challenges,” in Explainable
+and interpretable models in computer vision and machine learning.
+Springer, 2018, pp. 19–36.
+[30] W. Xu, H. Zhou, N. Cheng, F. Lyu, W. Shi, J. Chen, and X. Shen,
+“Internet of vehicles in big data era,” IEEE/CAA Journal of Automatica
+Sinica, vol. 5, no. 1, pp. 19–35, 2018.
+[31] J. Wang, J. Cho, S. Lee, and T. Ma, “Real time services for future
+cloud computing enabled vehicle networks,” in 2011 International Conference on Wireless Communications and Signal Processing (WCSP),
+2011, pp. 1–5.
+[32] R. N. Fries, M. R. Gahrooei, M. Chowdhury, and A. J. Conway,
+“Meeting privacy challenges while advancing intelligent transportation
+systems,” Transportation Research Part C: Emerging Technologies,
+vol. 25, pp. 34–45, 2012.
+[33] M. A. Khan, I. Ullah, A. Alkhalifah, S. U. Rehman, J. A. Shah,
+M. I. Uddin, M. H. Alsharif, and F. Algarni, “A provable and privacypreserving authentication scheme for uav-enabled intelligent transportation systems,” IEEE Transactions on Industrial Informatics, vol. 18,
+no. 5, pp. 3416–3425, 2021.
+[34] A. Martı́nez-Ballesté, P. A. Pérez-Martı́nez, and A. Solanas, “The
+pursuit of citizens’ privacy: a privacy-aware smart city is possible,”
+IEEE Communications Magazine, vol. 51, no. 6, pp. 136–141, 2013.
+[35] A. Martı́nez-Ballesté, H. A. Rashwan, D. Puig, and A. P. Fullana, “Towards a trustworthy privacy in pervasive video surveillance systems,”
+in 2012 IEEE International Conference on Pervasive Computing and
+Communications Workshops. IEEE, 2012, pp. 914–919.
+[36] S. Bianco, R. Cadene, L. Celona, and P. Napoletano, “Benchmark
+analysis of representative deep neural network architectures,” IEEE
+access, vol. 6, pp. 64 270–64 277, 2018.
+[37] A. M. Bornstein, “Is artificial intelligence permanently inscrutable?”
+Nautilus, vol. 40, 2016.
+[38] X. Zhu, W. Su, L. Lu, B. Li, X. Wang, and J. Dai, “Deformable
+{detr}: Deformable transformers for end-to-end object detection,” in
+International Conference on Learning Representations, 2021. [Online].
+Available: https://openreview.net/forum?id=gZ9hCDWe6ke
+[39] W. Samek, T. Wiegand, and K.-R. Müller, “Explainable artificial
+intelligence: Understanding, visualizing and interpreting deep learning
+models,” 2017. [Online]. Available: https://arxiv.org/abs/1708.08296
+[40] C. Rudin, “Stop explaining black box machine learning models for high
+stakes decisions and use interpretable models instead,” Nature Machine
+Intelligence, vol. 1, no. 5, pp. 206–215, 2019.
+[41] E. Aflalo, M. Du, S.-Y. Tseng, Y. Liu, C. Wu, N. Duan, and V. Lal,
+“Vl-interpret: An interactive visualization tool for interpreting visionlanguage transformers,” in Proceedings of the IEEE/CVF Conference
+on Computer Vision and Pattern Recognition, 2022, pp. 21 406–21 415.
+[42] S. Atakishiyev, M. Salameh, H. Yao, and R. Goebel, “Towards
+safe, explainable, and regulated autonomous driving,” 2021. [Online].
+Available: https://arxiv.org/abs/2111.10518
+[43] Y. Xu, X. Yang, L. Gong, H.-C. Lin, T.-Y. Wu, Y. Li, and N. Vasconcelos, “Explainable object-induced action decision for autonomous
+vehicles,” in Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition (CVPR), June 2020.
+[44] Q. Dou, D. Coelho de Castro, K. Kamnitsas, and B. Glocker, “Domain generalization via model-agnostic learning of semantic features,”
+Advances in Neural Information Processing Systems, vol. 32, 2019.
+[45] Y. LeCun, Y. Bengio, and G. Hinton, “Deep learning,” nature, vol. 521,
+no. 7553, pp. 436–444, 2015.
+[46] J. Kim and J. Canny, Explainable Deep Driving by Visualizing Causal
+Attention. Cham: Springer International Publishing, 2018, pp. 173–
+193. [Online]. Available: https://doi.org/10.1007/978-3-319-98131-4 8
+[47] V. Petsiuk, A. Das, and K. Saenko, “Rise: Randomized input
+sampling for explanation of black-box models,” arXiv preprint
+arXiv:1806.07421, 2018.
+[48] A. D’Amour, K. Heller, D. Moldovan, B. Adlam, B. Alipanahi,
+A. Beutel, C. Chen, J. Deaton, J. Eisenstein, M. D. Hoffman et al.,
+“Underspecification presents challenges for credibility in modern machine learning,” arXiv preprint arXiv:2011.03395, 2020.
+
+[49] A. Kolesnikov, L. Beyer, X. Zhai, J. Puigcerver, J. Yung, S. Gelly,
+and N. Houlsby, “Big transfer (bit): General visual representation
+learning,” 2019. [Online]. Available: https://arxiv.org/abs/1912.11370
+[50] X. Bai, X. Wang, X. Liu, Q. Liu, J. Song, N. Sebe, and
+B. Kim, “Explainable deep learning for efficient and robust
+pattern recognition: A survey of recent developments,” Pattern
+Recognition, vol. 120, p. 108102, 2021. [Online]. Available:
+https://www.sciencedirect.com/science/article/pii/S0031320321002892
+[51] H. Cui, V. Radosavljevic, F.-C. Chou, T.-H. Lin, T. Nguyen, T.-K.
+Huang, J. Schneider, and N. Djuric, “Multimodal trajectory predictions
+for autonomous driving using deep convolutional networks,” in 2019
+International Conference on Robotics and Automation (ICRA), 2019,
+pp. 2090–2096.
+[52] K. Saleh, M. Hossny, and S. Nahavandi, “Intent prediction of vulnerable road users from motion trajectories using stacked lstm network,” in
+2017 IEEE 20th International Conference on Intelligent Transportation
+Systems (ITSC), 2017, pp. 327–332.
+[53] X. Zhou, R. Ke, H. Yang, and C. Liu, “When intelligent transportation systems sensing meets edge computing: Vision and challenges,”
+Applied Sciences (Switzerland), vol. 11, 10 2021.
+[54] J. Contreras-Castillo, S. Zeadally, and J. A. Guerrero-Ibañez, “Internet
+of vehicles: Architecture, protocols, and security,” IEEE Internet of
+Things Journal, vol. 5, no. 5, pp. 3701–3709, 2018.
+[55] Y. Chen, Y. Zhang, S. Maharjan, M. Alam, and T. Wu, “Deep learning
+for secure mobile edge computing in cyber-physical transportation
+systems,” IEEE Network, vol. 33, no. 4, pp. 36–41, 2019.
+[56] J. Zhang and K. B. Letaief, “Mobile edge intelligence and computing
+for the internet of vehicles,” Proceedings of the IEEE, vol. 108, no. 2,
+pp. 246–261, 2020.
+[57] S. Liu, L. Liu, J. Tang, B. Yu, Y. Wang, and W. Shi, “Edge computing
+for autonomous driving: Opportunities and challenges,” Proceedings of
+the IEEE, vol. 107, no. 8, pp. 1697–1716, 2019.
+[58] Z. Yang and L. S. Pun-Cheng, “Vehicle detection in intelligent transportation systems and its applications under varying environments: A
+review,” Image and Vision Computing, vol. 69, pp. 143–154, 2018.
+[59] C.-Y. Lin, K. Muchtar, W.-Y. Lin, and Z.-Y. Jian, “Moving object detection through image bit-planes representation without thresholding,”
+IEEE Transactions on Intelligent Transportation Systems, vol. 21, no. 4,
+pp. 1404–1414, 2019.
+[60] S. Song, Z. Miao, H. Yu, J. Fang, K. Zheng, C. Ma, and S. Wang, “Deep
+domain adaptation based multi-spectral salient object detection,” IEEE
+Transactions on Multimedia, 2020.
+[61] M. Hassaballah, M. A. Kenk, K. Muhammad, and S. Minaee, “Vehicle
+detection and tracking in adverse weather using a deep learning
+framework,” IEEE transactions on intelligent transportation systems,
+vol. 22, no. 7, pp. 4230–4242, 2020.
+[62] F. Jiansheng et al., “Vision-based real-time traffic accident detection,”
+in Proceeding of the 11th world congress on intelligent control and
+automation. IEEE, 2014, pp. 1035–1038.
+[63] E. Sonnleitner, O. Barth, A. Palmanshofer, and M. Kurz, “Traffic
+measurement and congestion detection based on real-time highway
+video data,” Applied Sciences, vol. 10, no. 18, p. 6270, 2020.
+[64] S. Gilroy, E. Jones, and M. Glavin, “Overcoming occlusion in the
+automotive environment—a review,” IEEE Transactions on Intelligent
+Transportation Systems, vol. 22, no. 1, pp. 23–35, 2019.
+[65] A. Nowosielski, D. Frejlichowski, P. Forczmański, K. Gościewska, and
+R. Hofman, “Automatic analysis of vehicle trajectory applied to visual
+surveillance,” in Image Processing and Communications Challenges 7,
+R. S. Choraś, Ed. Cham: Springer International Publishing, 2016, pp.
+89–96.
+[66] N. Buch, S. A. Velastin, and J. Orwell, “A review of computer vision
+techniques for the analysis of urban traffic,” IEEE Transactions on
+Intelligent Transportation Systems, vol. 12, no. 3, pp. 920–939, 2011.
+[67] K. K. Santhosh, D. P. Dogra, and P. P. Roy, “Anomaly detection
+in road traffic using visual surveillance: A survey,” ACM Comput.
+Surv., vol. 53, no. 6, dec 2020. [Online]. Available: https:
+//doi.org/10.1145/3417989
+[68] A. Albiol, A. Albiol, and J. M. Mossi, “Video-based traffic queue length
+estimation,” 2011, pp. 1928–1932.
+[69] A. Aboah, M. Shoman, V. Mandal, S. Davami, Y. Adu-Gyamfi, and
+A. Sharma, “A vision-based system for traffic anomaly detection using
+deep learning and decision trees,” CVPR, 2021.
+[70] J. Xie, Y. Zheng, R. Du, W. Xiong, Y. Cao, Z. Ma, D. Cao, and
+J. Guo, “Deep learning-based computer vision for surveillance in
+its: Evaluation of state-of-the-art methods,” IEEE Transactions on
+Vehicular Technology, vol. 70, no. 4, pp. 3027–3042, 2021.
+
+16
+
+[71] I. Vasiljevic, A. Chakrabarti, and G. Shakhnarovich, “Examining the
+impact of blur on recognition by convolutional networks,” 2017.
+[72] D. Guo, Y. Pei, K. Zheng, H. Yu, Y. Lu, and S. Wang, “Degraded image
+semantic segmentation with dense-gram networks,” IEEE Transactions
+on Image Processing, vol. 29, pp. 782–795, 2019.
+[73] Y. Ma, D. Manocha, and W. Wang, “Autorvo: Local navigation with
+dynamic constraints in dense heterogeneous traffic,” arXiv preprint
+arXiv:1804.02915, 2018.
+[74] R. Chandra, U. Bhattacharya, A. Bera, and D. Manocha, “Traphic:
+Trajectory prediction in dense and heterogeneous traffic using weighted
+interactions,” vol. 2019-June. IEEE Computer Society, 6 2019, pp.
+8475–8484.
+[75] P. Cai, Y. Lee, Y. Luo, and D. Hsu, “Summit: A simulator for
+urban driving in massive mixed traffic,” in 2020 IEEE International
+Conference on Robotics and Automation (ICRA), 2020, pp. 4023–4029.
+[76] F. Hong, C.-H. Lu, C. Liu, R.-R. Liu, and J. Wei, “A traffic surveillance
+multi-scale vehicle detection object method base on encoder-decoder,”
+IEEE Access, vol. 8, pp. 47 664–47 674, 2020.
+[77] K.-J. Kim, P.-K. Kim, Y.-S. Chung, and D.-H. Choi, “Multi-scale
+detector for accurate vehicle detection in traffic surveillance data,”
+IEEE Access, vol. 7, pp. 78 311–78 319, 2019.
+[78] X. Ke, L. Shi, W. Guo, and D. Chen, “Multi-dimensional traffic
+congestion detection based on fusion of visual features and convolutional neural network,” IEEE Transactions on Intelligent Transportation
+Systems, vol. 20, no. 6, pp. 2157–2170, 2018.
+[79] R. Ke, Z. Li, J. Tang, Z. Pan, and Y. Wang, “Real-time traffic flow
+parameter estimation from uav video based on ensemble classifier and
+optical flow,” IEEE Transactions on Intelligent Transportation Systems,
+vol. 20, no. 1, pp. 54–64, 2018.
+[80] T. Tang, S. Zhou, Z. Deng, L. Lei, and H. Zou, “Arbitrary-oriented
+vehicle detection in aerial imagery with single convolutional neural
+networks,” Remote Sensing, vol. 9, no. 11, p. 1170, 2017.
+[81] A. Fedorov, K. Nikolskaia, S. Ivanov, V. Shepelev, and A. Minbaleev,
+“Traffic flow estimation with data from a video surveillance camera,”
+Journal of Big Data, vol. 6, no. 1, pp. 1–15, 2019.
+[82] M. Peppa, D. Bell, T. Komar, and W. Xiao, “Urban traffic flow analysis
+based on deep learning car detection from cctv image series,” in SPRS
+TC IV Mid-term Symposium “3D Spatial Information Science–The
+Engine of Change”. Newcastle University, 2018.
+[83] A. Mhalla, T. Chateau, S. Gazzah, and N. E. B. Amara, “An embedded computer-vision system for multi-object detection in traffic
+surveillance,” IEEE Transactions on Intelligent Transportation Systems,
+vol. 20, no. 11, pp. 4006–4018, 2018.
+[84] M. V. Peppa, T. Komar, W. Xiao, P. James, C. Robson, J. Xing, and
+S. Barr, “Towards an end-to-end framework of cctv-based urban traffic
+volume detection and prediction,” Sensors, vol. 21, no. 2, p. 629, 2021.
+[85] I. Brkić, M. Miler, M. Ševrović, and D. Medak, “An analytical
+framework for accurate traffic flow parameter calculation from uav
+aerial videos,” Remote Sensing, vol. 12, no. 22, p. 3844, 2020.
+[86] C. Chen, B. Liu, S. Wan, P. Qiao, and Q. Pei, “An edge traffic flow
+detection scheme based on deep learning in an intelligent transportation
+system,” IEEE Transactions on Intelligent Transportation Systems,
+vol. 22, no. 3, pp. 1840–1852, 2021.
+[87] P. Chakraborty, Y. O. Adu-Gyamfi, S. Poddar, V. Ahsani, A. Sharma,
+and S. Sarkar, “Traffic congestion detection from camera images using
+deep convolution neural networks,” Transportation Research Record,
+vol. 2672, no. 45, pp. 222–231, 2018.
+[88] R. Wang, K. Kashinath, M. Mustafa, A. Albert, and R. Yu, “Towards physics-informed deep learning for turbulent flow prediction,”
+in Proceedings of the 26th ACM SIGKDD International Conference
+on Knowledge Discovery and Data Mining, 2020, pp. 1457–1466.
+[89] D. Impedovo, F. Balducci, V. Dentamaro, and G. Pirlo, “Vehicular
+traffic congestion classification by visual features and deep learning
+approaches: a comparison,” Sensors, vol. 19, no. 23, p. 5213, 2019.
+[90] C. Rashmi and C. Shantala, “Vehicle density analysis and classification
+using yolov3 for smart cities,” in 2020 4th International Conference
+on Electronics, Communication and Aerospace Technology (ICECA).
+IEEE, 2020, pp. 980–986.
+[91] Y. Gao, J. Li, Z. Xu, Z. Liu, X. Zhao, and J. Chen, “A novel imagebased convolutional neural network approach for traffic congestion
+estimation,” Expert Systems with Applications, vol. 180, p. 115037,
+2021.
+[92] N. Kumar and M. Raubal, “Applications of deep learning in congestion detection, prediction and alleviation: A survey,” Transportation
+Research Part C: Emerging Technologies, vol. 133, p. 103432, 2021.
+[93] K. Muhammad, A. Ullah, J. Lloret, J. Del Ser, and V. H. C.
+de Albuquerque, “Deep learning for safe autonomous driving: Current
+
+challenges and future directions,” IEEE Transactions on Intelligent
+Transportation Systems, vol. 22, no. 7, pp. 4316–4336, 2020.
+[94] T. Sharma, B. Debaque, N. Duclos, A. Chehri, B. Kinder, and P. Fortier,
+“Deep learning-based object detection and scene perception under bad
+weather conditions,” Electronics, vol. 11, no. 4, p. 563, 2022.
+[95] C.-T. Lin, S.-W. Huang, Y.-Y. Wu, and S.-H. Lai, “Gan-based dayto-night image style transfer for nighttime vehicle detection,” IEEE
+Transactions on Intelligent Transportation Systems, vol. 22, no. 2, pp.
+951–963, 2020.
+[96] J. Li, Z. Xu, L. Fu, X. Zhou, and H. Yu, “Domain adaptation from
+daytime to nighttime: A situation-sensitive vehicle detection and traffic
+flow parameter estimation framework,” Transportation Research Part
+C: Emerging Technologies, vol. 124, p. 102946, 2021.
+[97] Y. Yang, H. Luo, H. Xu, and F. Wu, “Towards real-time traffic
+sign detection and classification,” IEEE Transactions on Intelligent
+transportation systems, vol. 17, no. 7, pp. 2022–2031, 2015.
+[98] J. Cao, J. Zhang, and X. Jin, “A traffic-sign detection algorithm based
+on improved sparse r-cnn,” IEEE Access, vol. 9, pp. 122 774–122 788,
+2021.
+[99] J. Wan, W. Ding, H. Zhu, M. Xia, Z. Huang, L. Tian, Y. Zhu, and
+H. Wang, “An efficient small traffic sign detection method based on
+yolov3,” Journal of Signal Processing Systems, vol. 93, no. 8, pp. 899–
+911, 2021.
+[100] U. Kamal, T. I. Tonmoy, S. Das, and M. K. Hasan, “Automatic traffic
+sign detection and recognition using segu-net and a modified tversky
+loss function with l1-constraint,” IEEE Transactions on Intelligent
+Transportation Systems, vol. 21, no. 4, pp. 1467–1479, 2019.
+[101] D. Tabernik and D. Skočaj, “Deep learning for large-scale traffic-sign
+detection and recognition,” IEEE transactions on intelligent transportation systems, vol. 21, no. 4, pp. 1427–1440, 2019.
+[102] E. Lee and D. Kim, “Accurate traffic light detection using deep neural
+network with focal regression loss,” Image and Vision Computing,
+vol. 87, pp. 24–36, 2019.
+[103] H.-K. Kim, J. H. Park, and H.-Y. Jung, “An efficient color space
+for deep-learning based traffic light recognition,” Journal of advanced
+transportation, vol. 2018, 2018.
+[104] Z. Ouyang, J. Niu, Y. Liu, and M. Guizani, “Deep cnn-based real-time
+traffic light detector for self-driving vehicles,” IEEE transactions on
+Mobile Computing, vol. 19, no. 2, pp. 300–313, 2019.
+[105] K. Wang, X. Tang, S. Zhao, and Y. Zhou, “Simultaneous detection
+and tracking using deep learning and integrated channel feature for
+ambint traffic light recognition,” Journal of Ambient Intelligence and
+Humanized Computing, pp. 1–11, 2021.
+[106] Q. Zou, H. Jiang, Q. Dai, Y. Yue, L. Chen, and Q. Wang, “Robust lane
+detection from continuous driving scenes using deep neural networks,”
+IEEE transactions on vehicular technology, vol. 69, no. 1, pp. 41–54,
+2019.
+[107] L. Tabelini, R. Berriel, T. M. Paixao, C. Badue, A. F. De Souza, and
+T. Oliveira-Santos, “Keep your eyes on the lane: Real-time attentionguided lane detection,” in Proceedings of the IEEE/CVF conference on
+computer vision and pattern recognition, 2021, pp. 294–302.
+[108] M. Ghafoorian, C. Nugteren, N. Baka, O. Booij, and M. Hofmann, “Elgan: Embedding loss driven generative adversarial networks for lane
+detection,” in proceedings of the european conference on computer
+vision (ECCV) Workshops, 2018, pp. 0–0.
+[109] G. Brazil, X. Yin, and X. Liu, “Illuminating pedestrians via simultaneous detection & segmentation,” in Proceedings of the IEEE
+International Conference on Computer Vision, 2017, pp. 4950–4959.
+[110] L. Zhang, L. Lin, X. Liang, and K. He, “Is faster r-cnn doing well
+for pedestrian detection?” in European conference on computer vision.
+Springer, 2016, pp. 443–457.
+[111] G. Brazil and X. Liu, “Pedestrian detection with autoregressive network
+phases,” in Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition, 2019, pp. 7231–7240.
+[112] D. Chen, S. Zhang, W. Ouyang, J. Yang, and Y. Tai, “Person search via
+a mask-guided two-stream cnn model,” in Proceedings of the european
+conference on computer vision (ECCV), 2018, pp. 734–750.
+[113] X. Wang, T. Xiao, Y. Jiang, S. Shao, J. Sun, and C. Shen, “Repulsion
+loss: Detecting pedestrians in a crowd,” in Proceedings of the IEEE
+Conference on Computer Vision and Pattern Recognition, 2018, pp.
+7774–7783.
+[114] C. Lin, J. Lu, G. Wang, and J. Zhou, “Graininess-aware deep feature
+learning for pedestrian detection,” in Proceedings of the European
+conference on computer vision (ECCV), 2018, pp. 732–747.
+[115] W. Liu, S. Liao, W. Hu, X. Liang, and X. Chen, “Learning efficient
+single-stage pedestrian detectors by asymptotic localization fitting,” in
+
+17
+
+Proceedings of the European Conference on Computer Vision (ECCV),
+2018, pp. 618–634.
+[116] Z.-Q. Zhao, P. Zheng, S.-t. Xu, and X. Wu, “Object detection with
+deep learning: A review,” IEEE transactions on neural networks and
+learning systems, vol. 30, no. 11, pp. 3212–3232, 2019.
+[117] K. He, X. Zhang, S. Ren, and J. Sun, “Spatial pyramid pooling in deep
+convolutional networks for visual recognition,” IEEE transactions on
+pattern analysis and machine intelligence, vol. 37, no. 9, pp. 1904–
+1916, 2015.
+[118] T.-Y. Lin, P. Dollár, R. Girshick, K. He, B. Hariharan, and S. Belongie,
+“Feature pyramid networks for object detection,” in Proceedings of the
+IEEE conference on computer vision and pattern recognition, 2017,
+pp. 2117–2125.
+[119] K. He, G. Gkioxari, P. Dollár, and R. Girshick, “Mask r-cnn,” in
+Proceedings of the IEEE international conference on computer vision,
+2017, pp. 2961–2969.
+[120] J. Redmon, S. Divvala, R. Girshick, and A. Farhadi, “You only look
+once: Unified, real-time object detection,” in Proceedings of the IEEE
+conference on computer vision and pattern recognition, 2016, pp. 779–
+788.
+[121] W. Liu, D. Anguelov, D. Erhan, C. Szegedy, S. Reed, C.-Y. Fu,
+and A. C. Berg, “Ssd: Single shot multibox detector,” in European
+conference on computer vision. Springer, 2016, pp. 21–37.
+[122] Z. Shen, Z. Liu, J. Li, Y.-G. Jiang, Y. Chen, and X. Xue, “Dsod: Learning deeply supervised object detectors from scratch,” in Proceedings
+of the IEEE international conference on computer vision, 2017, pp.
+1919–1927.
+[123] S. Brahmbhatt, H. I. Christensen, and J. Hays, “Stuffnet: Using
+‘stuff’to improve object detection,” in 2017 IEEE Winter Conference on
+Applications of Computer Vision (WACV). IEEE, 2017, pp. 934–943.
+[124] S. Bell, C. L. Zitnick, K. Bala, and R. Girshick, “Inside-outside net:
+Detecting objects in context with skip pooling and recurrent neural
+networks,” in Proceedings of the IEEE conference on computer vision
+and pattern recognition, 2016, pp. 2874–2883.
+[125] T. Kong, A. Yao, Y. Chen, and F. Sun, “Hypernet: Towards accurate
+region proposal generation and joint object detection,” in Proceedings
+of the IEEE conference on computer vision and pattern recognition,
+2016, pp. 845–853.
+[126] D. Temel, M.-H. Chen, and G. AlRegib, “Traffic sign detection under
+challenging conditions: A deeper look into performance variations and
+spectral characteristics,” IEEE Transactions on Intelligent Transportation Systems, vol. 21, no. 9, pp. 3663–3673, 2019.
+[127] Z. Ou, F. Xiao, B. Xiong, S. Shi, and M. Song, “Famn: feature
+aggregation multipath network for small traffic sign detection,” IEEE
+Access, vol. 7, pp. 178 798–178 810, 2019.
+[128] Y. Mo, G. Han, H. Zhang, X. Xu, and W. Qu, “Highlight-assisted
+nighttime vehicle detection using a multi-level fusion network and label
+hierarchy,” Neurocomputing, vol. 355, pp. 13–23, 2019.
+[129] A. Bell, T. Mantecón, C. Dı́az, C. R. del Blanco, F. Jaureguizar, and
+N. Garcı́a, “A novel system for nighttime vehicle detection based on
+foveal classifiers with real-time performance,” IEEE Transactions on
+Intelligent Transportation Systems, 2021.
+[130] G. Li, Z. Ji, and X. Qu, “Stepwise domain adaptation (sda) for object
+detection in autonomous vehicles using an adaptive centernet,” IEEE
+Transactions on Intelligent Transportation Systems, 2022.
+[131] W. Gu, S. Bai, and L. Kong, “A review on 2d instance segmentation
+based on deep neural networks,” Image and Vision Computing, p.
+104401, 2022.
+[132] D. Bolya, C. Zhou, F. Xiao, and Y. J. Lee, “Yolact: Real-time
+instance segmentation,” in Proceedings of the IEEE/CVF international
+conference on computer vision, 2019, pp. 9157–9166.
+[133] Y. Lee and J. Park, “Centermask: Real-time anchor-free instance segmentation,” in Proceedings of the IEEE/CVF conference on computer
+vision and pattern recognition, 2020, pp. 13 906–13 915.
+[134] S. Liu, L. Qi, H. Qin, J. Shi, and J. Jia, “Path aggregation network
+for instance segmentation,” in Proceedings of the IEEE conference on
+computer vision and pattern recognition, 2018, pp. 8759–8768.
+[135] S. Peng, W. Jiang, H. Pi, X. Li, H. Bao, and X. Zhou, “Deep snake
+for real-time instance segmentation,” in Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition, 2020, pp.
+8533–8542.
+[136] W. Xu, H. Wang, F. Qi, and C. Lu, “Explicit shape encoding for
+real-time instance segmentation,” in Proceedings of the IEEE/CVF
+International Conference on Computer Vision, 2019, pp. 5168–5177.
+[137] J. Dai, K. He, and J. Sun, “Instance-aware semantic segmentation via
+multi-task network cascades,” in Proceedings of the IEEE conference
+on computer vision and pattern recognition, 2016, pp. 3150–3158.
+
+[138] K. Chen, J. Pang, J. Wang, Y. Xiong, X. Li, S. Sun, W. Feng, Z. Liu,
+J. Shi, W. Ouyang et al., “Hybrid task cascade for instance segmentation,” in Proceedings of the IEEE/CVF Conference on Computer Vision
+and Pattern Recognition, 2019, pp. 4974–4983.
+[139] Y. Wang, J. Zhang, M. Kan, S. Shan, and X. Chen, “Self-supervised
+equivariant attention mechanism for weakly supervised semantic segmentation,” in Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition, 2020, pp. 12 275–12 284.
+[140] G. Sun, W. Wang, J. Dai, and L. Van Gool, “Mining cross-image
+semantics for weakly supervised semantic segmentation,” in European
+conference on computer vision. Springer, 2020, pp. 347–365.
+[141] M. Chen, H. Xue, and D. Cai, “Domain adaptation for semantic
+segmentation with maximum squares loss,” in Proceedings of the
+IEEE/CVF International Conference on Computer Vision, 2019, pp.
+2090–2099.
+[142] Y. Liu, W. Zhang, and J. Wang, “Source-free domain adaptation for
+semantic segmentation,” in Proceedings of the IEEE/CVF Conference
+on Computer Vision and Pattern Recognition, 2021, pp. 1215–1224.
+[143] D. Feng, C. Haase-Schütz, L. Rosenbaum, H. Hertlein, C. Glaeser,
+F. Timm, W. Wiesbeck, and K. Dietmayer, “Deep multi-modal object
+detection and semantic segmentation for autonomous driving: Datasets,
+methods, and challenges,” IEEE Transactions on Intelligent Transportation Systems, vol. 22, no. 3, pp. 1341–1360, 2020.
+[144] T. Cortinhal, F. Kurnaz, and E. E. Aksoy, “Semantics-aware multimodal domain translation: From lidar point clouds to panoramic color
+images,” in Proceedings of the IEEE/CVF International Conference on
+Computer Vision, 2021, pp. 3032–3048.
+[145] C. Yu, J. Wang, C. Peng, C. Gao, G. Yu, and N. Sang, “Bisenet:
+Bilateral segmentation network for real-time semantic segmentation,” in
+Proceedings of the European conference on computer vision (ECCV),
+2018, pp. 325–341.
+[146] Y. Nirkin, L. Wolf, and T. Hassner, “Hyperseg: Patch-wise hypernetwork for real-time semantic segmentation,” in Proceedings of the
+IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+2021, pp. 4061–4070.
+[147] G. Gao, G. Xu, Y. Yu, J. Xie, J. Yang, and D. Yue, “Mscfnet: a
+lightweight network with multi-scale context fusion for real-time semantic segmentation,” IEEE Transactions on Intelligent Transportation
+Systems, 2021.
+[148] H. Wan, L. Gao, M. Su, Q. You, H. Qu, and Q. Sun, “A novel neural
+network model for traffic sign detection and recognition under extreme
+conditions,” Journal of Sensors, vol. 2021, 2021.
+[149] C. Sun, Y. Ai, S. Wang, and W. Zhang, “Dense-refinedet for traffic sign
+detection and classification,” Sensors, vol. 20, no. 22, p. 6570, 2020.
+[150] R. Xu, H. Xiang, Z. Tu, X. Xia, M.-H. Yang, and J. Ma, “V2x-vit:
+Vehicle-to-everything cooperative perception with vision transformer,”
+arXiv preprint arXiv:2203.10638, 2022.
+[151] Q. Chen, S. Tang, Q. Yang, and S. Fu, “Cooper: Cooperative perception
+for connected autonomous vehicles based on 3d point clouds,” in 2019
+IEEE 39th International Conference on Distributed Computing Systems
+(ICDCS). IEEE, 2019, pp. 514–524.
+[152] Y. Li, S. Ren, P. Wu, S. Chen, C. Feng, and W. Zhang, “Learning
+distilled collaboration graph for multi-agent perception,” Advances in
+Neural Information Processing Systems, vol. 34, 2021.
+[153] Q. Chen, X. Ma, S. Tang, J. Guo, Q. Yang, and S. Fu, “F-cooper:
+Feature based cooperative perception for autonomous vehicle edge
+computing system using 3d point clouds,” in Proceedings of the 4th
+ACM/IEEE Symposium on Edge Computing, 2019, pp. 88–100.
+[154] T.-H. Wang, S. Manivasagam, M. Liang, B. Yang, W. Zeng, and
+R. Urtasun, “V2vnet: Vehicle-to-vehicle communication for joint perception and prediction,” in European Conference on Computer Vision.
+Springer, 2020, pp. 605–621.
+[155] R. Xu, H. Xiang, X. Xia, X. Han, J. Liu, and J. Ma, “Opv2v: An open
+benchmark dataset and fusion pipeline for perception with vehicle-tovehicle communication,” arXiv preprint arXiv:2109.07644, 2021.
+[156] A. Rauch, F. Klanner, R. Rasshofer, and K. Dietmayer, “Car2x-based
+perception in a high-level fusion architecture for cooperative perception
+systems,” in 2012 IEEE Intelligent Vehicles Symposium. IEEE, 2012,
+pp. 270–275.
+[157] G. Thandavarayan, M. Sepulcre, and J. Gozalvez, “Generation of
+cooperative perception messages for connected and automated vehicles,” IEEE Transactions on Vehicular Technology, vol. 69, no. 12, pp.
+16 336–16 341, 2020.
+[158] D. D. Yoon, B. Ayalew, and G. M. N. Ali, “Performance of decentralized cooperative perception in v2v connected traffic,” IEEE
+Transactions on Intelligent Transportation Systems, 2021.
+
+18
+
+[159] P. Zhou, P. Kortoçi, Y.-P. Yau, B. Finley, X. Wang, T. Braud, L.H. Lee, S. Tarkoma, J. Kangasharju, and P. Hui, “Aicp: Augmented
+informative cooperative perception,” IEEE Transactions on Intelligent
+Transportation Systems, 2022.
+[160] F.-H. Chan, Y.-T. Chen, Y. Xiang, and M. Sun, “Anticipating accidents in dashcam videos,” in Asian Conference on Computer Vision.
+Springer, 2016, pp. 136–153.
+[161] C. Zhang, J. Zhu, W. Wang, and D. Zhao, “A general framework of
+learning multi-vehicle interaction patterns from video,” in 2019 IEEE
+Intelligent Transportation Systems Conference (ITSC), 2019, pp. 4323–
+4328.
+[162] Z. Zhang, C. Trivedi, and X. Liu, “Automated detection of gradecrossing-trespassing near misses based on computer vision analysis
+of surveillance video data,” Safety Science, vol. 110, pp. 276–285, 12
+2018.
+[163] J.-Y. Zhu, T. Park, P. Isola, and A. A. Efros, “Unpaired image-to-image
+translation using cycle-consistent adversarial networks,” in Proceedings
+of the IEEE international conference on computer vision, 2017, pp.
+2223–2232.
+[164] J. G. Choi, C. W. Kong, G. Kim, and S. Lim, “Car crash detection
+using ensemble deep learning and multimodal data from dashboard
+cameras,” Expert Systems with Applications, vol. 183, p. 115400, 2021.
+[Online]. Available: https://www.sciencedirect.com/science/article/pii/
+S095741742100823X
+[165] C. Wang, Y. Dai, W. Zhou, and Y. Geng, “A vision-based video crash
+detection framework for mixed traffic flow environment considering
+low-visibility condition,” Journal of advanced transportation, vol.
+2020, 2020.
+[166] D. Singh and C. K. Mohan, “Deep spatio-temporal representation
+for detection of road accidents using stacked autoencoder,” IEEE
+Transactions on Intelligent Transportation Systems, vol. 20, no. 3, pp.
+879–887, 2019.
+[167] S. Yamamoto, T. Kurashima, and H. Toda, “Classifying near-miss
+traffic incidents through video, sensor, and object features,” IEICE
+Transactions on Information and Systems, vol. E105.D, no. 2, pp. 377–
+386, 2022.
+[168] T. Suzuki, Y. Aoki, and H. Kataoka, “Pedestrian near-miss analysis on
+vehicle-mounted driving recorders,” in 2017 Fifteenth IAPR International Conference on Machine Vision Applications (MVA), 2017, pp.
+416–419.
+[169] X. Li, X. Ying, and M. C. Chuah, “Grip: Graph-based interactionaware trajectory prediction,” IEEE Intelligent Transportation Systems
+Conference (ITSC), 2019.
+[170] J. Colyar and J. Halkias, “Us highway 101 dataset,” Federal Highway
+Administration (FHWA), Tech. Rep. FHWA-HRT-07-030, pp. 27–69,
+2007.
+[171] P. Tripicchio and S. D’Avella, “Modeling multiple vehicle interaction
+constraints for behavior prediction of vehicles on highways,”
+Computers & Electrical Engineering, vol. 98, p. 107700, 2022.
+[Online]. Available: https://www.sciencedirect.com/science/article/pii/
+S0045790622000192
+[172] J. F. Kooij, F. Flohr, E. A. Pool, and D. M. Gavrila, “Context-based path
+prediction for targets with switching dynamics,” International Journal
+of Computer Vision, vol. 127, no. 3, pp. 239–262, 2019.
+[173] D. Choi, J. Yim, M. Baek, and S. Lee, “Machine learning-based
+vehicle trajectory prediction using v2v communications and on-board
+sensors,” Electronics, vol. 10, no. 4, 2021. [Online]. Available:
+https://www.mdpi.com/2079-9292/10/4/420
+[174] R. Chandra, U. Bhattacharya, C. Roncal, A. Bera, and D. Manocha,
+“Robusttp: End-to-end trajectory prediction for heterogeneous roadagents in dense traffic with noisy sensor inputs,” in ACM Computer
+Science in Cars Symposium, ser. CSCS ’19. New York, NY, USA:
+Association for Computing Machinery, 2019. [Online]. Available:
+https://doi.org/10.1145/3359999.3360495
+[175] T. Fernando, S. Denman, S. Sridharan, and C. Fookes, “Deep inverse
+reinforcement learning for behavior prediction in autonomous driving:
+Accurate forecasts of vehicle motion,” IEEE Signal Processing Magazine, vol. 38, no. 1, pp. 87–96, 2021.
+[176] Y. Liu, J. Zhang, L. Fang, Q. Jiang, and B. Zhou, “Multimodal motion
+prediction with stacked transformers,” in Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition, 2021, pp.
+7577–7586.
+[177] B. Liu, E. Adeli, Z. Cao, K.-H. Lee, A. Shenoi, A. Gaidon, and J. C.
+Niebles, “Spatiotemporal relationship reasoning for pedestrian intent
+prediction,” IEEE Robotics and Automation Letters, vol. 5, no. 2, pp.
+3485–3492, 2020.
+
+[178] S. K. Jayaraman, D. M. Tilbury, X. Jessie Yang, A. K. Pradhan, and
+L. P. Robert, “Analysis and prediction of pedestrian crosswalk behavior
+during automated vehicle interactions,” in 2020 IEEE International
+Conference on Robotics and Automation (ICRA), 2020, pp. 6426–6432.
+[179] M. S. Shirazi and B. Morris, “Vision-based vehicle queue analysis at
+junctions,” in 2015 12th IEEE International Conference on Advanced
+Video and Signal Based Surveillance (AVSS), 2015, pp. 1–6.
+[180] Y. Li, W. Liu, and Q. Huang, “Traffic anomaly detection based
+on image descriptor in videos,” Multimedia Tools and Applications,
+vol. 75, pp. 2487–2505, 3 2016.
+[181] S. Bai, Z. He, Y. Lei, W. Wu, C. Zhu, M. Sun, and J. Yan, “Traffic
+anomaly detection via perspective map based on spatial-temporal
+information matrix.” in CVPR Workshops, 2019, pp. 117–124.
+[182] Y. Li, J. Wu, X. Bai, X. Yang, X. Tan, G. Li, S. Wen, H. Zhang, and
+E. Ding, “Multi-granularity tracking with modularlized components
+for unsupervised vehicles anomaly detection,” in Proceedings of the
+IEEE/CVF Conference on Computer Vision and Pattern Recognition
+Workshops, 2020, pp. 586–587.
+[183] Y. Zhao, W. Wu, Y. He, Y. Li, X. Tan, and S. Chen, “Good practices and
+a strong baseline for traffic anomaly detection,” in Proceedings of the
+IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+2021, pp. 3993–4001.
+[184] B. Li, S. Leroux, and P. Simoens, “Decoupled appearance and
+motion learning for efficient anomaly detection in surveillance video,”
+Computer Vision and Image Understanding, vol. 210, p. 103249, 2021.
+[Online]. Available: https://www.sciencedirect.com/science/article/pii/
+S107731422100093X
+[185] K. Pawar and V. Attar, “Deep learning based detection and localization
+of road accidents from traffic surveillance videos,” ICT Express, 2021.
+[Online]. Available: https://www.sciencedirect.com/science/article/pii/
+S2405959521001478
+[186] M. Cui, S. Zhong, B. Li, X. Chen, and K. Huang, “Offloading
+autonomous driving services via edge computing,” IEEE Internet of
+Things Journal, vol. 7, pp. 10 535–10 547, 10 2020.
+[187] R. Ke, Z. Cui, Y. Chen, M. Zhu, H. Yang, and Y. Wang, “Edge
+computing for real-time near-crash detection for smart transportation
+applications,” 2020. [Online]. Available: https://arxiv.org/abs/2008.
+00549
+[188] Y. Dai, D. Xu, S. Maharjan, G. Qiao, and Y. Zhang, “Artificial
+intelligence empowered edge computing and caching for internet of
+vehicles,” IEEE Wireless Communications, vol. 26, pp. 12–18, 6 2019.
+[189] G. Liu, H. Shi, A. Kiani, A. Khreishah, J. Lee, N. Ansari, C. Liu, and
+M. M. Yousef, “Smart traffic monitoring system using computer vision
+and edge computing,” IEEE Transactions on Intelligent Transportation
+Systems, pp. 1–12, 2021.
+[190] S. Wan, S. Ding, and C. Chen, “Edge computing enabled video
+segmentation for real-time traffic monitoring in internet of vehicles,”
+Pattern Recognition, vol. 121, p. 108146, 2022. [Online]. Available:
+https://www.sciencedirect.com/science/article/pii/S0031320321003332
+[191] P. Kairouz, H. B. McMahan, B. Avent, A. Bellet, M. Bennis,
+A. N. Bhagoji, K. Bonawitz, Z. Charles, G. Cormode, R. Cummings,
+R. G. L. D’Oliveira, H. Eichner, S. E. Rouayheb, D. Evans,
+J. Gardner, Z. Garrett, A. Gascón, B. Ghazi, P. B. Gibbons,
+M. Gruteser, Z. Harchaoui, C. He, L. He, Z. Huo, B. Hutchinson,
+J. Hsu, M. Jaggi, T. Javidi, G. Joshi, M. Khodak, J. Konečný,
+A. Korolova, F. Koushanfar, S. Koyejo, T. Lepoint, Y. Liu, P. Mittal,
+M. Mohri, R. Nock, A. Özgür, R. Pagh, M. Raykova, H. Qi,
+D. Ramage, R. Raskar, D. Song, W. Song, S. U. Stich, Z. Sun,
+A. T. Suresh, F. Tramèr, P. Vepakomma, J. Wang, L. Xiong,
+Z. Xu, Q. Yang, F. X. Yu, H. Yu, and S. Zhao, “Advances and
+open problems in federated learning,” 2019. [Online]. Available:
+https://arxiv.org/abs/1912.04977
+[192] C. Chen, Z. Liu, S. Wan, J. Luan, and Q. Pei, “Traffic flow prediction
+based on deep learning in internet of vehicles,” IEEE Transactions on
+Intelligent Transportation Systems, vol. 22, no. 6, pp. 3776–3789, 2021.
+[193] H. Sun, W. Shi, X. Liang, and Y. Yu, “Vu: Edge computing-enabled
+video usefulness detection and its application in large-scale video
+surveillance systems,” IEEE Internet of Things Journal, vol. 7, no. 2,
+pp. 800–817, 2020.
+[194] J. Xie, Y. Zheng, R. Du, W. Xiong, Y. Cao, Z. Ma, D. Cao, and
+J. Guo, “Deep learning-based computer vision for surveillance in
+its: Evaluation of state-of-the-art methods,” IEEE Transactions on
+Vehicular Technology, vol. 70, no. 4, pp. 3027–3042, 2021.
+[195] A. Ferdowsi, U. Challita, and W. Saad, “Deep learning for reliable mobile edge analytics in intelligent transportation systems: An overview,”
+IEEE Vehicular Technology Magazine, vol. 14, no. 1, pp. 62–70, 2019.
+
+19
+
+[196] K. C. Dey, A. Rayamajhi, M. Chowdhury, P. Bhavsar, and
+J. Martin, “Vehicle-to-vehicle (v2v) and vehicle-to-infrastructure
+(v2i) communication in a heterogeneous wireless network –
+performance evaluation,” Transportation Research Part C: Emerging
+Technologies, vol. 68, pp. 168–184, 2016. [Online]. Available: https:
+//www.sciencedirect.com/science/article/pii/S0968090X16300018
+[197] R. Ke, Y. Zhuang, Z. Pu, and Y. Wang, “A smart, efficient, and
+reliable parking surveillance system with edge artificial intelligence on
+iot devices,” IEEE Transactions on Intelligent Transportation Systems,
+vol. 22, no. 8, pp. 4962–4974, 2021.
+[198] H. Bura, N. Lin, N. Kumar, S. Malekar, S. Nagaraj, and K. Liu,
+“An edge based smart parking solution using camera networks and
+deep learning,” in 2018 IEEE International Conference on Cognitive
+Computing (ICCC), 2018, pp. 17–24.
+[199] J. Konečný, B. McMahan, and D. Ramage, “Federated
+optimization:distributed optimization beyond the datacenter,” 2015.
+[Online]. Available: https://arxiv.org/abs/1511.03575
+[200] M. Song, K. Zhong, J. Zhang, Y. Hu, D. Liu, W. Zhang, J. Wang,
+and T. Li, “In-situ ai: Towards autonomous and incremental deep
+learning for iot systems,” in 2018 IEEE International Symposium on
+High Performance Computer Architecture (HPCA), 2018, pp. 92–103.
+[201] J. Barthélemy, N. Verstaevel, H. Forehead, and P. Perez, “Edgecomputing video analytics for real-time traffic monitoring in a
+smart city,” Sensors, vol. 19, no. 9, 2019. [Online]. Available:
+https://www.mdpi.com/1424-8220/19/9/2048
+[202] S. Han, J. Pool, J. Tran, and W. Dally, “Learning both weights
+and connections for efficient neural network,” in Advances in Neural
+Information Processing Systems, C. Cortes, N. Lawrence, D. Lee,
+M. Sugiyama, and R. Garnett, Eds., vol. 28. Curran Associates, Inc.,
+2015. [Online]. Available: https://proceedings.neurips.cc/paper/2015/
+file/ae0eb3eed39d2bcef4622b2499a05fe6-Paper.pdf
+[203] S. Zhang, Z. Du, L. Zhang, H. Lan, S. Liu, L. Li, Q. Guo, T. Chen, and
+Y. Chen, “Cambricon-x: An accelerator for sparse neural networks,” in
+2016 49th Annual IEEE/ACM International Symposium on Microarchitecture (MICRO), 2016, pp. 1–12.
+[204] J. Zhou, H.-N. Dai, and H. Wang, “Lightweight convolution neural
+networks for mobile edge computing in transportation cyber physical
+systems,” ACM Trans. Intell. Syst. Technol., vol. 10, no. 6, oct 2019.
+[Online]. Available: https://doi.org/10.1145/3339308
+[205] K. Zhang, H. Ying, H.-N. Dai, L. Li, Y. Peng, K. Guo, and H. Yu,
+“Compacting deep neural networks for internet of things: Methods
+and applications,” IEEE Internet of Things Journal, vol. 8, no. 15,
+pp. 11 935–11 959, 2021.
+[206] J. Revaud and M. Humenberger, “Robust automatic monocular vehicle speed estimation for traffic surveillance,” in Proceedings of
+the IEEE/CVF International Conference on Computer Vision (ICCV),
+October 2021, pp. 4551–4561.
+[207] A. Amini, T.-H. Wang, I. Gilitschenski, W. Schwarting, Z. Liu,
+S. Han, S. Karaman, and D. Rus, “Vista 2.0: An open, data-driven
+simulator for multimodal sensing and policy learning for autonomous
+vehicles,” 2021. [Online]. Available: https://arxiv.org/abs/2111.12083
+[208] T. Azfar, J. Weidner, A. Raheem, R. Ke, and R. L. Cheu, “Efficient
+procedure of building university campus models for digital twin simulation,” IEEE Journal of Radio Frequency Identification, 2022.
+[209] A. Amini, I. Gilitschenski, J. Phillips, J. Moseyko, R. Banerjee,
+S. Karaman, and D. Rus, “Learning robust control policies for end-toend autonomous driving from data-driven simulation,” IEEE Robotics
+and Automation Letters, vol. 5, no. 2, pp. 1143–1150, 2020.
+[210] Z. Ning, S. Sun, X. Wang, L. Guo, S. Guo, X. Hu, B. Hu, and R. Kwok,
+“Blockchain-enabled intelligent transportation systems: a distributed
+crowdsensing framework,” IEEE Transactions on Mobile Computing,
+2021.
+[211] Y. Liu, A. Huang, Y. Luo, H. Huang, Y. Liu, Y. Chen, L. Feng, T. Chen,
+H. Yu, and Q. Yang, “Fedvision: An online visual object detection
+platform powered by federated learning,” in Proceedings of the AAAI
+Conference on Artificial Intelligence, vol. 34, no. 08, 2020, pp. 13 172–
+13 179.
+[212] L. Yuan, D. Chen, Y.-L. Chen, N. Codella, X. Dai, J. Gao, H. Hu,
+X. Huang, B. Li, C. Li et al., “Florence: A new foundation model for
+computer vision,” arXiv preprint arXiv:2111.11432, 2021.
+[213] R. Ke, C. Liu, H. Yang, W. Sun, and Y. Wang, “Real-time traffic
+and road surveillance with parallel edge intelligence,” IEEE Journal
+of Radio Frequency Identification, 2022.
+[214] H. Li, A. Kadav, I. Durdanovic, H. Samet, and H. P. Graf, “Pruning
+filters for efficient convnets,” arXiv preprint arXiv:1608.08710, 2016.
+
+[215] A. Sufian, E. Alam, A. Ghosh, F. Sultana, D. De, and M. Dong, “Deep
+learning in computer vision through mobile edge computing for iot,”
+in Mobile Edge Computing. Springer, 2021, pp. 443–471.
+[216] J. Zhang, S. A. Bargal, Z. Lin, J. Brandt, X. Shen, and S. Sclaroff, “Topdown neural attention by excitation backprop,” International Journal
+of Computer Vision, vol. 126, no. 10, pp. 1084–1102, 2018.
+[217] P. E. Pope, S. Kolouri, M. Rostami, C. E. Martin, and H. Hoffmann,
+“Explainability methods for graph convolutional neural networks,” in
+Proceedings of the IEEE/CVF Conference on Computer Vision and
+Pattern Recognition, 2019, pp. 10 772–10 781.
+[218] H. Chefer, S. Gur, and L. Wolf, “Generic attention-model explainability for interpreting bi-modal and encoder-decoder transformers,” in
+Proceedings of the IEEE/CVF International Conference on Computer
+Vision, 2021, pp. 397–406.
+[219] M. Kowal, M. Siam, M. A. Islam, N. D. Bruce, R. P. Wildes, and
+K. G. Derpanis, “A deeper dive into what deep spatiotemporal networks
+encode: Quantifying static vs. dynamic information,” in Proceedings of
+the IEEE/CVF Conference on Computer Vision and Pattern Recognition, 2022, pp. 13 999–14 009.
+[220] L. Barbieri, S. Savazzi, M. Brambilla, and M. Nicoli, “Decentralized
+federated learning for extended sensing in 6g connected vehicles,”
+Vehicular Communications, vol. 33, p. 100396, 2022.
+[221] K. Doshi and Y. Yilmaz, “Online anomaly detection in surveillance
+videos with asymptotic bound on false alarm rate,” Pattern
+Recognition, vol. 114, p. 107865, 2021. [Online]. Available:
+https://www.sciencedirect.com/science/article/pii/S0031320321000522
+[222] A. B. Parsa, A. Movahedi, H. Taghipour, S. Derrible, and A. K.
+Mohammadian, “Toward safer highways, application of xgboost and
+shap for real-time accident detection and feature analysis,” Accident
+Analysis & Prevention, vol. 136, p. 105405, 2020. [Online]. Available:
+https://www.sciencedirect.com/science/article/pii/S0001457519311790
+[223] J. Xie, Y. Zheng, R. Du, W. Xiong, Y. Cao, Z. Ma, D. Cao, and
+J. Guo, “Deep learning-based computer vision for surveillance in
+its: Evaluation of state-of-the-art methods,” IEEE Transactions on
+Vehicular Technology, vol. 70, no. 4, pp. 3027–3042, 2021.
+[224] J. Zhao, F. Qi, G. Ren, and L. Xu, “Phd learning: Learning with
+pompeiu-hausdorff distances for video-based vehicle re-identification,”
+in Proceedings of the IEEE/CVF Conference on Computer Vision and
+Pattern Recognition (CVPR), June 2021, pp. 2225–2235.
+[225] Y. Qian, L. Yu, W. Liu, G. Kang, and A. G. Hauptmann, “Adaptive
+feature aggregation for video object detection,” in Proceedings of the
+IEEE/CVF Winter Conference on Applications of Computer Vision
+Workshops, 2020, pp. 143–147.
+
+

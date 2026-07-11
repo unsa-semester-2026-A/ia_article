@@ -1,0 +1,2456 @@
+Learning High-Precision Bounding Box for Rotated
+Object Detection via Kullback-Leibler Divergence
+
+arXiv:2106.01883v5 [cs.CV] 18 Apr 2022
+
+Xue Yang1∗, Xiaojiang Yang1 , Jirui Yang2 , Qi Ming3 , Wentao Wang1 , Qi Tian4 , Junchi Yan1†
+1
+Department of Computer Science and Engineering,
+MoE Key Lab of Artificial Intelligence, Shanghai Jiao Tong University
+2
+University of Chinese Academy of Sciences
+3
+Beijing Institute of Technology 4 Huawei Inc.
+yangxue-2019-sjtu@sjtu.edu.cn
+
+Abstract
+Existing rotated object detectors are mostly inherited from the horizontal detection
+paradigm, as the latter has evolved into a well-developed area. However, these
+detectors are difficult to perform prominently in high-precision detection due to the
+limitation of current regression loss design, especially for objects with large aspect
+ratios. Taking the perspective that horizontal detection is a special case for rotated
+object detection, in this paper, we are motivated to change the design of rotation
+regression loss from induction paradigm to deduction methodology, in terms of
+the relation between rotation and horizontal detection. We show that one essential
+challenge is how to modulate the coupled parameters in the rotation regression loss,
+as such the estimated parameters can influence to each other during the dynamic
+joint optimization, in an adaptive and synergetic way. Specifically, we first convert
+the rotated bounding box into a 2-D Gaussian distribution, and then calculate the
+Kullback-Leibler Divergence (KLD) between the Gaussian distributions as the
+regression loss. By analyzing the gradient of each parameter, we show that KLD
+(and its derivatives) can dynamically adjust the parameter gradients according to
+the characteristics of the object. It will adjust the importance (gradient weight) of
+the angle parameter according to the aspect ratio. This mechanism can be vital
+for high-precision detection as a slight angle error would cause a serious accuracy
+drop for large aspect ratios objects. More importantly, we have proved that KLD
+is scale invariant. We further show that the KLD loss can be degenerated into
+the popular ln -norm loss for horizontal detection. Experimental results on seven
+datasets using different detectors show its consistent superiority, and codes are
+made public available.
+
+1
+
+Introduction
+
+As a fundamental building block for visual analysis across aerial images, scene text etc., rotated
+object detection has recently been developed rapidly [1, 2, 3, 4, 5, 6], which benefit themselves
+from the well-established horizontal detection approaches [7, 8, 9, 10, 11]. Specifically, many works
+[12, 13, 14, 15] build themselves upon the previously established horizontal box detection pipeline
+from an inductive perspective, as shown in Figure 1(a). However, these detectors are often unable
+to cope with challenging scenes well due to the limitations of current regression loss, such as large
+aspect ratio objects, dense scenes, etc., resulting in obvious disadvantages in high-precision detection.
+∗
+†
+
+Work done during an internship at Huawei Inc.
+Corresponding author is Junchi Yan.
+
+Preprint. Under review.
+
+(a) Previous methods follow the induction paradigm (b) Our proposed method adopts a deduction methodolfrom special horizontal to general rotated detection. ogy from general rotated to special horizontal detection.
+
+Figure 1: Methodological road-map difference between horizontal detection (special case) and
+rotation detection (general case) in the previous methods [1, 12, 13, 14, 15] and the proposed method.
+In this paper, we take a step back, and aim to develop (from a deductive perspective) a unified
+regression framework for rotation detection and its special case: horizontal detection. In fact, our
+new framework enjoys a coherent property that it can be degenerated into the current commonly used
+regression loss (e.g. ln -norm) in special cases (horizontal detection), as shown in Figure 1(b).
+For a devising a rotation regression loss for high-precision rotation detection, one important observation is that the importance of different parameters to different types of objects can vary. For example,
+the angle parameter (θ) and the center point parameter (x, y) are important for large aspect ratio
+objects and small objects, respectively. In another word, it is conjectured that regression loss should
+be self-modulated during the learning process and calls for more dynamic optimization strategy.
+Inspired by the above ideas, we first convert the rotated bounding box B(x, y, w, h, θ) into a 2-D
+Gaussian distribution N (µ, Σ). As a standard distance metric, we then use the Kullback-Leibler
+Divergence (KLD) [16] to calculate the distribution distance between the predicted bounding box and
+ground truth as the regression loss. We compare KLD with Smooth L1 loss [7] and another distance
+metric, Gaussian Wasserstein Distance (GWD) [5, 17], and find that KLD has a more complete
+parameter optimization mechanism. In particular, by analyzing the gradient of the parameters during
+learning, we show that the optimization of one parameter will be affected by other parameters (as
+the gradient weight). It means that the model will adaptively adjust the optimization strategy given
+a specific configuration of an object for detection, as shown can lead to excellent performance in
+high-precision detection. In addition, KLD is proven scale invariant, which is an important property
+that Smooth L1 loss and GWD do not possess. As the horizontal bounding box is a special case of the
+rotated bounding box, we show that KLD can also be degenerated into the ln -norm loss as commonly
+used in existing horizontal detection pipeline. The highlights of this paper are four-folds:
+1) Differing from the dominant existing practices that build rotation detectors heavily upon the
+horizontal detectors, we develop new rotation detection loss from scratch and show that it is coherent
+with existing horizontal detection protocol in its degenerated case for horizontal detection.
+2) To achieve a more principled measurement between the prediction and ground truth, instead of
+computing the difference for each physically-meaningful parameter related to the bounding box which
+are in different scales and units, we innovatively convert the regression loss of rotation detection into
+the KLD of two 2-D Gaussian distributions, leading to a clean and coherent regression loss.
+3) Through the gradient analysis of each parameter in KLD, we further find that the self-modulated
+optimization mechanism of KLD greatly promotes the improvement of high-precision detection,
+which verify the advantage of our loss design. More importantly, we have theoretically shown (in
+appendix) that KLD is scale invariant for detection, which is crucial for the rotation cases.
+4) Extensive experimental results on seven public datasets and two popular detectors show the
+effectiveness of our approach, which achieves new state-of-the-art performance for rotation detection.
+The source codes [18, 19] are made public available34 .
+
+3
+4
+
+https://github.com/yangxue0827/RotationDetection
+https://github.com/open-mmlab/mmrotate
+
+2
+
+Figure 2: Visual comparison between Smooth L1 loss (left), GWD (middle) and KLD (right).
+
+2
+
+Background
+
+We first generally discuss the related works on both horizontal and rotated object detection. Then we
+summarize the current design paradigm of rotation regression loss from two kinds of methodologies,
+as shown in Figure 1: one is inductive that tries to develop the general rotation detection from the
+special and classic horizontal detection pipeline. While the other is deductive that aims to devise a
+general rotation detection pipeline with horizontal detection as its special case.
+2.1
+
+Related Works
+
+Horizontal object detection. Horizontal object detection which covers most existing detection
+literature, normally uses a horizontal bounding box to represent the object. The mainstream classical
+object detection algorithms can be roughly divided according to the following standards: Two[7, 8, 9, 11] or Single-stage [10, 20, 21] object detection, Anchor-free [22, 23, 24] or Anchor-based
+[8, 9, 10] object detection and CNN [8, 10, 22] or Transformer-based [25, 26] object detection.
+Although the pipelines may vary, the mainstream regression loss often uses the popular ln -norm
+loss (such as smooth L1 loss) or IoU-based loss (such as GIoU [27], and DIoU [28]). These abovementioned detectors have also been widely used in other scenarios and have achieved satisfactory
+performance. However, horizontal detectors do not provide accurate orientation and scale information.
+Rotated object detection. Recent advances in rotation detection [3, 4, 12, 14, 29] are mainly driven
+by adapting the horizontal object detectors with rotated bounding boxes to represent multi-oriented
+objects. To accurately predict the rotated bounding box, most rotation detection methods extend the
+ln -norm [12, 15, 30, 31, 32] used in horizontal detection, or construct a differentiable approximate
+IoU loss [3, 5, 33]. From scratch, we try to change the design of rotation regression loss from
+induction paradigm to deduction methodology, which in fact is a generalization to the horizontal case.
+In the following, we describe the existing works from the induction and deduction methodologies.
+2.2
+
+Inductive Thinking of Loss Design: from Special Horizon to General Rotation Detection
+
+Regression loss is a vital part of most current object detection algorithms. For horizontal bounding
+box regression, the model [7, 8, 9, 10, 11] mainly outputs four items for location and size:
+tpx =
+
+xp − xa p
+yp − ya p
+, ty =
+, tw = ln
+wa
+ha
+
+
+
+wp
+wa
+
+
+
+wt
+wa
+
+
+
+, tph = ln
+
+
+
+hp
+ha
+
+
+
+ht
+ha
+
+
+
+(1)
+
+to match the four targets from the ground truth
+xt − xa t
+yt − ya t
+ttx =
+, ty =
+, tw = ln
+wa
+ha
+
+3
+
+
+
+, tth = ln
+
+
+
+(2)
+
+where x, y, w, h denote the center coordinates, width and height, respectively. Variables xt , xa , xp
+are for the ground-truth box, anchor box, and predicted box, respectively (likewise for y, w, h).
+Extending the above horizontal case, existing rotation detection models [1, 12, 13, 14, 15] also use
+regression loss which simply involves an extra angle parameter θ:
+tpθ = f (θp − θa ), ttθ = f (θt − θa )
+
+(3)
+
+where f (·) is used to deal with angular periodicity, such as trigonometric functions, modulo, etc.
+The overall regression loss for rotation detection is:
+Lreg = ln -norm (∆tx , ∆ty , ∆tw , ∆th , ∆tθ )
+
+(4)
+
+p
+∆y
+p
+t
+p
+t
+t
+where ∆tx = tpx − ttx = ∆x
+wa , ∆ty = ty − ty = ha , ∆tw = tw − tw = ln(wp /wt ), ∆th = th − th =
+p
+t
+ln(hp /ht ), and ∆tθ = tθ − tθ = ∆θ.
+
+It can be seen that parameters are optimized independently, making the loss (or detection accuracy)
+sensitive to the under-fitting of any of the parameters. This mechanism is fatal to high-precision
+detection. Taking the left side of Figure 2 as an example, the detection result based on the Smooth L1
+loss often shows the deviation of the center point or angle. Moreover, different types of objects have
+different sensitivity to these five parameters. For example, the angle parameter is very important for
+detecting objects with large aspect ratios. This requires to select an appropriate set of weights given a
+specific single object sample during the training, which is nontrivial or even unrealistic.
+2.3
+
+Deductive Thinking of Loss Design: from General Rotation to Special Horizon Detection
+
+To break the original inductive design paradigm, we adopt
+deductive paradigm to construct more accurate rotation regression loss. Here we rephrase the main idea in the recent
+work [5], which converts a arbitrary-oriented bounding
+box B(x, y, w, h, θ) into a 2-D Gaussian N (µ, Σ), as illustracted in Figure 3. Then the distance between two
+Gaussian is calculated as the final loss. Specifically, the
+conversion is:
+Figure 3: Top: rotated box B(x, y, w, h, θ).
+>
+µ =(x, y)
+
+Σ
+
+1/2
+
+>
+
+
+
+cos θ
+sin θ
+
+− sin θ
+cos θ
+
+=RΛR =
+ w
+cos2 θ + h2 sin2 θ
+2
+=
+w−h
+cos θ sin θ
+2
+
+ w
+2
+
+0
+
+0
+
+Bottom: 2-D Gaussian dist. N (µ, Σ).
+
+cos θ
+sin θ
+− sin θ cos θ
+
+
+
+h
+2
+
+w−h
+cos θ sin θ
+2
+w
+sin2 θ + h2 cos2 θ
+2
+
+
+(5)
+
+where R represents the rotation matrix, and Λ represents the diagonal matrix of eigenvalues.
+The recent work [5] analyzes that the introduction of N (µ, Σ) can solve the inconsistency between
+metric and loss, boundary discontinuity and square-like problem. On this basis, we further studies
+how to design high-precision detection regression loss through new parameter space. Our view is that
+the self-modulated mechanism is positively correlated with the final high-precision performance.
+Gaussian Wasserstein Distance. The Wasserstein distance [5, 17] between two probability measures
+Xp ∼ Np (µp , Σp ) and Xt ∼ Nt (µt , Σt ) expressed as:
+1/2 1/2
+Dw (Np , Nt )2 = kµp − µt k22 + Tr(Σp + Σt − 2(Σ1/2
+)
+p Σt Σp )
+|
+{z
+} |
+{z
+}
+center distance
+
+(6)
+
+coupling terms about hp , wp and θp
+
+Eq. 6 shows that the Gaussian Wasserstein Distance (GWD) is mainly divided into two parts: the
+distance between the center points (x, y) and the coupling terms about h, w and θ. Accordingly, the
+regression loss based on GWD can be regarded as a semi-coupled loss. Although GWD can greatly
+improve the performance of high-precision rotation detection due to the coupling between part of the
+parameters, the independent optimization of the center point make the detection result slightly shifted
+(see Figure 2). Note that GWD is not scale invariant, which is not detection friendly.
+When all the boxes are horizontal (θ = 0◦ ), Eq. 6 can be further simplified:
+1/2
+
+Dhw (Np , Nt )2 =kµp − µt k22 + kΣ1/2
+− Σt k2F
+p
+2
+
+2
+
+
+=(xp − xt ) + (yp − yt ) + (wp − wt )2 + (hp − ht )2 /4
+=l2 -norm(∆x, ∆y, ∆w/2, ∆h/2)
+
+4
+
+(7)
+
+where k · kF is the Frobenius norm. Although Eq. 7 can still be used as the regression loss of
+horizontal detection, Eq. 4 and 7 are not completely consistent.
+Although GWD scheme has played a preliminary exploration of the deductive paradigm, it does not
+focus on achieving high-precision detection and scale invariance. In the following, we will propose
+our new approach based on the Kullback-Leibler divergence (KLD) [16].
+
+3
+
+Proposed Approach
+
+Kullback-Leibler Divergence . To explore the more appropriate regression loss, we adopt the
+Kullback-Leibler divergence (KLD) [16]. Similarly, the KLD between two 2-D Gaussian is:
+Dkl (Np ||Nt ) =
+
+|Σt |
+1
+1
+1
+−1
+(µp − µt )> Σ−1
+ln
+−1
+t (µp − µt ) + Tr(Σt Σp ) +
+2
+2
+2
+|Σ
+p|
+|
+{z
+} |
+{z
+}
+
+(8)
+
+1
+1
+1 |Σp |
+(µp − µt )> Σ−1
+Tr(Σ−1
+ln
+−1
+p (µp − µt ) +
+p Σt ) +
+2
+2
+2
+|Σt |
+|
+{z
+}
+
+(9)
+
+term about xp and yp
+
+or
+Dkl (Nt ||Np ) =
+
+coupling terms about hp , wp and θp
+
+chain coupling of all parameters
+
+It can be seen that each item in Dkl (Nt ||Np ) is composed of partial parameter coupling, which makes
+all parameters form a chain coupling relationship. In the optimization process of the KLD-based
+detector, the parameters influence each other and are jointly optimized which make optimization
+mechanism of the model is self-modulated. In contrast, Dkl (Np ||Nt ) and GWD are both semicoupled, but Dkl (Np ||Nt ) has a better central point optimization mechanism.
+Although KLD is asymmetric, we find that the optimization principles of these two forms are similar
+by analyzing the gradients of various parameters and experimental results. Take the relatively simple
+Dkl (Np ||Nt ) as an example, according to Eq. 5, each item of Eq. 8 can be expressed as
+(µp − µt )> Σ−1
+t (µp − µt ) =
+Tr(Σ−1
+t Σp ) =
+
+4 (∆y cos θt − ∆x sin θt )2
+4 (∆x cos θt + ∆y sin θt )2
++
+2
+wt
+h2t
+
+wp2
+h2p
+wp2
+h2p
+sin2 ∆θ + 2 sin2 ∆θ + 2 cos2 ∆θ + 2 cos2 ∆θ
+2
+wt
+ht
+ht
+wt
+ln
+
+|Σt |
+h2
+w2
+= ln 2t + ln t2
+|Σp |
+hp
+wp
+
+(10)
+(11)
+(12)
+
+where ∆x = xp − xt , ∆y = yp − yt , ∆θ = θp − θt .
+Analysis of high-precision detection. Without loss of generality, we set θt = 0◦ , then
+∂Dkl (µp )
+=
+∂µp
+
+
+
+4
+4
+∆x, 2 ∆y
+wt2
+ht
+
+>
+(13)
+
+The weights 1/wt2 and 1/h2t will make the model dynamically adjust the optimization of the object
+position according to the scale. For example, when the object scale is small or an edge is too short,
+the model will pay more attention to the optimization of the offset of the corresponding direction.
+For this kind of object, a slight deviation on the corresponding direction will often cause a sharp
+drop in IoU. When θt 6= 0◦ , the gradient of the object offset (∆x and ∆y) will be dynamically
+adjusted according to the θt for better optimization. In contrast, the gradient of the center point in
+∂DL2 (µp )
+∂Dw (µp )
+GWD and L2 -norm are ∂µ
+= (2∆x, 2∆y)> and ∂µ
+= ( w22 ∆x, h22 ∆y)> . The former
+p
+p
+a
+a
+cannot adjust the dynamic gradient according to the length and width of the object. The latter is
+based on the length and width of the anchor (wa , ha ) to adjust the gradient instead of the target object
+(wt , ht ), which is almost ineffective for those detectors [3, 13, 15, 29, 30, 34, 35] that use horizontal
+anchors for rotation detection. More importantly, they are not related to the angle of the target object.
+Therefore, the detection result of the GWD-based and Ln -norm models will show a slight deviation,
+while the detection result of the KLD-based model is quite accurate, as shown in Figure 2.
+For hp and wp , we have
+h2p
+h2p
+∂Dkl (Σp )
+= 2 cos2 ∆θ + 2 sin2 ∆θ − 1,
+∂ ln hp
+ht
+wt
+
+wp2
+wp2
+∂Dkl (Σp )
+= 2 cos2 ∆θ + 2 sin2 ∆θ − 1
+∂ ln wp
+wt
+ht
+
+5
+
+(14)
+
+On the one hand, the optimization of the hp and wp is affected by the ∆θ. When ∆θ = 0◦ ,
+h2
+w2
+∂Dkl (Σp )
+∂D (Σp )
+= hp2 − 1, ∂ kl
+= wp2 − 1, which means that the smaller targeted height or width
+∂ ln hp
+ln wp
+t
+t
+
+leads to heavier penalty on its matching loss. This is desirable, as smaller height or width needs
+higher matching precision. On the other hand, the optimization of ∆θ is also affected by hp and wp :
+∂Dkl (Σp )
+=
+∂θp
+
+
+
+h2p − wp2
+wp2 − h2p
++
+wt2
+h2t
+
+
+sin 2∆θ
+
+(15)
+
+ 2
+
+h
+w2
+∂Dkl (Σp )
+= wt2 + h2t − 2 sin 2∆θ ≥ sin 2∆θ, the condition for
+when wp = wt , hp = ht , then
+∂θp
+t
+t
+the equality sign is ht = wt . This shows that the larger the aspect ratio of the object, the model will
+pay more attention to the optimization of the angle. This is the main reason why the KLD-based
+model has a huge advantage in high-precision detection indicators as a slight angle error would
+cause a serious accuracy drop for large aspect ratios objects. Through the above analysis, we find
+that when one of the parameters is optimized, the other parameters will be used as its weight to
+dynamically adjust the optimization rate. In other words, the optimization of parameters is no longer
+independent, that is, optimizing one parameter will also promote the optimization of other parameters.
+The optimization of this virtuous circle is the key to KLD as an excellent rotation regression loss. In
+addition, Dkl (Nt ||Np ) has similar properties, refer to appendix for details.
+Scale invariance. For a full-rank matrix M, |M| =
+6 0, we have Dkl (Np ||Nt ) = Dkl (Np0 ||Nt0 ),
+>
+0
+0
+where Xp = MXp ∼ Np (Mµp , MΣp M ), Xt = MXt ∼ Nt (Mµt , MΣt M> ). Therefore,
+the affine invariance (including scale invariance when M = kI, where I denotes identity matrix)
+of KLD can be proven (see proof in appendix). Compared with Ln -norm and GWD, KLD is more
+suitable for replacing the non-differentiable rotated IoU loss for its consistency with detection metric.
+Horizontal special case. For horizontal detection, combine Eq. 8 to Eq. 12, we have
+
+wp2
+h2p
+4∆2 x
+4∆2 y
+w2
+h2
++ 2 +
++
++ ln t2 + ln 2t − 2
+2
+2
+2
+wt
+ht
+wt
+ht
+wp
+hp
+1
+1
+1
+=2l2 -norm(∆tx , ∆ty ) + l1 -norm(∆tw , ∆th ) + l2 -norm(
+,
+)−1
+2
+∆tw ∆th
+
+Dhkl (Np ||Nt ) =
+
+1
+2
+
+
+
+(16)
+
+where the first two terms of Eq. 16 are very similar to Eq. 4, and the divisor part of the two terms x
+∆x
+and y is the main difference ( ∆x
+wt vs. wa ).
+Variants of KLD. We have also introduced some variants [36, 37] of KLD to further verify the
+influence of asymmetry on rotation detection can be ignored. The variants mainly including
+Dkl_min(max) (Np ||Nt ) = min(max) (Dkl (Np ||Nt ), Dkl (Nt ||Np ))
+
+
+
+
+
+1
+Np + Nt
+Np + Nt
+Djs (Np ||Nt ) =
+Dkl Nt ||
++ Dkl Np ||
+2
+2
+2
+Djef (Np ||Nt ) =Dkl (Nt ||Np ) + Dkl (Np ||Nt )
+
+(17)
+
+Rotation regression loss. The whole training process of detector is as follows: i) predict offset
+(tpx , tpy , tpw , tph , tpθ ); ii) decode prediction box; iii) convert prediction box and target ground-truth into
+Gaussian distribution; iv) calculate KLD of two Gaussian distributions. Therefore, the inference time
+remains unchanged. We normalize the distance function as our final regression loss Lreg :
+Lreg = 1 −
+
+1
+,
+τ + f (D)
+
+τ ≥1
+
+(18)
+
+where f (·) denotes a non-linear function to transform the distance D to make the loss more smooth
+and expressive. In this paper, we mainly use two nonlinear functions, sqrt(D) and ln(D + 1). The
+hyperparameter τ modulates the entire loss. The multi-task loss is:
+L=
+
+Npos
+N
+λ1 X
+λ2 X
+Lreg (bn , gtn ) +
+Lcls (pn , tn )
+Npos n=1
+N n=1
+
+(19)
+
+where Npos and N indicate the number of positive and all anchors. bn denotes the n-th bounding
+box, gtn is the n-th target ground-truth. tn denotes the label of n-th object, pn is the n-th probability
+distribution of various classes calculated by sigmoid function. The hyper-parameter λ1 , λ2 control
+the trade-off and are set to {2, 1} by default. The classification loss Lcls is set as focal loss [10].
+6
+
+Table 1: Ablation study of the loss form and hyperparameter on HRSC2016.
+Loss
+
+Dkl
+
+f (Dkl )
+
+f (Dkl ) = sqrt(Dkl )
+f (Dkl ) = log(Dkl + 1)
+
+0.20
+
+82.96
+83.23
+
+τ =1
+84.85
+85.25
+
+LG (f (Dkl ), τ )
+τ =2 τ =3
+84.15 75.23
+83.63 80.79
+
+τ =5
+73.32
+73.44
+
+Table 2: Ablation of different KLD-based regression loss form. The based detector is RetinaNet.
+Dataset
+DOTA-v1.0
+HRSC2016
+
+Dkl (Np ||Nt )
+70.17
+82.83
+
+Dkl (Nt ||Np )
+70.64
+83.82
+
+Dkl_min (Np ||Nt )
+70.71
+83.60
+
+Dkl_max (Np ||Nt )
+70.55
+82.70
+
+Djs (Np ||Nt )
+69.67
+84.06
+
+Djef f reys (Np ||Nt )
+70.56
+83.66
+
+Table 3: Ablation study of normalization. The based detector is RetinaNet.
+Loss
+
+Norm by Eq. 18
+
+Smooth L1
+
+w/
+w/o
+
+Hmean50
+78.99
+84.80
+
+4
+
+Experiment
+
+4.1
+
+Datasets and Implementation Details
+
+HRSC2016
+Hmean75 Hmean50:95
+43.12
+43.47
+48.42
+47.76
+
+DOTA-v1.0
+AP50
+64.95
+65.73
+
+Our experiments are conducted over a variety of datasets, including three large-scale public datasets
+for aerial images i.e. DOTA [38], UCAS-AOD [39], HRSC2016 [40], as well as scene text dataset
+ICDAR2015 [41], MLT [42] and MSRA-TD500 [43].
+DOTA is one of the largest dataset for oriented object detection in aerial images with three released
+versions: DOTA-v1.0, DOTA-v1.5 and DOTA-v2.0. DOTA-v1.0 contains 15 common categories,
+2,806 images and 188,282 instances. The proportions of the training set, validation set, and testing
+set in DOTA-v1.0 are 1/2, 1/6, and 1/3, respectively. In contrast, DOTA-v1.5 uses the same images as
+DOTA-v1.0, but extremely small instances (less than 10 pixels) are also annotated. Moreover, a new
+category, containing 402,089 instances in total is added in this version. While DOTA-v2.0 contains
+18 common categories, 11,268 images and 1,793,658 instances. Compared to DOTA-v1.5, it further
+includes the new categories. The 11,268 images in DOTA-v2.0 are split into training, validation,
+test-dev, and test-challenge sets. We divide the images into 600 × 600 subimages with an overlap of
+150 pixels and scale it to 800 × 800, in line with the cropping protocol in literature [5, 29].
+UCAS-AOD contains 1,510 aerial images of approximately 659 × 1, 280 pixels, with two categories
+of 14,596 instances in total. In line with [32, 38], we randomly select 1,110 for training and 400
+for testing. HRSC2016 contains images from two scenarios including ships on sea and ships close
+inshore. The training, validation and test set include 436, 181 and 444 images.
+ICDAR2015, MLT and MSRA-TD500 are commonly used for oriented scene text detection and
+spotting. ICDAR2015 includes 1,000 training images and 500 testing images. ICDAR2017 MLT is a
+multi-lingual text dataset, which includes 7,200 training images, 1,800 validation images and 9,000
+testing images. MSRA-TD500 dataset consists of 300 training images and 200 testing images.
+We use Tensorflow [44] to implement the proposed methods on a server with Tesla V100 and 32G
+memory. The experiments are all initialized by ResNet50 [45] by default unless otherwise specified.
+Weight decay and momentum are set 0.0001 and 0.9, respectively. We employ MomentumOptimizer
+over 8 GPUs with a total of 8 images per minibatch (1 image per GPU).
+All the used datasets are trained by 20 epochs in total, and the learning rate is reduced tenfold
+at 12 epochs and 16 epochs, respectively. The initial learning rate is set to 5e-4. The number of
+image iterations per epoch for DOTA-v1.0, DOTA-v1.5, DOTA-v2.0, UCAS-AOD, HRSC2016,
+ICDAR2015, MLT and MSRA-TD500 are 54k, 64k, 80k, 5k, 10k, 10k, 10k and 5k respectively, and
+doubled if data augmentation (include random rotation, flipping, and graying) or multi-scale training
+is used.
+4.2
+
+Ablation Study and Further Comparison
+
+Regression loss form and hyperparameter. Table 1 compares three forms of KLD-based regression
+loss on HRSC2016, including Dkl , f (Dkl ) and Lreg (f (Dkl ), τ ). Due to extreme sensitivity to large
+7
+
+Table 4: High-precision detection experiment under different regression loss. ‘R’, ‘F’ and ‘G’ indicate
+random rotation, flipping, and graying, respectively. The resolution of HRSC2016, MSRA-TD500
+and ICDAR2015 are 500 × 500, 800 × 1, 000 and 800 × 1, 000, respectively.
+Method
+
+Dataset
+
+Data Aug.
+
+HRSC2016
+
+R+F+G
+
+MSRA-TD500
+
+R+F
+
+RetinaNet
+R3 Det
+
+RetinaNet
+
+F
+R+F
+ICDAR2015
+F
+
+R3 Det
+R+F
+
+Reg. Loss
+Smooth L1
+GWD
+KLD
+Smooth L1
+GWD
+KLD
+Smooth L1
+GWD
+KLD
+Smooth L1
+GWD
+KLD
+Smooth L1
+GWD
+KLD
+Smooth L1
+GWD
+KLD
+Smooth L1
+GWD
+KLD
+
+Hmean50 /AP50
+84.28
+85.56 (+1.28)
+87.45 (+3.17)
+88.52
+89.43 (+0.91)
+89.97 (+1.45)
+70.98
+76.76 (+5.78)
+76.96 (+5.98)
+69.78
+74.29 (+4.51)
+75.32 (+5.54)
+74.83
+76.15 (+1.32)
+77.92 (+3.09)
+74.28
+75.59 (+1.31)
+77.72 (+2.43)
+75.53
+77.09 (+1.56)
+79.63 (+4.63)
+
+Hmean60 /AP60
+74.74
+84.04 (+9.30)
+86.72 (+11.98)
+79.01
+88.89 (+9.88)
+89.73 (+10.72)
+62.42
+68.58 (+6.16)
+70.08 (+7.66)
+64.15
+68.34 (+4.19)
+69.94 (+5.79)
+69.46
+71.26 (+1.80)
+72.77 (+3.31)
+68.12
+68.36 (+0.24)
+71.99 (+3.87)
+69.69
+71.52 (+1.83)
+73.30 (+3.61)
+
+Hmean75 /AP75
+48.42
+60.31 (+11.89)
+72.39 (+23.97)
+43.42
+65.88 (+22.46)
+77.38 (+33.96)
+36.73
+44.21 (+7.48)
+46.95 (+10.22)
+36.97
+43.39 (+6.42)
+44.46 (+7.49)
+42.02
+45.59 (+3.57)
+43.27 (+1.25)
+35.73
+40.24 (+4.51)
+43.95 (+8.22)
+37.69
+41.08 (+3.39)
+43.51 (+5.82)
+
+Hmean85 /AP85
+12.56
+17.14 (+4.58)
+27.68 (+15.12)
+4.58
+15.02 (+10.44)
+25.12 (+20.54)
+12.56
+17.75 (+5.19)
+19.59 (+7.03)
+8.71
+10.50 (+1.79)
+10.70 (+1.99)
+11.59
+11.65 (+0.06)
+11.09 (-0.50)
+8.01
+9.15 (+1.14)
+10.43 (+2.42)
+9.03
+10.10 (+1.07)
+10.61 (+1.58)
+
+Hmean50:95 /AP50:95
+47.76
+52.89 (+5.13)
+57.80 (+10.04)
+46.18
+56.07 (+9.89)
+61.40 (+15.22)
+37.89
+43.62 (+5.73)
+45.24 (+7.35)
+37.73
+41.68 (+3.95)
+42.68 (+4.95)
+41.98
+43.58 (+1.60)
+43.65 (+1.67)
+39.10
+40.80 (+1.70)
+43.29 (+4.19)
+40.56
+42.17 (+1.61)
+43.61 (+3.05)
+
+errors, the performance of Dkl is extremely poor, only 0.20%. Through a simple nonlinear linear
+transformation, the performance can be increased to 82.96% and 83.23% corresponding to sqrt
+and log. We further perform a detailed hyperparameter experiment on the loss Lreg proposed in
+this paper, and the performance reaches the optimal when τ = 1, f (Dkl ) = log(Dkl + 1), about
+85.25%. Keeping the same loss pattern, we compare six KLD-based distance functions in Table 2,
+and conclude that the asymmetry of KLD does not have much impact on performance. In subsequent
+experiments, we use Lreg (log(Dkl (Np ||Nt )), 1) as the basic setting.
+Ablation study of normalization. As mentioned above, the use of Eq. 18 is to smooth its excessively
+rapid growth trend and play a role of normalization. This extra normalization questions if the KLD is
+actually contributing or simply produces noise in the results. In order to further prove that our method
+is indeed effective, we also perform a normalization operation on the Smooth L1 loss to eliminate the
+interference caused by normalization. As shown in Table 3, there is a significant drop in performance
+after using the normalization. The above experimental results prove that the effectiveness of KLD
+does not come from Eq. 18.
+High-precision detection experiment. We expect that the designed rotation regression loss can show
+advantages in high-precision detection. Table 4 shows the comparison of the high-precision detection
+results of three different regression losses using Smooth L1, GWD and KLD on different datasets and
+different detectors. For the HRSC2016 dataset containing a large number of ship with large aspect
+ratios, GWD-based RetinaNet has a 11.89% improvement over Smooth L1 on AP75 , KLD even gets
+a 23.97% gain. Even with a stronger R3 Det detector, KLD and GWD still increased by 33.96%
+and 22.46% in AP75 , and 15.22% and 9.89% in AP50:95 . The same experimental conclusion are
+also reflected in the other two scene text datasets MASR-TF500 and ICDAR2015, which is KLD
+> GWD > Smooth L1. In general, the self-modulation optimization mechanism has a significant
+help for high-precision detection. For a more intuitive comparison, we visually compare these three
+regression losses, as shown in Figure 2. Since the center point (x, y) parameters in Smooth L1 Loss
+and GWD are independently optimized, their prediction results are slightly shifted. In contrast, the
+KLD-based prediction results are closer to the object boundary and show strong robustness in dense
+scenes. Similarly, GWD-based or KLD-based model has more accurate angle prediction capabilities
+than Smooth L1-based model due to their angle parameters (θ) are not independently optimized.
+Ablation study on more datasets. To make the results more credible, we continue to verify on the
+other five datasets, as shown in Table 5. The improvement of KLD on the three data sets of MLT,
+UCAS-AOD and DOTA-v1.0 is still considerable, with an increase of 9.17%, 1.58%, and 5.55%
+respectively. Note that for DOTA-v1.5 and DOTA-v2.0, which contain a large number of small
+objects (less than 10 pixels), KLD has achieved significant gains of 3.63% and 3.53%.
+Comparison of peer methods. Table 6 compares the six peer techniques, including IoU-Smooth L1
+Loss [3], Modulated loss [46], RIL [35], CSL [4, 48], DCL [47], and GWD [5] on DOTA-v1.0. For
+fairness, these methods are all implemented on the same baseline method, and are trained and tested
+under the same environment and hyperparameters. We detail the accuracy of the seven categories,
+8
+
+Table 5: More ablation experiments on other datasets.
+Method
+RetinaNet
+
+Reg. Loss
+Smooth L1
+GWD
+KLD
+
+MLT
+48.42
+54.58 (+6.16)
+57.59 (+9.17)
+
+UCAS-AOD
+94.56
+95.44 (+0.88)
+96.14 (+1.58)
+
+DOTA-v1.0
+65.73
+68.93 (+3.20)
+71.28 (+5.55)
+
+DOTA-v1.5
+58.87
+60.03 (+1.16)
+62.50 (+3.63)
+
+DOTA-v2.0
+44.16
+46.65 (+2.49)
+47.69 (+3.53)
+
+Table 6: Accuracy comparison between different rotation detectors on DOTA dataset. † and ‡
+represent the large aspect ratio object and the square-like object, respectively. The bold red and blue
+fonts indicate the top two performances respectively. Doc and Dle represent OpenCV Definition
+(θ ∈ [−90◦ , 0◦ )) and Long Edge Definition (θ ∈ [−90◦ , 90◦ )) of RBox.
+Baseline
+
+RetinaNet
+
+R3 Det [29]
+
+Method
+
+Box Def.
+
+IoU-Smooth L1 [3]
+Modulated Loss [46]
+Modulated Loss [46]
+RIL [35]
+CSL [4]
+DCL (BCL) [47]
+GWD [5]
+KLD
+DCL (BCL) [47]
+GWD [5]
+KLD
+
+Doc
+Dle
+Doc
+Doc
+Quad.
+Quad.
+Dle
+Dle
+Doc
+Doc
+Doc
+Dle
+Doc
+Doc
+
+BR†
+42.17
+38.31
+44.32
+42.92
+43.21
+40.81
+42.25
+41.40
+44.07
+44.00
+44.15
+46.84
+46.73
+48.34
+
+SV†
+65.93
+60.48
+63.03
+67.92
+70.78
+67.63
+68.28
+65.82
+71.92
+74.45
+75.09
+74.87
+75.84
+75.09
+
+LV†
+51.11
+49.77
+51.25
+52.91
+54.70
+55.45
+54.51
+56.27
+62.56
+72.48
+72.88
+74.96
+78.00
+78.88
+
+v1.0 tranval/test
+SH†
+HA†
+ST‡
+72.61 53.24 78.38
+68.29 51.28 78.60
+72.78 56.21 77.98
+72.67 53.64 80.22
+72.68 60.99 79.72
+72.42 55.49 78.09
+72.85 53.10 75.59
+73.80 54.30 79.02
+77.94 60.25 79.64
+84.30 65.54 80.03
+86.04 56.49 82.53
+85.70 57.72 84.06
+86.71 62.69 83.09
+86.52 65.48 82.08
+
+RA‡
+62.00
+60.02
+63.22
+58.21
+62.08
+64.75
+58.99
+60.25
+63.52
+65.05
+61.01
+63.77
+61.12
+61.51
+
+7-AP50
+60.78
+58.11
+61.26
+61.21
+63.45
+62.09
+60.80
+61.55
+65.70
+69.41
+68.31
+69.70
+70.60
+71.13
+
+AP50
+65.73
+64.17
+66.99
+66.05
+67.20
+66.06
+67.38
+67.39
+68.93
+71.28
+70.66
+71.21
+71.56
+71.73
+
+AP50
+64.70
+62.21
+64.61
+63.50
+65.15
+64.07
+64.40
+65.93
+65.44
+68.14
+67.18
+67.45
+69.28
+68.87
+
+v1.0 train/val
+AP75 AP50:95
+32.31
+34.50
+26.06
+31.49
+34.17
+36.23
+33.32
+34.61
+40.59
+39.12
+40.98
+39.05
+32.58
+35.04
+35.66
+36.71
+38.68
+38.71
+44.48
+42.15
+38.41
+38.46
+35.44
+37.54
+43.35
+41.56
+44.48
+42.11
+
+v1.5
+AP50
+58.87
+56.10
+59.16
+57.75
+61.42
+58.91
+58.55
+59.38
+60.03
+62.50
+62.91
+61.98
+63.22
+65.18
+
+v2.0
+AP50
+44.16
+43.06
+46.31
+45.17
+46.71
+45.35
+43.34
+45.46
+46.65
+47.69
+48.43
+48.71
+49.25
+50.90
+
+including large aspect ratio (e.g. BR, SV, LV, SH, HA) and square-like object (e.g. ST, RD), which
+can better reflect the real-world challenges and advantages of our method. Without bells and whistles,
+the combination of RetinaNet and KLD directly surpasses R3 Det (71.28% vs. 70.66% in AP50
+and 69.41% vs. 68.31% in 7-AP50 ). Even combined with R3 Det, KLD can still further improve
+performance of the large aspect ratio object (2.82% in 7-AP50 ) and high-precision detection (6.07%
+in AP75 and 3.65% AP50:95 ). KLD-based method shows the best performer in almost all indicators.
+Similar conclusions can still be drawn on the more challenging datasets (DOTA-v1.5 and DOTA-v2.0),
+which contain more data and tiny object (less than 10 pixels).
+Horizontal detection verification. As analyzed by Eq. 16, KLD can be degenerated into the common
+regression loss in horizontal detection task. Table 7 compares the regression loss Smooth L1 and
+IoU/GIoU for horizontal detection with the proposed regression loss KLD on MS COCO [49] dataset.
+The results show that our KLD is not worse than other losses on the Faster RCNN [8], RetinaNet [10]
+and FCOS [22], and even has an improvement of 0.6% on RetinaNet. The ground truth for rotation
+detection is the minimum circumscribed rectangle, which means that ground truth can well reflect the
+true scale and direction information of the object. The "horizontal special case" described in this paper
+also meets the above requirements, the horizontal circumscribed rectangle is equal to the minimum
+circumscribed rectangle at this time. Although the ground truth of the COCO is a horizontal box, it is
+not the minimum circumscribed rectangle, which means that it loses the direction information and
+accurate scale information of the object. For example, a baseball bat placed obliquely in the image,
+the height and width of its horizontal circumscribed rectangle do not represent the height and width of
+the object itself. This causes that when KLD is applied to the COCO, the optimization mechanism of
+KLD that dynamically adjusts the angle gradient according to the aspect ratio is meaningless, which
+affects the improvement of the final performance. In general, this is a defect in the dataset annotation
+itself, not that KLD is not good enough. In fact, it is inappropriate to use the COCO to discuss θ = 0◦ ,
+because the COCO discards θ parameter. In addition, θ = 0◦ describes the instances in the horizontal
+position, but not mean all instances of the dataset are in a horizontal position. This paper uses COCO
+to discuss the "horizontal special case" to express that even if the dataset has certain labeling defects,
+KLD can have certain effects. After all, it is difficult to observe the performance improvement of all
+horizontal objects on the rotating dataset.
+4.3
+
+Comparisons with the State-of-the-Art Methods
+
+The evaluation is performed on the DOTA, which contains a considerable number of categories,
+complexity scenes. Our single-scale model RetinaNet-KLD-R50 and R3 Det-KLD-R50 achieve
+75.28% and 77.36% respectively. They outperform multi-scale models as shown in Table 8. With
+large backbone and multi-scale testing, our method further achieves state-of-the-art accuracy 80.63%.
+9
+
+Table 7: Performance evaluation of KLD on classic horizontal detection.
+Detector
+RetinaNet [10]
+Faster RCNN [8]
+FCOS [22]
+
+Regression Loss
+Smooth L1
+GIoU
+KLD
+Smooth L1
+GIoU
+KLD
+IoU
+KLD
+
+AP
+37.2
+37.4
+38.0
+37.9
+38.3
+38.2
+36.6
+36.8
+
+AP50
+56.6
+56.7
+56.4
+58.8
+58.7
+58.7
+56.0
+56.3
+
+AP75
+39.7
+39.7
+40.6
+41.0
+41.5
+41.7
+38.8
+39.1
+
+APs
+21.4
+22.2
+23.3
+22.4
+22.5
+22.6
+21.0
+21.7
+
+APm
+41.1
+41.7
+43.2
+41.4
+41.7
+41.8
+40.6
+40.8
+
+APl
+48.0
+48.1
+49.3
+49.1
+49.7
+49.3
+47.0
+47.5
+
+Single-stage
+
+Two-stage
+
+Table 8: AP on different objects on DOTA-v1.0. Here R-101 denotes ResNet-101 (likewise for R-50,
+R-152), and RX-101 and H-104 represent ResNeXt101 [50] and Hourglass-104 [51], respectively. MS
+indicates that multi-scale training/testing is used. Red and blue indicate the top two performances.
+Method
+ICN [32]
+RoI-Trans. [12]
+SCRDet [3]
+Gliding Vertex [52]
+Mask OBB [53]
+CenterMap OBB [54]
+FPN-CSL [4]
+RSDet-II [46]
+SCRDet++ [55]
+ReDet [56]
+PIoU [33]
+O2 -DNet [58]
+DAL [15]
+P-RSDet [59]
+BBAVectors [60]
+DRN [14]
+PolarDet [61]
+RDD [62]
+GWD [5]
+
+Refine-stage
+
+KLD
+CFC-Net [34]
+R3 Det [29]
+DAL [15]
+DCL [47]
+RIDet [35]
+S2 A-Net [13]
+R3 Det-GWD [5]
+R3 Det-KLD
+
+5
+
+Backbone
+R-101
+R-101
+R-101
+R-101
+RX-101
+R-101
+R-152
+R-152
+R-101
+ReR-50
+DLA-34 [57]
+H-104
+R-101
+R-101
+R-101
+H-104
+R-101
+R-101
+R-152
+R-50
+R-50
+R-101
+R-152
+R-50
+R-152
+R-50
+R-101
+R-152
+R-50
+R-50
+R-152
+
+MS
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+X
+
+PL
+81.40
+88.64
+89.98
+89.64
+89.56
+89.83
+90.25
+89.93
+90.05
+88.81
+80.90
+89.31
+88.61
+88.58
+88.35
+89.71
+89.65
+89.15
+89.06
+88.91
+88.91
+89.08
+89.80
+89.69
+89.26
+89.31
+89.28
+89.66
+88.90
+89.90
+89.92
+
+BD
+74.30
+78.52
+80.65
+85.00
+85.95
+84.41
+85.53
+84.45
+84.39
+82.48
+69.70
+82.14
+79.69
+77.83
+79.96
+82.34
+87.07
+83.92
+84.32
+83.71
+85.23
+80.41
+83.77
+83.11
+83.60
+80.77
+84.11
+84.99
+84.17
+84.91
+85.13
+
+BR
+47.70
+43.44
+52.09
+52.26
+54.21
+54.60
+54.64
+53.77
+55.44
+60.83
+24.10
+47.33
+46.27
+50.44
+50.69
+47.22
+48.14
+52.51
+55.33
+50.10
+53.64
+52.41
+48.11
+55.03
+53.54
+54.07
+56.95
+59.26
+55.80
+59.21
+59.19
+
+GTF
+70.30
+75.92
+68.36
+77.34
+72.90
+70.25
+75.31
+74.35
+73.99
+80.82
+60.20
+61.21
+70.37
+69.29
+62.18
+64.10
+70.97
+73.06
+77.53
+68.75
+81.23
+70.02
+66.77
+71.00
+72.76
+76.38
+79.21
+82.19
+69.35
+78.74
+81.33
+
+SV
+64.90
+68.81
+68.36
+73.01
+76.52
+77.66
+70.44
+71.52
+77.54
+78.34
+38.30
+71.32
+65.89
+71.10
+78.43
+76.22
+78.53
+77.81
+76.95
+78.20
+78.20
+76.28
+78.76
+78.30
+79.04
+79.81
+80.18
+78.97
+78.72
+78.82
+78.82
+
+LV
+67.80
+73.68
+60.32
+73.14
+74.16
+78.32
+73.51
+78.31
+71.11
+86.06
+64.40
+74.03
+76.10
+75.79
+78.98
+74.43
+80.34
+79.00
+70.28
+76.05
+76.99
+78.11
+83.27
+81.90
+82.56
+81.99
+82.93
+84.83
+84.08
+83.95
+84.38
+
+SH
+70.00
+83.59
+72.41
+86.82
+85.63
+87.19
+77.62
+78.12
+86.05
+88.31
+64.80
+78.62
+78.53
+78.66
+87.94
+85.84
+87.45
+87.08
+83.95
+84.58
+84.58
+87.21
+87.84
+88.46
+87.31
+89.13
+89.21
+87.70
+87.00
+87.41
+87.50
+
+TC
+90.80
+90.74
+90.85
+90.74
+89.85
+90.66
+90.84
+91.14
+90.67
+90.87
+90.90
+90.76
+90.84
+90.88
+90.85
+90.57
+90.76
+90.62
+89.75
+89.41
+89.50
+90.89
+90.82
+90.89
+90.67
+90.72
+90.86
+90.21
+89.75
+89.89
+89.80
+
+BC
+79.10
+77.27
+87.94
+79.02
+83.81
+84.89
+86.15
+87.35
+87.32
+88.77
+77.20
+82.23
+79.98
+80.10
+83.58
+86.18
+85.63
+86.72
+84.51
+86.15
+86.84
+84.47
+85.38
+84.97
+86.59
+83.58
+84.66
+86.54
+84.32
+86.63
+87.33
+
+ST
+78.20
+81.46
+86.86
+86.81
+86.48
+85.27
+86.69
+86.93
+87.08
+87.03
+70.40
+81.36
+78.41
+81.71
+84.35
+84.89
+86.87
+87.15
+86.06
+85.28
+86.38
+85.64
+85.51
+87.46
+86.98
+87.22
+87.61
+86.85
+85.73
+86.69
+87.00
+
+SBF
+53.60
+58.39
+65.02
+59.55
+54.89
+56.46
+69.60
+65.64
+69.62
+68.65
+46.50
+60.93
+58.71
+57.92
+54.13
+57.65
+61.64
+63.96
+73.47
+63.15
+71.69
+60.51
+65.67
+64.41
+67.49
+64.42
+71.66
+73.04
+64.74
+70.47
+72.57
+
+RA
+62.90
+53.54
+66.68
+70.91
+69.64
+69.23
+68.04
+65.17
+68.90
+66.90
+37.10
+60.17
+62.02
+63.03
+60.24
+61.93
+70.32
+70.29
+67.77
+60.90
+68.06
+61.52
+62.68
+65.65
+66.88
+67.56
+68.23
+67.56
+61.80
+70.87
+71.35
+
+HA
+67.00
+62.83
+66.25
+72.94
+73.94
+74.13
+73.83
+75.35
+73.74
+79.26
+57.10
+58.21
+69.23
+66.30
+65.22
+69.30
+71.92
+76.98
+72.60
+75.06
+75.95
+67.82
+67.53
+76.86
+73.29
+78.08
+78.58
+76.92
+76.62
+76.96
+77.12
+
+SP
+64.20
+58.93
+68.24
+70.86
+69.06
+71.56
+71.10
+79.74
+71.29
+79.71
+61.90
+66.98
+71.32
+69.77
+64.28
+69.63
+73.09
+75.79
+75.76
+71.51
+72.23
+68.02
+78.56
+72.09
+70.56
+79.17
+78.20
+79.22
+78.49
+79.40
+79.34
+
+HC
+50.20
+47.67
+65.21
+57.32
+63.32
+66.06
+68.93
+63.31
+65.08
+74.67
+64.00
+61.03
+60.65
+63.13
+55.70
+58.48
+67.15
+72.15
+74.17
+67.45
+75.42
+50.09
+72.62
+64.35
+69.99
+62.07
+65.55
+74.92
+70.89
+78.62
+78.68
+
+AP50
+68.20
+69.56
+72.61
+75.02
+75.33
+76.03
+76.17
+76.34
+76.81
+80.10
+60.50
+71.04
+71.78
+72.30
+72.32
+73.23
+76.64
+77.75
+77.43
+75.28
+78.32
+73.50
+76.47
+76.95
+77.37
+77.62
+79.15
+80.19
+77.36
+80.17
+80.63
+
+Discussions
+
+Limitations. Despite the theoretical grounds and the promising experimental justifications, our
+method has an obvious limitation that it cannot be directly applied to quadrilateral detection [35, 46].
+Potential negative societal impacts. Our findings provides a simple regression loss for highprecision rotation detection. However, our research may be applied to some sensitive fields, such as
+remote sensing, aviation, and unmanned aerial vehicles.
+Conclusion. Departure from the vast existing literature in object detection, in this paper we have
+designed a new regression loss for rotation detection from scratch and consider the popular horizontal
+detection as its special case. Specifically, we calculate the KLD between the Gaussian distributions
+corresponding to the rotated bounding box as the regression loss, and we find that in the learning
+procedure guided by the KLD loss, the gradient of the parameters can be dynamically adjusted
+according to the characteristics of the object which is a desirable property for robust object detection,
+regardless its rotation, size and aspect ratio etc. We also proved that KLD has scale invariance, which
+is crucial for detection tasks. Interestingly, we have shown that KLD can be degenerated into the
+currently commonly used ln -norm loss in the horizontal detection task. Extensive experimental
+results across different detectors and datasets show the effectiveness of our approach.
+
+A
+
+Appendix
+
+A.1
+
+Proof of Scale Invariance of KLD
+
+Suppose there are two Gaussian distributions, denoted as Xp ∼ Np (µp , Σp ) and Xt ∼ Nt (µt , Σt ).
+Then, for a full-rank matrix M, |M| =
+6 0, we have Xp0 = MXp ∼ Np (Mµp , MΣp M> ), Xt0 =
+MXt ∼ Nt (Mµt , MΣt M> ), denoted as Np0 and Nt0 . The Kullback-Leibler Divergence (KLD)
+10
+
+Figure 4: L2 -norm, GWD and KLD versus scaling factor.
+between Np0 and Nt0 is:
+1
+−1
+M(µp − µt )
+Dkl (Np0 ||Nt0 ) = (µp − µt )> M> (M> )−1 Σ−1
+t M
+2
+
+
+1
+−1
+MΣp M>
++ Tr (M> )−1 Σ−1
+t M
+2
+|M||Σt ||M> |
+1
+−1
++ ln
+2 |M||Σp ||M> |
+1
+= (µp − µt )> Σ−1
+t (µp − µt )
+2
+
+
+1
+−1
++ Tr M> (M> )−1 Σ−1
+MΣp
+t M
+2
+|Σt |
+1
++ ln
+−1
+2 |Σp |
+=Dkl (Np ||Nt )
+
+(20)
+
+Therefore, KLD has affine invariance. Especially when M = kI (I denotes identity matrix), the scale
+invariance of KLD is proved.
+A.2
+
+Analysis of Dkl (Nt ||Np )’s High-Precision Detection
+
+The Dkl (Nt ||Np ) between two 2-D Gaussian is:
+Dkl (Nt ||Np ) =
+
+1
+1
+1 |Σp |
+(µp − µt )> Σ−1
+Tr(Σ−1
+ln
+−1
+p (µp − µt ) +
+p Σt ) +
+2
+2
+2
+|Σt |
+
+(21)
+
+each item of Eq. 21 can be expressed as
+(µp − µt )> Σ−1
+p (µp − µt ) =
+Tr(Σ−1
+p Σt ) =
+
+4 (∆x cos θp + ∆y sin θp )2
+4 (∆y cos θp − ∆x sin θp )2
++
+wp2
+h2p
+
+h2t
+w2
+h2
+w2
+sin2 ∆θ + 2t sin2 ∆θ + 2t cos2 ∆θ + t2 cos2 ∆θ
+2
+wp
+hp
+hp
+wp
+ln
+
+(22)
+(23)
+
+h2p
+wp2
+|Σp |
+= ln 2 + ln 2
+|Σt |
+ht
+wt
+
+(24)
+
+where ∆x = xp − xt , ∆y = yp − yt , ∆θ = θp − θt .
+For the parameter µp , we have
+∂fkl (µp )
+=
+∂µp
+
+4
+4
+2 (∆x cos θp + ∆y sin θp ) cos θp + h2 (−∆x sin θp + ∆y cos θp )(− sin θp )
+wp
+p
+4
+4
+2 (∆x cos θp + ∆y sin θp ) sin θp + h2 (−∆x sin θp + ∆y cos θp ) cos θp
+wp
+p
+
+11
+
+!
+(25)
+
+Figure 5: L2 -norm, GWD and KLD versus parameters when the targeted height varies.
+It is assumed that except for µp , other parameters have been optimized to the best. In other words,
+hp = ht , wp = wt , and θp = θt . Without loss of generality, we set θt = 0◦ , then
+∂fkl (µp )
+=
+∂µp
+
+
+
+4
+4
+∆x, 2 ∆y
+wt2
+ht
+
+>
+(26)
+
+The weights 1/wt2 and 1/h2t will make the model dynamically adjust the optimization of the object
+position according to the scale.
+For hp and wp , we have
+∂fkl (Σp )
+4 (∆y cos θp − ∆x sin θp )2
+w2
+h2
+=1 −
+− 2t sin2 ∆θ − 2t cos2 ∆θ
+2
+∂ ln hp
+hp
+hp
+hp
+∂fkl (Σp )
+4 (∆x cos θp + ∆y sin θp )2
+h2
+w2
+=1 −
+− t2 sin2 ∆θ − t2 cos2 ∆θ
+2
+∂ ln wp
+wp
+wp
+wp
+∂f (Σ )
+
+h2
+
+∂f (Σ )
+
+(27)
+
+w2
+
+Similarly, suppose ∆x = ∆y = ∆θ = 0, ∂klln hpp = 1 − h2t , ∂klln wpp = 1 − wt2 , which means that
+p
+p
+the smaller targeted height or width leads to heavier penalty on its matching loss. This is desirable, as
+smaller height or width needs higher matching precision.
+Similarly, suppose ∆x = ∆y = ∆ = 0 and wp = wt , hp = ht , we have
+∂fkl (Σp )
+=
+∂θp
+
+
+
+
+h2t
+wt2
++
+−
+2
+sin 2∆θ ≥ sin 2∆θ
+wt2
+h2t
+
+(28)
+
+the condition for the equality sign is ht = wt . This shows that the larger the aspect ratio of the object,
+the model will pay more attention to the optimization of the angle.
+Compared with Dkl (Np ||Nt ), Dkl (Nt ||Np ) has a similar gradient optimization strategy. The difference is that the relationship between the parameters of Dkl (Nt ||Np ) is tighter.
+12
+
+A.3
+
+The Visualization of KLD’s Advantages
+
+This section aims to visually show the advantages of KLD, including its scale invariance and ability
+of high-precision detection. To this end, we compare KLD with L2 -norm and GWD, pointing out
+that these advantages are characteristics of KLD.
+To visualize the scale invariance of KLD, we consider the KLD of two given boxes, and investigate
+the variation of KLD when the two boxes are enlarged with a scaling factor s. Specifically, the
+parameters of the two boxes are (0, 0, s, 2s, 5◦ ) and (s, s, 1.1s, 2.2s, 5◦ ), respectively. As shown in
+Figure 4, the value of KLD is invariant to the scaling factor s. Compareed with this, the values of
+L2 -norm and GWD change when s increases, and hence they have no advantage of scale invariance.
+Note that IoU is also invariant to the scaling of boxes, and hence to some degree, KLD is a better
+substitute of IoU than L2 -norm and GWD.
+The ability of high-precision detection of KLD means it do well in object detection with large aspect
+ratio. Specifically, for bounding box with larger aspect ratio, KLD gives heavier penalties to matching
+of shorter edge’s length and the center point’s position along the shorter edge’s direction, as well as
+the matching of angle. These characteristics are desirable, as when matching bounding box with large
+aspect ratio, IoU is intuitively sensitive to the shorter edge’s length, the center point’s position along
+the shorter edge’s direction and the angle. To visualize these characteristics of KLD, we consider a
+target box with x = 0, y = 0, w = 1, θ = 0, and set h = {1, 2, 3, 4} to control the aspect ratio, and
+plot KLD versus the variation of parameters. L2 -norm and GWD are also included for comparisons.
+As shown in Figure 5, when h increases, KLD is more sensitive to the variation of x, w and θ,
+meaning it has desirable advantages for object detection with large aspect ratio. Compared with this,
+both L2 -norm and GWD pay no more attention to the matching of x and w when h increases, and
+L2 -norm is even unchanged when the difference of angle ∆θ is fixed.
+
+References
+[1] X. Yang, H. Sun, K. Fu, J. Yang, X. Sun, M. Yan, and Z. Guo, “Automatic ship detection in remote sensing
+images from google earth of complex scenes based on multiscale rotation dense feature pyramid networks,”
+Remote Sensing, vol. 10, no. 1, p. 132, 2018.
+[2] X. Yang, H. Sun, X. Sun, M. Yan, Z. Guo, and K. Fu, “Position detection and direction prediction for
+arbitrary-oriented ships via multitask rotation region convolutional neural network,” IEEE Access, vol. 6,
+pp. 50 839–50 849, 2018.
+[3] X. Yang, J. Yang, J. Yan, Y. Zhang, T. Zhang, Z. Guo, X. Sun, and K. Fu, “Scrdet: Towards more robust
+detection for small, cluttered and rotated objects,” in Proceedings of the IEEE International Conference on
+Computer Vision, 2019, pp. 8232–8241.
+[4] X. Yang and J. Yan, “Arbitrary-oriented object detection with circular smooth label,” in European Conference on Computer Vision. Springer, 2020, pp. 677–694.
+[5] X. Yang, J. Yan, M. Qi, W. Wang, Z. Xiaopeng, and T. Qi, “Rethinking rotated object detection with
+gaussian wasserstein distance loss,” in International Conference on Machine Learning, 2021.
+[6] Q. Ming, L. Miao, Z. Zhou, J. Song, and X. Yang, “Sparse label assignment for oriented object detection
+in aerial images,” Remote Sensing, vol. 13, no. 14, p. 2664, 2021.
+[7] R. Girshick, “Fast r-cnn,” in Proceedings of the IEEE International Conference on Computer Vision, 2015,
+pp. 1440–1448.
+[8] S. Ren, K. He, R. Girshick, and J. Sun, “Faster r-cnn: Towards real-time object detection with region
+proposal networks,” in Advances in neural information processing systems, 2015, pp. 91–99.
+[9] T.-Y. Lin, P. Dollár, R. Girshick, K. He, B. Hariharan, and S. Belongie, “Feature pyramid networks for
+object detection,” in Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition,
+2017, pp. 2117–2125.
+[10] T.-Y. Lin, P. Goyal, R. Girshick, K. He, and P. Dollár, “Focal loss for dense object detection,” in Proceedings
+of the IEEE International Conference on Computer Vision, 2017, pp. 2980–2988.
+[11] J. Dai, Y. Li, K. He, and J. Sun, “R-fcn: Object detection via region-based fully convolutional networks,”
+in Advances in neural information processing systems, 2016, pp. 379–387.
+
+13
+
+[12] J. Ding, N. Xue, Y. Long, G.-S. Xia, and Q. Lu, “Learning roi transformer for oriented object detection in
+aerial images,” in Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, 2019,
+pp. 2849–2858.
+[13] J. Han, J. Ding, J. Li, and G.-S. Xia, “Align deep features for oriented object detection,” IEEE Transactions
+on Geoscience and Remote Sensing, 2021.
+[14] X. Pan, Y. Ren, K. Sheng, W. Dong, H. Yuan, X. Guo, C. Ma, and C. Xu, “Dynamic refinement network
+for oriented and densely packed object detection,” in Proceedings of the IEEE Conference on Computer
+Vision and Pattern Recognition, 2020, pp. 11 207–11 216.
+[15] Q. Ming, Z. Zhou, L. Miao, H. Zhang, and L. Li, “Dynamic anchor learning for arbitrary-oriented object
+detection,” in Proceedings of the AAAI Conference on Artificial Intelligence, vol. 35, no. 3, 2021, pp.
+2355–2363.
+[16] S. Kullback and R. A. Leibler, “On information and sufficiency,” The annals of mathematical statistics,
+vol. 22, no. 1, pp. 79–86, 1951.
+[17] C. Villani, Optimal transport: old and new.
+
+Springer Science & Business Media, 2008, vol. 338.
+
+[18] X. Yang, Y. Zhou, and J. Yan, “Alpharotate: A rotation detection benchmark using tensorflow,” arXiv
+preprint arXiv:2111.06677, 2021.
+[19] Y. Zhou, X. Yang, G. Zhang, J. Wang, Y. Liu, L. Hou, X. Jiang, X. Liu, J. Yan, C. Lyu, W. Zhang, and
+K. Chen, “Mmrotate: A rotated object detection benchmark using pytorch,” 2022.
+[20] J. Redmon, S. Divvala, R. Girshick, and A. Farhadi, “You only look once: Unified, real-time object
+detection,” in Proceedings of the IEEE conference on computer vision and pattern recognition, 2016, pp.
+779–788.
+[21] W. Liu, D. Anguelov, D. Erhan, C. Szegedy, S. Reed, C.-Y. Fu, and A. C. Berg, “Ssd: Single shot multibox
+detector,” in European conference on computer vision. Springer, 2016, pp. 21–37.
+[22] Z. Tian, C. Shen, H. Chen, and T. He, “Fcos: Fully convolutional one-stage object detection,” in Proceedings
+of the IEEE/CVF International Conference on Computer Vision, 2019, pp. 9627–9636.
+[23] X. Zhou, D. Wang, and P. Krähenbühl, “Objects as points,” arXiv preprint arXiv:1904.07850, 2019.
+[24] Z. Yang, S. Liu, H. Hu, L. Wang, and S. Lin, “Reppoints: Point set representation for object detection,” in
+Proceedings of the IEEE/CVF International Conference on Computer Vision, 2019, pp. 9657–9666.
+[25] N. Carion, F. Massa, G. Synnaeve, N. Usunier, A. Kirillov, and S. Zagoruyko, “End-to-end object detection
+with transformers,” in European Conference on Computer Vision. Springer, 2020, pp. 213–229.
+[26] X. Zhu, W. Su, L. Lu, B. Li, X. Wang, and J. Dai, “Deformable detr: Deformable transformers for
+end-to-end object detection,” in International Conference on Learning Representations, 2020.
+[27] H. Rezatofighi, N. Tsoi, J. Gwak, A. Sadeghian, I. Reid, and S. Savarese, “Generalized intersection over
+union: A metric and a loss for bounding box regression,” in Proceedings of the IEEE Conference on
+Computer Vision and Pattern Recognition, 2019, pp. 658–666.
+[28] Z. Zheng, P. Wang, W. Liu, J. Li, R. Ye, and D. Ren, “Distance-iou loss: Faster and better learning for
+bounding box regression.” in Proceedings of the AAAI Conference on Artificial Intelligence, 2020, pp.
+12 993–13 000.
+[29] X. Yang, J. Yan, Z. Feng, and T. He, “R3det: Refined single-stage detector with feature refinement for
+rotating object,” in Proceedings of the AAAI Conference on Artificial Intelligence, vol. 35, no. 4, 2021, pp.
+3163–3171.
+[30] Y. Jiang, X. Zhu, X. Wang, S. Yang, W. Li, H. Wang, P. Fu, and Z. Luo, “R2cnn: rotational region cnn for
+orientation robust scene text detection,” arXiv preprint arXiv:1706.09579, 2017.
+[31] J. Ma, W. Shao, H. Ye, L. Wang, H. Wang, Y. Zheng, and X. Xue, “Arbitrary-oriented scene text detection
+via rotation proposals,” IEEE Transactions on Multimedia, vol. 20, no. 11, pp. 3111–3122, 2018.
+[32] S. M. Azimi, E. Vig, R. Bahmanyar, M. Körner, and P. Reinartz, “Towards multi-class object detection in
+unconstrained remote sensing imagery,” in Asian Conference on Computer Vision. Springer, 2018, pp.
+150–165.
+
+14
+
+[33] Z. Chen, K. Chen, W. Lin, J. See, H. Yu, Y. Ke, and C. Yang, “Piou loss: Towards accurate oriented object
+detection in complex environments,” in European Conference on Computer Vision. Springer, 2020, pp.
+195–211.
+[34] Q. Ming, L. Miao, Z. Zhou, and Y. Dong, “Cfc-net: A critical feature capturing network for arbitraryoriented object detection in remote sensing images,” arXiv preprint arXiv:2101.06849, 2021.
+[35] Q. Ming, L. Miao, Z. Zhou, X. Yang, and Y. Dong, “Optimization for arbitrary-oriented object detection
+via representation invariance loss,” IEEE Geoscience and Remote Sensing Letters, 2021.
+[36] H. Jeffreys, “An invariant form for the prior probability in estimation problems,” Proceedings of the Royal
+Society of London. Series A. Mathematical and Physical Sciences, vol. 186, no. 1007, pp. 453–461, 1946.
+[37] C. Manning and H. Schutze, Foundations of statistical natural language processing.
+
+MIT press, 1999.
+
+[38] G.-S. Xia, X. Bai, J. Ding, Z. Zhu, S. Belongie, J. Luo, M. Datcu, M. Pelillo, and L. Zhang, “Dota:
+A large-scale dataset for object detection in aerial images,” in Proceedings of the IEEE Conference on
+Computer Vision and Pattern Recognition, 2018, pp. 3974–3983.
+[39] H. Zhu, X. Chen, W. Dai, K. Fu, Q. Ye, and J. Jiao, “Orientation robust object detection in aerial images
+using deep convolutional neural network,” in 2015 IEEE International Conference on Image Processing.
+IEEE, 2015, pp. 3735–3739.
+[40] Z. Liu, L. Yuan, L. Weng, and Y. Yang, “A high resolution optical satellite image dataset for ship recognition and some new baselines,” in Proceedings of the International Conference on Pattern Recognition
+Applications and Methods, vol. 2, 2017, pp. 324–331.
+[41] D. Karatzas, L. Gomez-Bigorda, A. Nicolaou, S. Ghosh, A. Bagdanov, M. Iwamura, J. Matas, L. Neumann,
+V. R. Chandrasekhar, S. Lu et al., “Icdar 2015 competition on robust reading,” in 2015 13th International
+Conference on Document Analysis and Recognition. IEEE, 2015, pp. 1156–1160.
+[42] N. Nayef, F. Yin, I. Bizid, H. Choi, Y. Feng, D. Karatzas, Z. Luo, U. Pal, C. Rigaud, J. Chazalon et al.,
+“Icdar2017 robust reading challenge on multi-lingual scene text detection and script identification-rrc-mlt,”
+in 2017 14th IAPR International Conference on Document Analysis and Recognition, vol. 1. IEEE, 2017,
+pp. 1454–1459.
+[43] C. Yao, X. Bai, W. Liu, Y. Ma, and Z. Tu, “Detecting texts of arbitrary orientations in natural images,”
+in Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition. IEEE, 2012, pp.
+1083–1090.
+[44] M. Abadi, P. Barham, J. Chen, Z. Chen, A. Davis, J. Dean, M. Devin, S. Ghemawat, G. Irving, M. Isard
+et al., “Tensorflow: A system for large-scale machine learning,” in 12th {USENIX} symposium on operating
+systems design and implementation ({OSDI} 16), 2016, pp. 265–283.
+[45] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image recognition,” in Proceedings of the
+IEEE Conference on Computer Vision and Pattern Recognition, 2016, pp. 770–778.
+[46] W. Qian, X. Yang, S. Peng, J. Yan, and Y. Guo, “Learning modulated loss for rotated object detection,” in
+Proceedings of the AAAI Conference on Artificial Intelligence, vol. 35, no. 3, 2021, pp. 2458–2466.
+[47] X. Yang, L. Hou, Y. Zhou, W. Wang, and J. Yan, “Dense label encoding for boundary discontinuity free
+rotation detection,” in Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition,
+2021, pp. 15 819–15 829.
+[48] X. Yang, J. Yan, and T. He, “On the arbitrary-oriented object detection: Classification based approaches
+revisited,” arXiv preprint arXiv:2003.05597, 2020.
+[49] T.-Y. Lin, M. Maire, S. Belongie, J. Hays, P. Perona, D. Ramanan, P. Dollár, and C. L. Zitnick, “Microsoft
+coco: Common objects in context,” in European conference on computer vision. Springer, 2014, pp.
+740–755.
+[50] S. Xie, R. Girshick, P. Dollár, Z. Tu, and K. He, “Aggregated residual transformations for deep neural
+networks,” in Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, 2017, pp.
+1492–1500.
+[51] A. Newell, K. Yang, and J. Deng, “Stacked hourglass networks for human pose estimation,” in European
+Conference on Computer Vision. Springer, 2016, pp. 483–499.
+
+15
+
+[52] Y. Xu, M. Fu, Q. Wang, Y. Wang, K. Chen, G.-S. Xia, and X. Bai, “Gliding vertex on the horizontal
+bounding box for multi-oriented object detection,” IEEE transactions on pattern analysis and machine
+intelligence, vol. 43, no. 4, pp. 1452–1459, 2020.
+[53] J. Wang, J. Ding, H. Guo, W. Cheng, T. Pan, and W. Yang, “Mask obb: A semantic attention-based mask
+oriented bounding box representation for multi-category object detection in aerial images,” Remote Sensing,
+vol. 11, no. 24, p. 2930, 2019.
+[54] J. Wang, W. Yang, H.-C. Li, H. Zhang, and G.-S. Xia, “Learning center probability map for detecting
+objects in aerial images,” IEEE Transactions on Geoscience and Remote Sensing, vol. 59, no. 5, pp.
+4307–4323, 2020.
+[55] X. Yang, J. Yan, W. Liao, X. Yang, J. Tang, and T. He, “Scrdet++: Detecting small, cluttered and rotated
+objects via instance-level feature denoising and rotation loss smoothing,” IEEE Transactions on Pattern
+Analysis and Machine Intelligence, 2022.
+[56] J. Han, J. Ding, N. Xue, and G.-S. Xia, “Redet: A rotation-equivariant detector for aerial object detection,”
+in Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, 2021, pp. 2786–2795.
+[57] F. Yu, D. Wang, E. Shelhamer, and T. Darrell, “Deep layer aggregation,” in Proceedings of the IEEE
+Conference on Computer Vision and Pattern Recognition, 2018, pp. 2403–2412.
+[58] H. Wei, Y. Zhang, Z. Chang, H. Li, H. Wang, and X. Sun, “Oriented objects as pairs of middle lines,”
+ISPRS Journal of Photogrammetry and Remote Sensing, vol. 169, pp. 268–279, 2020.
+[59] L. Zhou, H. Wei, H. Li, W. Zhao, Y. Zhang, and Y. Zhang, “Arbitrary-oriented object detection in remote
+sensing images based on polar coordinates,” IEEE Access, vol. 8, pp. 223 373–223 384, 2020.
+[60] J. Yi, P. Wu, B. Liu, Q. Huang, H. Qu, and D. Metaxas, “Oriented object detection in aerial images with
+box boundary-aware vectors,” in Proceedings of the IEEE/CVF Winter Conference on Applications of
+Computer Vision, 2021, pp. 2150–2159.
+[61] P. Zhao, Z. Qu, Y. Bu, W. Tan, and Q. Guan, “Polardet: A fast, more precise detector for rotated target in
+aerial images,” International Journal of Remote Sensing, vol. 42, no. 15, pp. 5821–5851, 2021.
+[62] B. Zhong and K. Ao, “Single-stage rotation-decoupled detector for oriented object,” Remote Sensing,
+vol. 12, no. 19, p. 3262, 2020.
+
+16
+
+

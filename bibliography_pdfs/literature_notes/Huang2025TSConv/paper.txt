@@ -1,0 +1,4030 @@
+Task-wise Sampling Convolutions for Arbitrary
+Oriented Object Detection in Aerial Images
+
+Input Images
+
+Abstract—Arbitrary-oriented object detection (AOOD) has
+been widely applied to locate and classify objects with diverse
+orientations in remote sensing images. However, the inconsistent
+features for the localization and classification tasks in AOOD
+models may lead to ambiguity and low-quality object predictions,
+which constrains the detection performance. In this paper, an
+AOOD method called task-wise sampling convolutions (TS-Conv)
+is proposed. TS-Conv adaptively samples task-wise features from
+respective sensitive regions and maps these features together
+in alignment to guide a dynamic label assignment for better
+predictions. Specifically, sampling positions of the localization
+convolution in TS-Conv is supervised by the oriented bounding
+box (OBB) prediction associated with spatial coordinates. While
+sampling positions and convolutional kernel of the classification
+convolution are designed to be adaptively adjusted according to
+different orientations for improving the orientation robustness of
+features. Furthermore, a dynamic task-aware label assignment
+(DTLA) strategy is developed to select optimal candidate positions and assign labels dynamicly according to ranked task-aware
+scores obtained from TS-Conv. Extensive experiments on several
+public datasets covering multiple scenes, multimodal images,
+and multiple categories of objects demonstrate the effectiveness,
+scalability and superior performance of the proposed TS-Conv.
+
+Localization Feature Classsification Feature
+Sensitive Regions
+Sensitive Regions
+Oriented
+Bounding Box
+
+Ship
+0.1
+0.3
+0.9
+
+...
+
+0.2
+
+0.1
+
+Horizontal
+Bounding Box
+
+IFS of Different
+Subtasks
+Ship
+
+Oriented
+Bounding Box
+
+Localization
+Features
+Convolution
+
+0.1
+0.3
+0.9
+0.2
+
+...
+
+arXiv:2209.02200v3 [cs.CV] 27 Mar 2024
+
+Zhanchao Huang, Member, IEEE, Wei Li, Senior Member, IEEE, Xiang-Gen Xia, Fellow, IEEE,
+Hao Wang, and Ran Tao, Senior Member, IEEE
+
+0.1
+
+Horizontal
+Bounding Box
+
+Coupled IFS:
+Different Goals
+
+Classification
+Features
+Convolution
+
+IFS of Different
+Orientations
+
+(a)
+
+(b)
+
+Fig. 1. (a) The IFS problems of AOOD in different subtasks and orientations.
+(b) The IFS problem is exacerbated by the diverse orientation and dense
+distribution of objects.
+
+networks (CNNs), many CNN-based AOOD methods have
+emerged [4–7].
+However, when locating and classifying objects in a CNN
+model, these two tasks may focus on different feature regions,
+as shown in Fig. 1 (a). This problem of inconsistent feature sensitivity (IFS) between localization and classification
+tasks [8–10] constrains the performance of object detection.
+Moreover, compared with the IFS problem in general object
+detection (GOD), the IFS problem in AOOD is more challenging in the sense that not only IFS of different subtasks
+but also IFS of different orientations should be considered, as
+well as the problem of coupling the two problems. On one
+hand, Compared with GOD, IFS of different orientations in
+AOOD should be considered. As shown in Fig. 1 (a), when the
+orientations of the ships are different, their sensitive regions
+of localization features are also different. Since the bounding
+box in GOD does not consider the orientation, these ships
+can even be localized using similar bounding boxes predicted
+from different sensitive features [7]. While in AOOD, the
+bounding box also has orientation characteristics, so IFS of
+different orientations has a great impact on the accuracy of
+object localization. On the other hand, AOOD needs to further
+consider the inconsistency in learning goals when IFS of
+different subtasks and IFS of different orientations problems
+are coupled. Different from the features and predictions of the
+localization subtask in AOOD that need to change with IFS of
+different orientations, the features of the classification subtask
+should be robust to IFS of different orientations without
+changing for the same category of objects.
+Therefore, when the IFS of different subtasks is coupled
+with IFS of different orientations, the learning goals of dif-
+
+Index Terms—Arbitrary-oriented object detection, convolutional neural network, dynamic label assignment, oriented bounding box, task-wise samping strategy.
+
+I. I NTRODUCTION
+RBITRARY-ORIENTED object detection (AOOD) is
+widely applied in remote sensing scenes [1]. Distinguished from the objects in ordinary object detection (OD)
+[2, 3], objects in AOOD have more diverse orientations and
+are localized by oriented bounding boxes (OBBs). Recently,
+benefiting from the intensive research on convolutional neural
+
+A
+
+This work was supported by National Key R&D Program of China under Grant 2021YFB3900502. (Corresponding Author: Wei Li; e-mail: liwei089@ieee.org)
+Zhanchao Huang is with the Key Laboratory of Spatial Data Mining and
+Information Sharing of Ministry of Education, The Academy of Digital
+China, Fuzhou University, Fuzhou 350108, China; with the National &
+Local Joint Engineering Research Center of Satellite Geospatial Information
+Technology, Fuzhou University, Fuzhou 350108, China; and with the School
+of Information and Electronics, Beijing Institute of Technology, and Beijing
+Key Lab of Fractional Signals and Systems, Beijing 100081, China. (e-mail:
+zhanchao.h@outlook.com)
+Wei Li, Hao Wang, Ran Tao are with the School of Information and
+Electronics, Beijing Institute of Technology, and Beijing Key Lab of Fractional
+Signals and Systems, Beijing 100081, China. (e-mail: liwei089@ieee.org;
+haohaolalahao@icloud.com; rantao@bit.edu.cn)
+Xiang-Gen Xia is with the Department of Electrical and Computer Engineering, University of Delaware, Newark, DE 19716, USA. (e-mail:
+xxia@ee.udel.edu)
+
+1
+
+ferent subtasks for IFS are different. Furthermore, objects
+usually have more diverse orientations and dense distribution
+in AOOD tasks [11], which also exacerbates the IFS problem.
+Since objects of the same category have different orientations
+in the remote sensing overhead perspective, their IFS is not
+only between different subtasks and categories but also within
+the same category and subtasks. Besides, since many objects
+in remote sensing images may be densely distributed [12],
+the feature-sensitive areas of different objects may interfere
+with the feature extraction of vanilla convolution. As shown in
+Fig. 1 (b), since the vanilla convolution neighborhood range is
+fixed, surrounding objects may interfere with feature extraction
+within the convolution area, i.e., the difference between the
+two feature-sensitive regions in the two red boxes in Fig. 1
+(b) becomes larger. This exacerbates IFS, which is not directly
+due to subtask or orientation differences. In addition, the IFS
+problem also leads to ambiguity in label assignment due to the
+different preferences of each candidate for location-sensitivity
+or classification-sensitivity.
+In response to the IFS problem of different subtasks, RepPoints [13], Oriented RepPoints [14], etc., sampled localization and classification features by two DCNs that share the
+aligned sampling offsets in two CNN branches. However, the
+positions suitable for sampling localization features may not
+be suitable for sampling classification features. The forced
+alignment of sampling offsets for different subtasks may cause
+some sampling points that are only suitable for one task to be
+missed. Furthermore, a candidate position for accurate localization may not be optimal for object classification when CNN
+makes predictions. In this regard, AutoAssign[15], ATSS[16],
+GGHL [7], etc., indirectly improve the prediction by adjusting
+the selection or weights of positive and negative samples to
+optimize the training supervision. However, these methods
+do not directly change the feature extraction or alignment
+process, the IFS problem existed in the sampling process of
+the convolutional layer is not eliminated. However, AOOD
+not only faces IFS of different subtasks but also faces IFS of
+different directions, as well as the problem of coupling the
+two IFS together. Existing researches do not consider these
+and other challenges.
+Rethinking the above problems and observing Fig. 1, a
+straightforward idea is to separately extract more appropriate
+features from different sampling positions that are suitable
+for different subtasks and different object orientations by
+different sampling strategies. Following this idea, two more
+aspects have to be carefully considered: 1) selecting appropriate sampling strategies for extracting task-wise features,
+and 2) designing association constraints for different sampling
+offsets since they are not entirely independent. Besides, in the
+design of the task-wise convolutional sampling scheme, the
+characteristics of objects, including OBB representation, dense
+distribution, diverse orientation, etc., need to be carefully considered. Furthermore, when the task-wise features are mapped
+to the same candidate position for predictions, it requires a
+dynamic label assignment strategy to provide feedback to the
+CNN on which candidate positions are suitable. Therefore,
+motivated by the above considerations of the IFS problem and
+AOOD challenges, a Task-wise Sampling Convolutions (TS-
+
+Conv) method is proposed in this work. The main contributions
+are summarized as follows.
+1) The IFS problem of different subtasks and different
+orientations in AOOD is comprehensively analyzed. On this
+basis, the proposed TS-Conv designs more explicitly supervised sampling strategies to extract the task-wise features
+from appropriate sensitive regions. Furthermore, the sampling
+strategies, feature alignment processes, and label assignment
+are unified into a closely related framework to achieve dynamic feedback optimization.
+2) In the designed TS-Conv, the localization sampling
+offsets are directly associated with the spatial coordinate
+embeddings and the OBB decoding in the detection head,
+which change with the orientations and sizes of objects. The
+classification sampling offsets are rotation invariant and can
+be used with the designed dynamic circular kernel (DCK)
+to extract orientation-robust features by adjusting the optimal
+orientation and weights.
+3) Based on the predictions of TS-Conv, a dynamic taskconsistent-aware label assignment (DTLA) strategy is developed, in which the aligned features are adaptively mapped
+to positive samples selected by the ranked task-consistentaware score. It forms a dynamic closed loop of ”assignmentsampling-alignment-reassignment” for supervising CNN training to obtain better performance.
+The remainder of this paper is organized as follows. Section
+II reviews the related works. Section III presents the proposed
+TS-Conv in detail. Section IV evaluates and analyzes the performance of TS-Conv through extensive experiments. Section
+V draws the conclusions and discussions.
+II. R ELATED W ORKS
+A. Arbitrary-Oriented Object Detection
+Unlike ordinary OD, the objects in AOOD are positioned
+by OBBs. Thus, additional CNN localization branches with
+different OBB representation strategies are designed to predict
+OBBs. ROI Transform [4], SCR-Det [12], R3Det [6], S2 ANet
+[17], etc., predicted rotation angles based on horizontal bounding boxes (HBBs) to obtain OBBs, while Gliding Vertex
+[5], GGHL [7], etc. directly predicted the four-vertices of
+each OBB. Oriented RepPoints [14] represented OBBs by a
+set of points. Distinguishing from the above angle or vertex
+regression strategies, CSL [18] predicted the rotation angles
+of OBBs by discrete angle classification. To get rid of the
+dependence on anchor boxes, BBAVectors [19], O2 -DNet [20],
+GGHL [7], etc., developed different anchor-free label assignment strategies, and AO2-DETR [21] predicted OBBs by the
+sequence model without anchor boxes. For more accurate
+OBB predictions, GWD [22] and KLD [23] designed new
+loss functions based on the distances of Gaussian distributions
+generated from the predicted OBBs and ground truth. CFA
+[24] proposed a convex-hull feature adaptation method, which
+optimizes feature assignment by constructing convex-hull sets
+and dynamically splitting positive and negative convex-hulls.
+DCFL [25] proposed a dynamic prior along with the coarseto-fine assigner to leverage the coarse prior matching and
+finer posterior constraint to dynamically assign labels, which
+2
+
+Re‐Ranking
+Top‐P Positive
+
+Loss 1
+
+LS‐Conv
+*
+
+SPP
+
+Training Data
+
+SEC
+
+(x2,y2)
+
+(a) CNN
+
+IoU-Net [8] analyzed the IFS problem for the first time,
+which predicted an additional localization score and aggregated it with the classification score as the final score. Along
+with this idea of post-processing at the prediction side, IoUaware [27], GGHL [7], etc., designed different strategies to obtain prediction scores that consider both localization and classification contributions by re-weighting, re-ranking, or jointly
+optimizing the scores, etc. Nevertheless, the feature-sensitive
+positions are still spatial misalignment. Double-Head R-CNN
+[28], YOLOX [29], etc., decoupled the detection head of CNN
+into two branches to extract localization and classification
+features separately. Based on this feature-decoupling scheme,
+two-stage methods, TSD [9], D2Det [30], etc., extracted tasksuitable features by task-wise Deformable RoI Pooling [31].
+One-stage methods, such as Guided Anchoring [32], VFNet
+[27], etc., aligned and refined the decoupled features by DCNs
+[31, 33] or attention mechanism. Furthermore, RepPoints
+[13] and Oriented RepPoints [14] extracted localization and
+classification features from the spatially aligned positions in
+two branches by two DCNs that share the same sampling
+offsets. In addition, Oriented RepPoints [14] designed a quality
+assessment and sample assignment strategy for selecting highquality sampling points and positions. However, the sampling
+positions of localization and classification features in the
+above methods are spatially aligned. Inspired by the above
+contradiction, this work designs separately sampling strategies
+to solve the IFS problem in AOOD. Moreover, TS-Conv also
+associates OBB representation and dynamic label assignment
+with task-wise feature sampling, which deals with the IFS
+problem more comprehensively from different perspectives of
+the AOOD framework.
+
+r
+
+... c
+
+Score Matrix
+
+Pred. of
+Class.
+
+Predictions
+l1‐4
+
+CS‐offsets
+DCK
+
+Image & Label
+
+B. Solutions for the IFS Problem
+
+s1‐4
+
+（x, y）
+
+OBB Pred.
+
+Airplane
+
+(x3,y3)
+
+l1‐4
+
+Pred. of
+Local.
+
+LS‐offsets
+
+(x1,y1)
+
+(x4,y4)
+
+（x, y）
+
+Ground Truth
+
+*
+CS‐Conv
+
+(b) TS‐Conv
+
+s1‐4
+
+r
+
+Loss 2
+
+Backbone FPN
+
+... c
+
+Soft‐Neg.
+Positive
+
+GGHL
+
+provides appropriate and relatively balanced supervision for
+diverse instances. In response to the IFS problem in AOOD,
+GGHL [7], CFC-Net [26], etc., decoupled the CNN branches
+and reweighted task-wise features by different strategies. Oriented RepPoints [14] predicted initial OBBs and categories
+through aligned features extracted by shared-offsets DCNs
+and then learned additional offsets to refine the initial OBBs.
+Different from the existing AOOD methods, the proposed TSConv separately samples task-wise features without additional
+reweighting or refinement operation. Besides, TS-Conv associates the task-wise feature sampling with other parts of the
+AOOD pipeline, including the OBB representation and label
+assignment.
+
+Negative
+
+Label
+Assignment
+
+(c) DTLA
+
+Fig. 2. The TS-Conv framework comprises (a) the CNN model and training
+data, (b) the proposed TS-Conv consisting of LS-Conv and CS-Conv, (c)
+the designed DTLA strategy. The baseline CNN model used by TS-Conv and
+GGHL is Darknet53+FPN. GGHL in the following (when the label assignment
+strategy is not emphasized) refers to the GGHL-based Darknet53+FPN model.
+
+III. P ROPOSED GGHL F RAMEWORK
+
+and classification in the TS-Conv component, marked in blue
+and yellow in Fig. 2 (b). It follows the scheme of decoupling
+branches in Fig. 1 (b). Meanwhile, initial OBBs, marked in
+red in Fig. 2 (a), are predicted as the constraint to supervise
+the learning of sampling positions of TS-Conv. In response to
+the problems of the shared-offsets DCNs scheme in Fig. 1
+(c), different sampling offsets constrained by initial OBBs
+are designed for localization and classification, respectively.
+Then, the convolutions for localization and classification use
+the designed sampling strategies to extract features from their
+sensitive regions separately. It allows the task-wise sampling
+positions of CNN to be supervised by ground truth to adapt to
+different objects dynamically. Next, aiming at the problem that
+static label assignment strategies cannot give CNN feedback
+on assigning candidate positions without the IFS problem
+for predictions during training, a dynamic label assignment
+strategy DTLA is designed. In DTLA, the static arbitraryoriented label assignment strategy GGHL [7] is utlized as the
+initial assignment of DTLA. Based on the initial assignment,
+the designed dynamic label assignment strategy, i.e., DTLA, is
+carried out. As shown in the green in Fig. 2 (c), DTLA adjusts
+the positive and negative samples pre-assigned by the static
+label assignment method GGHL [7] according to the taskconsistent-aware score predicted in each iteration of TS-Conv
+training. Finally, the CNN is trained to make the loss between
+CNN’s predictions and labels assigned by DTLA converge,
+and then the trained CNN is used to detect objects.
+
+The AOOD framework based on TS-Conv is shown in
+Fig. 2, which is mainly composed of three parts: (a) the CNN
+model and training data, (b) the proposed TS-Conv component
+consisting of the convolution for sampling localization features
+(named as LS-Conv) and the convolution for sampling classification features (named as CS-Conv), (c) the designed DTLA
+strategy.
+First, the CNN extracts features through the backbone and
+FPN and outputs them to the dual branches of localization
+
+A. Convolution for Sampling Localization Features
+From the observation in Fig. 1 (a) and the analysis of [9], the
+feature-sensitive regions for localization are ainly distributed at
+the object boundary, i.e., the regions near the OBB. Inspired
+by this observation and the star-shaped box of VFNet [27],
+associating the feature sampling positions of the LS-Conv with
+the OBB representation is considered. For OBB representation,
+GGHL [7] proposed a flexible anchor-free strategy based on
+3
+
+q0
+
+q1
+
+TS‐Conv
+
+q2
+
+q3
+
+C Combination
+
+q5
+q8
+
+q7
+
+q̃0
+
+yq −yq
+
+yq̃0 = yq1 + x 3 −x 1 × xq̃0 − xq1
+q3
+
+(b)
+q1
+
+q~0
+
+q2
+p1
+
+q3
+q4
+
+p3
+
+q~6
+~8
+q
+
+q7
+
+q5
+q8
+Δx+Δu
+
+(c)
+
+q̃2
+
+
+
+xq0 < xq1 ≤ xq2
+
+q1
+
+yq −yq
+
+yq̃2 = yq1 + x 5 −x 1 × xq̃2 − xq1
+q5
+
+p0 p2
+p8
+p4
+p6
+p7 q5
+
+q̃6
+
+xq̃6 = xq7
+
+(
+
+yq̃6 = yq6 − σ6 × (yq7 − yq3 )
+xq̃6 = xq6 + σ6 × (xq7 − xq6 )
+yq −yq
+
+yq̃6 = yq7 + x 3 −x 7 × xq̃6 − xq7
+q3
+
+Δy+Δv
+
+xq1 = xq2
+
+
+xq0 ≤ xq1 < xq2
+
+q1
+
+
+
+q7
+CS‐Conv
+
+xq1 = xq0
+
+xq̃2 = xq1
+y = yq2 + σ2 × (yq5 − yq2 )
+( q̃2
+xq̃2 = xq2 − σ2 × (xq2 − xq1 ) ,
+
+p5
+
+Δy+Δv
+
+LS‐Conv
+
+Binding Conditions
+
+
+
+q1
+
+q~2
+
+q3
+
+Coordinates
+xq̃0 = xq1
+y = yq1 + σ0 × (yq3 − yq1 )
+( q̃0
+xq̃0 = xq0 + σ0 × (xq1 − xq0 )
+
+
+Pred. of
+Class.
+
+*
+
+(a)
+q0
+
+Points
+
+Pred. of
+Local.
+
+CS
+Offsets
+
+ln
+sn
+
+OBB
+Repres.
+
+C
+
+*
+
+Coordinates
+Embedding
+
+q6
+
+* Convolution
+
+LS
+Offsets
+
+q4
+
+q6
+
+TABLE I
+S UMMARY OF SAMPLING POINTS q̃i , i = 0, 2, 6, 8, OF THE DESIGNED
+LS-C ONV
+
+OBB
+Predictions
+
+xq6 = xq7
+
+
+xq6 < xq7 ≤ xq8
+
+q7
+
+xq̃8 = xq7
+y = yq7 − σ8 × (yq7 − yq5 )
+( q̃8
+xq̃8 = xq8 − σp7 × (xq8 − xq7 )
+
+
+Δx+Δu
+
+(d)
+
+q̃8
+
+yq −yq
+
+yq̃8 = yq7 + x 5 −x 7 × xq̃8 − xq7
+q5
+
+Fig. 3. The principle of the proposed task-wise sampling convolutions (TSConv). (a) The OBB representation of GGHL [7]. (b) The CNN structure
+of the proposed TS-Conv. (c) The sampling positions of the convolution for
+sampling localization features (LS-Conv). (d) The sampling positions of the
+convolution for sampling classification features (CS-Conv).
+
+xq7 = xq8
+
+
+xq6 ≤ xq7 < xq8
+
+q7
+
+process of manually labeling the bounding box of an object by
+human is usually to find the most prominent points on the top,
+bottom, left, and right of an object, and then draw the bounding
+box based on this range. That is, for an ideal bounding box
+label that closely surrounds an object, at least one point on
+each edge intersects the object. Thus, the intersection points
+between the four sides of the bounding box and the object
+are the key elements for locating the position and range of
+an object. Since objects have various shapes and each edge
+may have more than one intersection point with the object, a
+sampling point on each of the four sides is selected and set
+to be adaptive sliding. The sliding processes are controlled
+by the CNN learnable variables σi ∈ (0, 1) , i = 0, 2, 6, 8..
+These four sliding points are defined as q̃0 , q̃2 , q̃6 , q̃8 ,, the
+coordinates them are listed in Table I. For convenience, let
+q̃i = qi , i = 1, 3, 4, 5, 7, in the following.
+Define the feature map input to the localization branch
+as I loc ∈ RW ×H×F , where W, H, and F denote the
+width, height, and the number of feature maps, respectively. Furthermore, inspired by extracting features from
+keypoint while letting CNN learn their position information, a spatial coordinate embedding operation is employed
+on LS-Conv. Generate a tensor I coor−x ∈ NW ×H×1 . All
+the elements on each column of I coor−x are the same,
+i.e., the index of this column. Similarly, generate a tensor
+I coor−y ∈ NW ×H×1 . All the elements on each row of I coor−y
+are the same, i.e., the index of this row. Define I˜loc ∈
+RW ×H×(F +2) as the tensor of I loc , I coor−x , and I coor−y , i.e.,
+I˜loc (1 : W , 1 : H, 1 : F ) = I loc , I˜loc (1 : W , 1 : H, F + 1) =
+I coor−x , I˜loc (1 : W , 1 : H, F + 2) = I coor−y . Define the
+element of I˜loc at (x, y), x ∈ [1, W ] and y ∈ [1, H], in the
+loc
+first two dimensions as I˜x,y
+∈ R1×1×(F +2) , which consists
+of a position and its associated F -dimensional feature vector.
+It allows the CNN to learn the spatial coordinates of the
+sampled positions directly while extracting the features from
+sensitive regions [35]. In addition, because the size F of the
+feature vector satisfies F ≫ 2 in CNN, the spatial coordinate
+
+Gliding Vertex [5], as shown in Fig. 3 (a). It predicts an OBB
+by predicting the distances ln , n = 1, 2, 3, 4, from the current
+candidate object position q4 (x, y) to the four edges of the
+external horizontal bounding box (HBB) and the distances
+sn , n = 1, 2, 3, 4, from the four vertices q0 , q2 , q6 , and q8
+of the HBB to the four vertices q1 , q3 , q5 , and q7 of the
+OBB on the corresponding edge. This OBB representation
+has nine key positions, i.e., the four vertices of the HBB,
+the four vertices of the OBB, and the current candidate object
+position. A straightforward idea is to directly correspond these
+key positions to the nine sampling points of a 3×3 convolution,
+as shown in Fig. 3 (c). The localization convolution no longer
+explores the features in the current position and its eight
+neighborhoods fixedly while adjusting the sampling position
+according to different objects with different OBBs by DCN
+[34] dynamically. The details and further improvements are
+presented below.
+First, the initial OBBs are predicted by the CNN model
+trained under the supervision of labels assigned by GGHL
+[7]. The initial estimations of ln and sn , n = 1, 2, 3, 4, are
+denoted ash ˆln and ŝni , n = 1, 2, 3, 4, respectively.
+h
+i In this case,
+ŝ1 , ŝ3 ∈ 0, ˆl2 + ˆl4 and ŝ2 , ŝ4 ∈ 0, ˆl1 + ˆl3 . Second, the
+spatial coordinates of the sampling points qi , i = 0, 1, · · · , 8,
+are calculated according to the predictions ˆln , ŝn , and the
+coordinates of the current convolutional position (x, y). In
+this case shown in Fig. 3 (a), the current sample point is
+defined
+as
+ vertices of HBB
+ are defined
+
+ as q4 = (x, y). The four
+ˆ
+ˆ
+ˆ
+ˆ
+ˆ
+q0 = x − l4 , y − l1 , q2 = x + l2 , y − l1 , q6 = x − l4 ,
+
+
+
+y + ˆl3 and q8 = x + ˆl2 , y + ˆl3 , respectively. The four
+
+
+vertices of OBB are defined as q1 = x − ˆl4 + s1 , y − ˆl1 ,
+
+
+
+
+q3 = x − ˆl4 , y + ˆl3 − ŝ4 , q5 = x + ˆl2 , y − ˆl1 + ŝ2
+
+
+and q7 = x + ˆl2 − ŝ3 , y + ˆl3 , respectively. Intuitively, the
+4
+
+0
+
+×
+
+1-λj
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+ϕ
+
+ϕ=kπ/4 k=0,2,4,6+
+
+FC Layer
+
+0 ϕ
+
+Sigmoid
+
+0
+
+λj j=1,2,3,4 × 3
+
+1
+
+2
+
+4
+6
+
+7
+
+3
+
+2
+
+4
+6
+
+5
+
+1
+
+7
+
+Conv2d
+
+Softmax
+
+β0×
+
+β1 ×
+
+5
+
+0
+
+Sum
+
+8
+
+…
+
+8
+
+(a)
+
+β7 ×
+
+0
+0
+
+…
+
+Input
+Global Pooling
+
+…
+
+embedding operation does not add much additional computational burden. Thus, the feature information and coordinates of
+sampling positions are explicitly and spatially corresponding
+to the feature map and its grid coordinates, and the geometric
+constraints between sampling positions are also clear and can
+be represented by the offsets of DCNs. Compared with using
+completely dynamic sampling positions, the learning goal of
+CNN is clearer.
+For notational convenience, we define the correspondence
+of the nine elements (positions) of the following set
+
+(b)
+
+Fig. 4. The designed dynamic circluar kernel (DCK). (a) Adaptive fusion of
+circular and square convolutional kernels. (b) Adaptive fusion of eight-rotation
+features.
+
+{(−1, −1) , (−1, 0) , (−1, 1) , (0, −1) ,
+(0, 0) , (0, 1) , (1, −1) , (1, 0) , (1, 1)}
+
+∆ 
+loc
+= ∆xloc
+, u = 0, 1, · · · , 8 .
+u , ∆yu
+
+predicted by the CNN less affected by the object size. In
+addition, the refined OBB predictions are also supervised
+by the ground truth during the CNN training. Compared to
+RepPoints [13], Oriented RepPoints [14], etc., which first
+obtain the set of dynamic sampling points and then generate
+bounding boxes from the point set, the sampling positions of
+LS-Conv are obtained from OBBs directly. Thus, the receptive
+field of LS-Conv is always adapted to the object size. It makes
+the supervision of localization feature sampling in CNN more
+comprehensive to the final task objective.
+
+(1)
+
+The indices of (x, y) and its eight neighbors are represented
+loc
+, u = 0, 1, · · · , 8. Define the feaas x + ∆xloc
+u , y + ∆yu
+loc
+loc
+ture vectors at x + ∆xloc
+as I˜x+∆x
+loc ,y+∆y loc .
+u , y + ∆yu
+u
+u
+loc
+loc
+Define a 3 × 3 filter K , where Kj , j = 0, 1, · · · , 8, are
+the elements and also the coefficients of K loc . When using
+K loc to perform LS-Conv1 on I˜loc , the following two cases
+are considered. When position (x, y) is a positive position,
+which will be explained in Section III-C, used to predict
+the OBB, as shown in Fig. 3 (c), the nine sampling points
+loc
+, u = 0, 1, · · · , 8, are correspondingly
+x + ∆xloc
+u , y + ∆yu
+moved to the points (xq̃i , yq̃i ) , i = 0, 1, · · · , 8, by DCN
+,i =
+[33]. The sampled feature vectors are denoted as I˜xloc
+qi ,yqi
+0, 1, · · · , 8. When the position (x, y) is not a positive position,
+loc
+, u = 0, 1, · · · , 8,
+the sampling points x + ∆xloc
+u , y + ∆yu
+do not move. Thus, the output of LS-Conv at (x, y) is
+represented as
+ N =8
+P loc
+
+loc
+
+I˜xq̃ ,yq̃ Kloc
+
+j mj , if (x, y) is positive,
+i
+i
+i,j=0
+loc
+(2)
+Ox,y =
+NP
+=8
+
+loc
+loc loc
+
+
+I˜x+∆x
+loc ,y+∆yloc Kj mj , otherwise,
+u,j=0
+
+u
+
+B. Convolution for Sampling Classification Features
+Unlike localization feature-sensitive regions directly associated with the OBB representation and spatial coordinates,
+sensitive regions of classification features are more variable for
+objects with different categories, shapes, and orientations[36,
+37]. Therefore, the sampling positions of the classification
+convolution are only constrained within the OBB for more
+flexible adjustment according to each object, as shown in
+Fig. 3 (b). Since the OBB is an arbitrary convex quadrilateral,
+the constraint range is approximated as the minimum external
+rectangle (MERect)2 of the OBB in this case in order to
+facilitate parallel computation in CNN. Define the length of
+MERect’s long side as S1 , the length of the other side as
+S2 , the center point of MERect as (xc , yc ), and the angle
+between the long side and the positive direction of x-axis as
+α, α ∈ [0, π) in this case. Define the sampling positions of
+the CS-Conv as pi , i = 0, 1, · · · , 8, and the CNN-learnable
+(x)
+(y)
+variables ωi , ωi ∈ (0, 1) , i = 0, 1, · · · , 8, used to adjust
+the sampling positions. According to the designed constrain,
+the coordinates of the sampling positions are represented as
+" # "
+# "
+#
+(x)
+x pi
+cos α − sin α
+xc − 0.5S1 + ϖpi S1
+=
+×
+, (4)
+(y)
+ypi
+sin α cos α
+yc − 0.5S2 + ϖpi S2
+
+u
+
+loc
+∈ R1×1×(F +2) and CNN-learnable scalars mloc
+where Ox,y
+j ∈
+(0, 1) , j = 0, 1, · · · , 8, are employed to adjust the contribution
+of the features sampled from different positions like DCNv2
+[31]. It further enhances the feature learning capability of LSConv by simultaneously adjusting the sampling position and
+amplitude. For some OBB vertices that do not fall on the
+object, it can suppress the sampling of low-quality features by
+decreasing the value of mloc
+j . Finally, the output features are
+used to predict the corrections ∆ˆln and ∆ŝn , n = 1, 2, 3, 4,
+to the initial OBB predictions ˆln and ŝn , n = 1, 2, 3, 4. The
+refined OBB predictions are
+(
+˜ln = ˆln × ∆ˆln
+,
+(3)
+s̃n = ŝn × ∆ŝn
+i
+h
+i
+h
+where s̃1 , s̃3 ∈ 0, ˜l2 + ˜l4 and s̃2 , s̃4 ∈ 0, ˜l1 + ˜l3 . Note
+that, due to the significant difference in the sizes of different
+objects, i.e., the values of ˆln and ŝn , Eq. 3 uses multiplications
+rather than additions to make the ranges of ∆ˆln and ∆ŝn
+
+where (xpi , ypi ) denote the coordinates of the sampling position pi , i = 0, 1, · · · , 8. Although the above design allows the
+sampling positions to translate to the sensitive regions within
+the OBB adaptively, the sensitive regions are variable due to
+the arbitrary orientations of objects in AOOD. It brings more
+significant uncertainty in the sampling position offsets, and
+CS-Conv lacks absolute-coordinate information like SCE in
+LS-Conv. Compared to rotating the sampling positions with
+more complex constraints, rotating the convolution kernel to
+
+1 Note that, it is conventionally called a convolution operation in CNN, but it
+
+2 OpenCV and many computer vision libraries have implemented this function,
+
+is actually a filtering operation.
+
+so the details are not repeated here.
+
+5
+
+Gaussian
+PDF
+
+Negative
+
+LS‐Conv
+
+rh
+
+Top‐P
+Positive
+...
+
+rw
+
++
+
+（x, y）
+
+Negative
+
+Task‐aware Scores
+
+the appropriate direction is a more straightforward idea. Thus,
+a dynamic circular kernel (DCK) is designed.
+First, as shown in Fig. 4 (a), a circular kernel K̇ cls ∈
+3×3
+R , is generated from the square kernel K cls ∈ R3×3
+by bilinear interpolation to accommodate rotations in different directions. The coefficients of K̇ cls are defined as
+K̇jcls , j = 0, 1, · · · , 8, and the coefficients of K cls are defined
+as Kjcls , j = 0, 1, · · · , 8. When j = 1, 3, 4, 5, 7, K̇jcls = Kjcls .
+Second, the circular convolution kernel K̇ cls is rotated by
+the angles φ = kπ
+4 , k = 0, 1, 2, · · · , 7, in the clockwise
+direction to obtain eight circular kernels, denoted as K̇ cls
+kπ .
+
+CS‐Conv
+
+Localization
+Score
+
+Gaussian Region
+
+Soft‐Neg. Samples
+...
+
+(a)
+
+(b‐1)
+
+...
+
+(b‐2)
+
+Fig. 5. The label assignment strategy for AOOD: (a) GGHL [7] and (b)
+DTLA. The designed DTLA consists of (b-1) the dynamic positive candidate
+position assignment based on task-consistent-aware scores and (b-2) the softweighted negative candidate position assignment.
+
+4
+
+Similarly, the square kernel K cls is rotated clockwise by
+cls
+the angles φ = kπ
+4 , k = 0, 2, 4, 6, to get K kπ . When
+
+0, 1, · · · , 8, are utilized to adjust the contributions of different sampling positions. In CNN, CS-Conv with multiple
+orientations is implemented by group convolution to save
+computational costs.
+
+4
+
+φ = kπ
+4 , k = 0, 2, 4, 6, the square kernels and circular kernels
+are fused to enhance the model fitting ability of CNNs, using
+the idea of CondConv [38]. The fused kernels are represented
+as
+(
+cls
+if k = 0, 2, 4, 6,
+λj K̇ cls
+kπ + (1 − λj ) K kπ ,
+4
+4
+(5)
+K̃ cls
+kπ =
+4
+K̇ cls
+if k = 1, 3, 5, 7,
+kπ ,
+
+C. Dynamic Task-consistent-aware Label Assignment
+
+4
+
+For the CNN-based object detection, an object may correspond to more than one candidate detection position in the
+feature maps. It is significant to select the appropriate positive
+and negative positions from them to assign labels for CNN
+4
+K̃j,clskπ , j, k = 0, 1, · · · , 8.
+training. The label assignment strategy has been studied in
+4
+Similar to the localization, define the nine elements (posi- many works such as ATSS [16], Autoassign [15], etc. In the
+field of arbitrary-oriented object detection, GGHL [7] selected
+tions) of the following set
+candidate positions based on Gaussian heatmaps and OBB
+
+
+
+n √
+√
+√
+√
+− 22 , − 22 , (−1, 0) , − 22 , 22 , (0, −1) ,
+prediction scores, as shown in Fig. 5 (a). However, on one
+√
+ √ √ o
+√ 
+(6) hand, it uses a hard-thresholding selection strategy, i.e., the
+(0, 0) , (0, 1) , 22 , − 22 , (1, 0) , 22 , 22
+candidate positions with the value of Gaussian heatmap score
+
+∆ 
+cls
+Fx,y higher than the threshold T are positive, and the other po,
+v
+=
+0,
+1,
+·
+·
+·
+,
+8
+.
+,
+∆y
+= ∆xcls
+v
+v
+sitions are negative. See Appendix B for the derivation of Fx,y .
+The indices of (x, y) and its eight circular neighbors are rep- The fixed candidate regions may lead to misassignment due
+cls
+, v = 0, 1, · · · , 8. Define to the irregularity and variety of object shapes. On the other
+resented as x + ∆xcls
+v , y + ∆yv
+the feature map input to the classification branch as I cls ∈ hand, a location closer to the center of the Gaussian heatmap
+cls
+RW ×H×F . The elements of I cls at x + ∆xcls
+, may not be a better positive position. Only using localization
+v , y + ∆yv
+cls
+v = 0, 1, · · · , 8, are defined as Ix+∆xcls ,y+∆ycls , which are F - score to adjust the weights of positive positions in GGHL
+v
+v
+dimensional feature vectors. When position (x, y) is a positive [7] still faces the IFS problem that these positive positions
+position, as shown in Fig. 3 (d), the nine sampling points may not be optimal for both localization and classification
+cls
+x + ∆xcls
+, v = 0, 1, · · · , 8, are correspondingly tasks. In response, DTLA strategy is designed based on TSv , y + ∆yv
+moved to the points (xpi , ypi ) , i = 0, 1, · · · , 8, by DCN Conv and GGHL [7]. DTLA divides the regions of candidate
+[33]. The sampled feature vectors are denoted as Ixcls
+, i = positions into positive, negative, soft-negative, and ignored
+pi ,ypi
+0, 1, · · · , 8. When the position (x, y) is not a positive position, regions denoted as the position sets Rpos , Rneg , Rsneg , and
+cls
+the sampling points x + ∆xcls
+, v = 0, 1, · · · , 8, Rig . These regions are dynamically adjusted according to the
+v , y + ∆yv
+do not move. Thus, the output of CS-Conv at (x, y) is localization and classification prediction costs to obtain the
+represented as
+optimal position combinations for CNN training. The detailed
+ M =7 N =8
+implementation of DTLA is given in Algorithm 1.
+P P cls
+
+
+Ixp ,yp K̃j,clskπ βk mcls
+, if (x, y) is positive,
+1) Positive positions. Different from GGHL [7], which
+
+j
+i
+i
+4
+k=0 i,j=0
+cls
+treats
+all the positions in a fixed range of a Gaussian elOx,y
+= M
+=7 NP
+=8
+P
+
+cls
+cls
+cls
+
+lipse
+region
+as positive positions, the proposed DTLA ranks
+
+Ix+∆x
+K̃
+β
+m
+,
+otherwise,
+cls ,y+∆y cls
+k j
+j, kπ
+v
+v
+4
+k=0 v,j=0
+the candidate positions of each object and takes the Top-P
+(7)
+positions as candidate positions. Since the performance of
+cls
+where Ox,y
+∈ R1×1×F , and CNN-learnable scalars βk , k =
+AOOD is usually evaluated by the product of localization and
+PM =7
+0, 1, · · · , 7, k=0 βk = 1, are used to re-weight the fea- classification scores, the straightforward idea is to rank the
+tures extracted by K̃ cls
+kπ with different orientations, as shown
+positive candidate positions according to the combined score
+4
+in Fig. 4 (b). CNN-learnable scalars mcls
+∈
+(0,
+1),
+j
+=
+Dx,y of localization and classification.
+j
+where λj ∈ (0, 1) , j = 1, 2, 3, 4, denote the CNN-learnable
+weights for fusion, whose generation module in CNN is shown
+in Fig. 4 (a). Similarly, the coefficients of K̃ cls
+kπ are defined as
+
+6
+
+loc
+features Ox,y
+of TS-Conv. lx,y = [l1 , l2 , l3 , l4 ] and sx,y =
+[s1 , s2 , s3 , s4 ] represent the ground truth of this OBB. ax,y and
+ãx,y denote the ground truth and predictions of the area ratio
+of the OBB and HBB, respectively. GIoU (.) is the function
+to measure the HBB localization accuracy by Generalized
+Intersection over Union (GIoU) [39]. M SE (·) represents the
+mean square error (MSE) function. See GGHL [7] for details
+of Lossloc (x, y). The hyperparameter ϑ̃ is defined as
+
+Algorithm 1: DTLA
+(h) c
+Input: The encoded ground truth lx,y , sx,y , ar x,y , Cx,y
+, obj x,y . The
+(h) c
+CNN predictions l̃x,y , s̃x,y , ar
+˜ x,y , Ĉx,y , obj x,y . Fx,y ∈ Rgh
+
+obtained by static label assignment of GGHL. The prior threshold T .
+The number of object Nobj
+Output: The objectness loss Lossobj
+1 if Fx,y > 0 then
+2
+Calculate the localization score Lx,y by Eqs. (9-10) ;
+3
+Calculate the combined score Dx,y by Eq. (8) ;
+4
+for i ∈ Nobj do
+i
+5
+for (x, y) ∈ Rgh
+do
+6
+if Fx,y > 
+T then
+
+
+8
+9
+10
+11
+12
+13
+
+if Dx,y < T then
+(x, y) ∈ Rsneg ;
+wsneg = 1 − Dx,y ;
+else
+(x, y) ∈ Rig
+end
+
+15
+16
+17
+18
+19
+20
+
+end
+
+21
+
+operation, is dynamically adjusted for different objects. The
+positive positions are no longer fixed but dynamically selected
+according to Dx,y .
+The above strategy takes full advantage of the proposed
+task-wise sampling convolutions that can extract and map the
+most sensitive features of different tasks to the same spatial
+location. On one hand, it helps to select the optimal candidate positions suitable for both localization and classification
+dynamicly according to different objects in different scenes.
+On the other hand, the low-quality candidate positions due to
+MERect approximation can be filtered according to DTLA.
+Thus, it is unnecessary to generate the Gaussian probability
+density function (PDF) of any convex quadrilateral, but only
+needs to replace it with the Gaussian PDF based on MERect,
+which makes the algorithm more efficient and concise.
+2) Negative positions. The designed DTLA uses a soft
+thresholding strategy instead of treating all positions with
+Fx,y < T as negative, as shown in Fig. 5 (b). If (x, y) does
+not lie in the Gaussian region, this position is negative, and
+the background label is assigned, (x, y) ∈ Rneg . If (x, y) lies
+in the Gaussian region Rgh but Fx,y < T, Dx,y < T , this position is considered as soft negative position, (x, y) ∈ Rsneg .
+The background prediction loss of these positions is multiplied
+by the weight wsneg = 1 − Dx,y , wsneg ∈ (0, 1). The smaller
+the Dx,y , the larger the weight, indicating a higher negative
+attribute for this position.
+3) Ignored positions. If (x, y) lies in the Gaussian region
+Rgh , Fx,y > T , but Dx,y is not within the Top-P , this
+position may not satisfy both localization and classification
+tasks, although it have a high priori score. If (x, y) lies in the
+Gaussian region Rgh , Fx,y < T , but Dx,y > T , this position
+is too close to the junction region between the object and the
+background for a low a priori score, although it obtains a high
+Dx,y . In the above two cases, the priori score Fx,y and the
+dynamic score Dx,y contradict each other. It is not appropriate
+to treat (x, y) as either positive or negative position, so it is
+ignored and not used for CNN training, i.e., (x, y) ∈ Rig .
+
+end
+
+23
+
+else
+(x, y) ∈ Rneg
+
+25
+26
+
+end
+
+27
+
+Calculate the objectness loss Lossobj by Eq. (12).
+
+First, the static arbitrary-oriented label assignment strategy
+GGHL [7] is utlized as the initial assignment of DTLA.
+Based on the initial assignment, the designed dynamic label
+assignment strategy is carried out. If a position Dx,y lies in
+the Gaussian region, Fx,y > T , and the ranking of Dx,y is
+within the Top-P , then this position is positive for assigning
+the label to predict the object, (x, y) ∈ Rpos . In this case,
+we set T = 0.3. Benefiting from the designed TS-Conv,
+localization and classification features are extracted from their
+sensitive regions respectively and mapped to the same position,
+as shown in Fig. 5 (b). The optimal task-wise scores are
+spatially aligned for determining positive candidate positions.
+Thus, the localization and classification combined score at
+(x, y) is defined as
+q
+(
+(h)
+D = ϑ̃Fx,y +(1− ϑ̃) Lx,y Ĉx,y if(x, y) ∈ Rgh , (8)
+x,y
+
+0
+
+(11)
+
+(x,y)∈Rgh
+
+end
+
+22
+
+itermax − iter
+× ϑ,
+itermax
+
+where iter denotes the number of current iterations and
+itermax denotes the number of maximum iterations during
+CNN training. Here, ϑ = 0.3 according to our empirical study.
+In the initial stage of CNN training, the label assignment
+mainly relies on the prior Gaussian heatmaps generated by
+GGHL [7] due to inaccurate localization and classification.
+As the CNN training converges, the label assignment becomes
+more
+dependent' on the increasing score. The variable P =
+&
+P
+Lx,y , where ⌈.⌉ denotes the upward rounding
+
+else
+
+14
+
+24
+
+ϑ̃ =
+
+P
+Lx,y 
+P =
+
+;
+(x,y)∈Rgh
+
+Select the Top-P Dx,y ;
+if Dx,y in Top-P Dx,y then
+(x, y) ∈ Rpos ;
+else
+(x, y) ∈ Rig ;
+end
+
+7
+
+otherwise
+
+(h)
+
+where Ĉx,y ∈ (0, 1) indicates the predicted classification score
+that the object belongs to the ground truth category h and will
+be specified later. The localization score is represented as
+loc
+
+Lx,y = e−Lossx,y ,
+
+
+Lossloc
+=
+1
+−
+GIoU
+l
+,
+l̃
+x,y
+x,y
+x,y
+
+(9)
+
+2
+
++M SE (sx,y , s̃x,y ) + (ax,y − ãx,y )
+
+,
+
+(10)
+
+where Lossloc
+x,y denotes the OBB localization loss at (x, y).
+Lx,y ∈ h(0, 1) is monotonically
+decreasing with Lossloc
+x,y .
+i
+˜
+˜
+˜
+˜
+l̃x,y = l1 , l2 , l3 , l4 and s̃x,y = [s̃1 , s̃2 , s̃3 , s̃4 ] represent
+the predictions of an OBB based on the output localization
+7
+
+4) Loss functions. If a position (x, y) is positive, its
+assigned ground truth of objectness objx,y = Lx,y ; if (x, y)
+is negaitive, objx,y = 0. Note that, the CNN gradient of Lx,y
+is not backpropagated. Define the CNN predicted objectness
+c
+score at (x, y) as obj
+x,y ∈ (0, 1). According to the assignments
+of different candidate positions, the binary loss function for
+objectness prediction is represented as
+γ
+P
+c
+c
+log obj
+Lx,y − obj
+Lossobj = − M1pos
+x,y
+x,y
+(x,y)∈Rpos 
+
+γ
+P
+1
+c
+c
+− Mneg
+obj
+x,y log 1 − obj x,y
+, (12)
+(x,y)∈Rneg
+
+
+γ
+P
+1
+c
+c
+− Msneg
+wsneg obj
+x,y log 1 − obj x,y
+
+are given and analyzed. Besides, the extension of the proposed
+TS-Conv to improve the performance of lightweight AOOD
+models on embedded devices is further explored.
+A. Experimental Conditions
+1) Experimental platforms. The experiments are performed
+on a server with an AMD 3950WX CPU, 128 GB memory, and
+four NVIDIA GeForce RTX 3090 GPU (24GB). In addition,
+the performance of the TS-Conv improved lightweight models
+are evaluated on embedded edge devices NVIDIA Jetson AGX
+Xavier and Jetson TX2.
+2) Datasets. To evaluate the performance of TS-Conv
+model more comprehensively, several public AOOD datasets
+are used, which cover different scenes, different shapes and
+categories of objects, and different data sources.
+a) DOTAv1.0 [1] dataset provides a widely used benchmark
+to evaluate the performance of AOOD methods in remote
+sensing scenes. It has more than 188,000 objects covering
+15 categories in 2,806 images from 800 × 800 pixels to
+4, 000 × 4, 000 pixels. Due to the huge size of remote sensing
+images, they are usually cropped into sub-images of 800×800
+pixels with an overlap of 200 pixels on each dimension after
+being scaled to different sizes with the ratios of 0.5, 1.0, and
+1.5 [41]. DOTAv2.0 [42] further expands the number of objects
+to 1,793,658 objects covering 18 categories.
+b) HRSC2016 [43] is a ship detection dataset consisting of
+436 training images, 181 validation images, and 444 testing
+images from 300 × 300 pixels to 1500 × 900 pixels.
+c) DIOR-R [44, 45] dataset is an aerial AOOD datasets
+contains 190,288 objects covering 20 categories in 23,463
+images with the size of 800 × 800 pixels. In the DIOR-R
+dataset, 5,862 images are used for training, 5,863 images are
+used for validation, and 11,738 images are used for testing.
+d) DroneVehicle [46] is an infrared-RGB vehicle detection
+datasets. After screening and pre-processing, 17,900 InfraredRGB image pairs are used for training, 1,469 Infrared-RGB
+image pairs are used for validation, and 8980 Infrared-RGB
+image pairs are used for testing.
+e) SSDD+ [47] is a synthetic aperture radar (SAR) dataset
+for ship detection. It has 1,160 ship images including 2,456
+instances collected from different sea conditions. The ratio of
+training, validation and testing images is 7:1:2.
+3) Evaluation metrics. The mean Average Precision (mAP)
+is adopted for evaluating the detection accuracy. The mAP with
+an IoU threshold of 50% is represented as mAP50 . mAP50:95
+means calculating the mAP when the IoU threshold is 50%
+to 95% at every 5% interval and then taking their mean as
+mAP50:95 . The speed is evaluated by frames per second (fps)
+and the computational complexity is evaluated by the floating
+point operations (FLOPs) for lightweight models.
+4) Implementation details. The initial learning rate for
+training DOTA, DIOR-R, HRSC2016 and SSDD+ datasets
+is 5 × 10−4 , and the final learning rate is 1 × 10−6 . The
+optimizer for training the CNN model is stochastic gradient
+descent (SGD), and the learning rate scheduler is cosine
+decay. The weight decay and momentum are set as 5 × 10−4
+and 0.9, respectively. The batch size is 32 (8 images per
+
+(x,y)∈Rsneg
+
+where Mpos , Mneg , and Msneg mean the numbers of positive, negative, and soft-negative positions for an input image,
+respectively. The hyperparameter of Focal Loss [40] γ = 2,
+which is the same as GGHL [7]. The OBBs and category
+labels of the objects are assigned to positive positions filtered
+by TOP-P strategy for supervised CNN predictions for object localization and classification. According to Eq.(10), the
+localization loss is calculated as
+X
+
+1
+loc
+×
+Lossinit
+Lossloc =
+x,y + Lossx,y , (13)
+Mpos
+(x,y)∈Rpos
+
+which represents the OBB localization loss of the initial stage,
+which is used to suprivise the sampling points of TS-Conv.
+Define the assigned ground truth of the hth category at
+(h)
+(x, y) as Cx,y . If the object at (x, y) belongs to the hth
+(h)
+(h)
+category, Cx,y = 1; otherwise, Cx,y = 0. Define the CNN
+(h)
+(h)
+prediction of Cx,y as Ĉx,y ∈ (0, 1). The classification loss is
+calculated as
+
+
+M
+P
+PC  (h)
+(h)
+Losscls = M1pos ×
+Cx,y log Ĉx,y
+(x,y)∈R
+, (14)
+pos h=1
+
+
+
+
+(h)
+(h)
++ 1 − Cx,y log 1 − Ĉx,y
+where MC represents the total number of categories of objects.
+The total loss is stated as,
+Loss = Lossobj + Lossloc + Losscls ,
+
+(15)
+
+which represents the sum of the objectness loss, localization
+loss and classification loss.
+IV. E XPERIMENTS AND D ISCUSSIONS
+In this section, extensive experiments are conducted on
+several AOOD datasets to evaluate the performance of TSConv comprehensively. First, the experimental conditions,
+including datasets, evaluation metrics, implementation details,
+etc., are introduced. Then, ablations experiments are designed
+to validate the effectiveness of each component of the TSConv model and to evaluate their performance quantitatively.
+The task-wise samplings, rotation-invariant feature extraction,
+dynamic label assignment, and other previously claimed issues
+in AOOD are discussed in detail. Forthermore, the scalability
+of TS-Conv on lightweight models and for multimodal data are
+evaluated. After that, comparative experiments with existing
+AOOD methods on the datasets covering different scenarios
+8
+
+TABLE II
+A BLATION EXPERIMENTS OF THE PROPOSED TS-C ONV ON THE DOTAV 1.0 DATASET
+
+Methods
+
+Decoupled
+Head
+
+Baseline (GGHL [7])
+TOOD + DCNs [48]
+Shared-offset DCNs
+DCNs without shared-offsets
+LS-Conv
+CS-Conv
+CS-Conv with DCK
+DTLA
+TS-DCN
+TS-Conv
+
+✓
+T-head
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+
+DCNs
+
+Task-wise DCNs
+(TS-DCN)
+LS-Conv CS-Conv DCK
+
+shared-offsets
+w/o shared-offsets
+✓
+✓
+✓
+
+✓
+
+✓
+✓
+
+✓
+✓
+
+Label
+Assignment
+GGHL
+✓
+TAL+TAP improved
+✓
+✓
+✓
+✓
+✓
+
+mAPs on the DOTAv1.0 Dataset
+DTLA
+
+✓
+✓
+✓
+
+✓
+✓
+
+mAP50
+76.95
+77.59 (+0.64)
+77.77 (+0.82)
+77.39 (+0.44)
+78.08 (+1.13)
+77.84 (+0.89)
+78.06 (+1.11)
+77.95 (+1.00)
+78.13 (+1.18)
+78.75 (+1.80)
+
+mAP75
+44.19
+44.68 (+0.49)
+44.76 (+0.57)
+44.52 (+0.33)
+46.38 (+2.19)
+44.23 (+0.04)
+45.46 (+1.27)
+46.10 (+1.91)
+46.59 (+2.40)
+46.60 (+2.41)
+
+Speed
+(fps)
+
+mAP50:95
+44.29
+44.64 (+0.35)
+44.99 (+0.70)
+44.60 (+0.31)
+45.87 (+1.27)
+45.37 (+1.08)
+45.36 (+1.07)
+45.38 (+0.70)
+46.09 (+1.80)
+46.27 (+1.98)
+
+42.30
+23.23
+23.23
+23.23
+31.08
+31.08
+28.96
+42.30
+23.23
+23.23
+
+Note: Bold indicates the best result. ’Shared-offset DCN’ represents that both branches of the decoupled head use DCN [33] and their sampling offsets are
+shared as in the case of RepPoints [13] and Oriented RepPoints [14]. The convolutions of TOOD’s detection head also use DCNs for fair.
+
+GPU). The maximum training epoch for DOTA, DIOR-R,
+HRSC2016, DroneVehicle and SSDD+ datasets are 36, 150,
+150, 50 and 150, respectively. The non-maximum suppression
+(NMS) threshold is 0.4. Random cropping, random flipping,
+random rotation and mixup strategies are employed for data
+augmentation. The experiments of the proposed TS-Conv on
+the DOTA datasets use multi-scale cropped images as the
+training set but use single-scale cropped images as the testing
+set. The multi-scaling data augmentation is not used during
+model training and testing. The experiments of the proposed
+TS-Conv on other datasets all adapt single-scale training and
+single-scale testing strategies.
+
+Scale 2
+
+Scale 1
+
+Scale 3
+
+(2)
+
+(3)
+
+(4)
+
+Scale 1
+
+Scale 2
+
+Scale 3
+
+(5)
+
+(6)
+
+(7)
+
+(1)
+
+Fig. 6. Comparison of DTLA and GGHL label assignment strategies. Figs.
+(2)-(4) represent the positive candidate positions and their scores statically
+assigned by the GGHL strategy at three different scales, respectively. Figs.
+(5)-(7) represent the positive candidate positions and their scores dynamically
+assigned by the proposed DTLA strategy at three different scales, respectively.
+The closer the color is to red, the higher the score.
+
+B. Ablation Experiments
+The results of the ablation experiments for different components of TS-Conv, including LS-Conv, CS-Conv with DCK,
+and DTLA, are presented in Table II. The anchor-free AOOD
+method GGHL [7] is chosen as the baseline, and experiments
+are conducted on the most widely used AOOD dataset DOTA
+v1.0 [1].
+1) Ablation experiments of each component. First, as a
+control group, the shared-offset DCNs employed by RepPoints
+[13], Oriented RepPoints [14], etc., are introduced based on
+GGHL. This design has the same sampling positions for
+localization and classification features and maps these features
+to aligned locations. Although the above scheme somewhat
+enables more objects to be detected and improves the mAP50
+by 0.82, the improvement of the stricter metrics, i.e., mAP75
+and mAP50:95 , is slight. It implies that the model may relax
+its requirements for detection quality to accommodate two
+different tasks.
+Correspondingly, the proposed task-wise DCNs consisting
+of LS-Conv and CS-Conv are evaluated. With the introduction of LS-Conv, the mAP75 is improved by 4.96% (+2.19)
+compared to the baseline and 3.63% (+1.62) compared to
+the shared-offset DCNs. TOOD [48], which also adopts taskspecific feature learning ideas, is also compared. The results
+show that TS-Conv, which uses more explicit constraints and
+considers directional robustness, performs better than TOOD,
+which uses reweighted implicit feature extraction constraints.
+
+Local. Score: 0.86
+Class. Score: 0.87
+
+TS-Conv
+with DTLA
+
+Local. Score: 0.86
+Class. Score: 0.79
+Local. Score: 0.32
+Class. Score: 0.87
+
+TS-Conv
+without
+DTLA
+Local. Score: 0.84
+Class. Score: 0.87
+
+Local. Score: 0.88
+Class. Score: 0.93
+
+Local. Score: 0.85
+Class. Score: 0.81
+
+Local. Score: 0.89
+Class. Score: 0.85
+
+Local. Score: 0.82
+Class. Score: 0.69
+
+Local. Score: 0.76
+Class. Score: 0.91
+
+Baseline
+without
+DTLA
+
+Fig. 7. Visualization results of task-wise prediction scores.
+TABLE III
+E VALUATIONS OF DETECTION PERFORMANCE FOR DIFFERENT VALUES OF
+HYPERPARAMETERS T AND ϑ, AND EXPERIMENTS OF USING DCK AND
+RANDOM ROTATION DATA AUGMENTATION ON THE DOTAV 1.0 DATASET
+T
+0.2
+0.3
+0.4
+
+mAP50
+78.45
+78.75
+78.60
+
+ϑ
+0.3
+0.4
+0.5
+
+mAP50
+78.75
+78.52
+78.50
+
+RandomRota
+✓
+✓
+
+DCK
+✓
+✓
+
+mAP50
+77.92
+78.47
+78.75
+
+Note: Bold indicates the best result. RadomRota represents using the random
+rotation data agumentation operation during the CNN training. When
+evaluating one variable, the other variables are fixed.
+
+The designed LS-Conv further improves the localization ac9
+
+curacy compared to the shared-offset DCNs by directly associating the convolutional sampling points with the OBB
+representation and embedding the spatial coordinates into the
+features. When only CS-Conv is used without LS-Conv, i.e.,
+the sampling points of convolutions are just constrained in
+OBB, the mAP50 , mAP75 and mAP50:95 are also increased,
+but the improvement, especially for mAP75 , is minor. The
+bottleneck of this scheme is mainly in inaccurate localization.
+Because the spatial location coordinates of the OBB are
+explicit and essential features for the localization task, the
+convolutional sampling constraint of CS-Conv is vague for localization, although it is suitable for classification. In addition,
+since the objects in AOOD have richer orientation variations,
+performance improvements are also observed after replacing
+the convolutional kernel of CS-Conv with the designed DCK.
+Furthermore, when LS-Conv and CS-Conv are combined to
+obtain the TS-DCN scheme, significant performance gains are
+seen compared to using them alone as listed in Table II. The
+mAP50 , mAP75 and mAP50:95 are increased by 1.53% (+1.18),
+5.43% (+2.40), and 4.06% (+1.80), respectively. It illustrates
+that the LS-Conv and CS-Conv play complementary roles for
+each other. LS-Conv compensates for the lack of localization
+accuracy using only CS-Conv, while CS-Conv with DCK
+further improves detection performance.
+Then, the performance of the two label assignment strategies, GGHL [7] and the proposed DTLA, is evaluated. The
+proposed DTLA increases the mAP50 , mAP75 and mAP50:95
+without introducing additional CNN structure and adding
+inference cost. Fig. 6 shows the positive candidate positions
+selected by GGHL [7] and DTLA for predicting objects. As
+seen in Fig. 6, there is a significant difference between the
+positive candidate positions dynamically selected by DTLA
+according to D̃x,y and the positions statically assigned by
+GGHL [7] according to the Gaussian prior. The Gaussian peak
+position is not necessarily the optimal candidate position. It
+is more reasonable for DTLA to select the positive candidate
+positions adaptively according to different objects and training
+stages. Besides, Table IV also compares the proposed DTLA
+with other label assignment strategies used for general object
+detection. The experimental results show that DTLA brings
+more benefits compared to other label assignment strategies.
+Furthermore, Fig. 7 show the visualization results of task-wise
+prediction scores, from which it can be seen that the proposed
+TS-Conv with DTLA has better localization and classification
+prediction consistency.
+Finally, the TS-Conv model combining the above components is obtained. Compared with the GGHL model, the
+mAP50 , mAP75 and mAP50:95 of TS-Conv are improved
+by 2.34% (+1.80), 5.45% (+2.41), and 4.47% (+1.98). The
+improvement in mAP75 and mAP50:95 metrics representing
+higher detection quality is more pronounced. In general, the
+ablation experiments validate the effectiveness of each component in the proposed TS-Conv. In addition, Table III lists the
+experimental results of different hyperparameter settings. The
+hyperparameter ϑ is used to measure the weight of statically
+pre-allocated labels versus dynamically allocated labels. The
+larger its value is, the more dependent it is on the label
+assignment of GGHL, which conforms to the Gaussian prior;
+
+TABLE IV
+E VALUATIONS OF DIFFERENT LABEL ASSIGNMENT STRATEGIES ON THE
+DOTA DATASETS
+Models
+
+Label Assign.
+
+mAP50
+
+GGHL[7]
+GGHL[7]
+GGHL[7]
+GGHL[7]
+GGHL[7]
+GGHL[7]
+GGHL[7]
+LO-Det[41]
+LO-Det[41]
+LO-Det[41]
+LO-Det[41]
+LO-Det[41]
+LO-Det[41]
+LO-Det[41]
+
+Anchor[49]
+Centerness[50]
+ATSS[16]
+AutoAssign[15]
+GGHL[7]
+TAL+TAP of TOOD[48])
+DTLA
+Anchor
+Centerness[50]
+ATSS[16]
+AutoAssign[15]
+GGHL[7]
+TAL+TAP of TOOD[48]
+DTLA
+
+74.64
+73.48
+75.15
+75.34
+76.95
+77.11
+77.95
+66.17
+69.65
+70.01
+70.74
+71.26
+71.08
+73.36
+
+Before TS-Conv
+
+After TS-Conv
+
+Before TS-Conv
+
+Localization
+
+Classification
+
+Inference
+Speed (fps)
+38.77
+42.39
+39.06
+42.39
+42.39
+42.39
+42.39
+60.01
+62.07
+60.03
+62.07
+62.07
+62.07
+62.07
+
+Localization
+
+Classification
+
+(a-1)
+
+(a-2)
+
+(b-1)
+
+(b-2)
+
+Localization
+
+Classification
+
+Localization
+
+Classification
+
+(a-3)
+
+(a-4)
+
+(b-3)
+
+(b-4)
+
+Localization
+
+Classification
+
+Localization
+
+Classification
+
+After TS-Conv
+
+Fig. 8. Visualization of feature sensitivity regions. The closer the color is to
+red, the higher the sensitivity of the feature at this location. The figures in
+rows 1 and 3 (Figs. (a-1), (a-2), (b-1) and (b-2)) are the visualization results
+of feature sensitivity regions before using the designed TS-Conv. The figures
+(c-1)4 (Figs. (a-3), (a-4),
+(c-2)
+(d-2)
+in rows 2 and
+(b-3) and (b-4))(d-1)are the visualization
+results
+Localization
+Classification
+of featureLocalization
+sensitivity regions
+after using the designed
+TS-Conv.Classification
+
+(c-3)
+
+(c-4)
+
+(d-3)
+
+(d-4)
+
+k=0
+
+k=1
+
+k=4
+
+k=5
+
+DCK
+
+DCK
+
+kernel rotated by 0°
+
+kernel rotated by 45°
+
+kernel rotated by 180°
+
+kernel rotated by 225°
+
+image rotated by 0°
+
+image rotated by 90°
+
+(1)
+
+(2)
+
+(5)
+
+(6)
+
+(9)
+
+(10)
+
+DCK
+
+k=2
+
+k=3
+
+k=6
+
+k=7
+
+kernel rotated by 90°
+
+kernel rotated by 135°
+
+DCK
+
+kernel rotated by 270°
+
+kernel rotated by 315°
+
+image rotated by 135°
+
+(3)
+
+(4)
+
+(7)
+
+(8)
+
+(11)
+
+DCK
+
+(b)
+
+image rotated by 270°
+
+(12)
+
+Fig. 9. Visualization of features extracted by Dynamic circular kernel
+(DCK). Figs. (1)-(8) show the features extracted by convolutional kernels
+with different rotations in DCK, respectively. Figs. (9)-(12) show the DCKextracted features of input images with different rotations, respectively.
+
+the smaller its value is, the greater its reliance on the CNN
+adaptive learning score for label assignment. According to
+Table III we set T = 0.3 and ϑ = 0.5 in TS-Conv to obtain
+the best results.
+2) Analysis of the IFS problem. To more intuitively
+analyze the IFS problem faced by existing AOOD models like
+GGHL [7], Fig. 8 visualizes the feature-sensitive regions of
+the localization and classification tasks. Fig. 8 (a-1), (a-2) and
+(b-1), (b-2) show the feature sensitivity regions before using
+the proposed TS-Conv. The closer the color of the heatmap to
+red indicates that the model is more sensitive to the features
+in that region. From observing the feature sensitivity regions
+for various scenes and objects, it is obvious that the feature10
+
+Localization
+Sampling Positions
+
+Classification
+Sampling Positions
+
+Localization
+Sampling Positions
+
+Classification
+Sampling Positions
+
+TABLE V
+P ERFORMANCE EVALUATION OF THE LIGHTWEIGHT MODEL USING DTLA
+AND TS-C ONV- BASED KNOWLEDGE DISTILLATION ON THE DOTAV 1.0
+DATASET
+
+Fig. 10. Visualization results of task-wise sampling positions.
+
+Modules
+
+mAP50
+
+YOLOXnano [29]
+NanoDet-M [29]
+YOLOv6nano [29]
+LO-Det [41] (Baseline)
+
+64.26
+63.84
+70.82
+66.17
+71.26
+
+LO-Det [41] + GGHL [7]
+
+sensitive regions of localization and classification tasks are significantly different. It is difficult for the existing schemes, such
+as decoupled-head used by CFC-Net [26], GGHL [7], etc., and
+shared-offset DCNs used by S2 ANet [17], Oriented RepPoints
+[14], etc., to take into account the respectively most sensitive
+features for different tasks. Correspondingly, Fig. 8 (a-3), (a4), (b-3) and (b-4) show the results of feature sensitivity
+regions after using the proposed TS-Conv. Sensitive features of
+different tasks located at different locations before input to TSConv are extracted and mapped to the same spatial location.
+The sensitive features of localization and classification are
+spatially aligned after TS-Conv’s mapping. Then the optimal
+candidates are found among these spatially aligned features to
+predict the objects. It further demonstrates the effectiveness
+of the designed TS-Conv. Furthermore, Fig. 10 visualizes the
+sampling positions (white circles in the figure) of the model for
+localization and classification subtasks after using the designed
+sampling strategies. It can be seen from the visualization
+results that the feature sampling positions extract features from
+the corresponding task-sensitive regions, which shows the
+effectiveness of the task-wise sampling strategies in extracting
+more appropriate features. Besides, the localization feature
+sampling positions under explicit constraints also match the
+sensitive areas, indicating that the designed explicit constraints
+can effectively associate the feature-sensitive positions with
+the representation of OBB. In addition, it is found that for
+large-scale objects, such as the ship in Fig. 10, the range
+of explicitly constrained sampling positions may be smaller
+than the object OBB during testing (not directly supervised
+by the ground truth of OBB during training), although these
+sampling positions still fit the shape and sensitive region of
+the OBB. This may be due to insufficient receptive field of the
+localization branch, which needs further study in the future.
+3) Analysis of orientation-robust features extracted by
+DCK. Figs. 9 (1)-(8) show the feature-sensitive regions of
+different oriented convolutional kernels in DCK (see details
+in Fig. 4), respectively. The different feature-sensitive regions
+indicate that the feature extraction is not robust to arbitrary
+orientations. Since objects’ orientations in AOOD are more
+diverse than those in the ordinary OD, this problem further
+constrains the existing AOOD models’ performance. Figs. 9
+(9) shows the feature-sensitive regions of the designed DCK,
+which adjust the optimal orientation and weights of eightoriented kernels according to different inputs adaptively. Furthermore, Figs. 9 (9)-(12) show the feature-sensitive regions
+of DCK when the input images are rotated in different orientations. The results indicate that the feature-sensitive regions
+of DCK are robust to arbitrary-oriented inputs, which do not
+fluctuate significantly with the objects’ rotations. In addition,
+
+LO-Det [41] + DTLA
+TS-Conv Lite
+
+Speed1 Speed2 Speed3 Speed4 FLOPs Parameters
+(fps)
+(fps)
+(fps)
+(fps)
+(G)
+(MB)
+46.70
+6.95
+22.50
+3.59 15.87
+0.91
+52.87
+7.51
+23.24
+3.49 15.11
+0.95
+49.53
+6.40
+19.72
+3.01 15.87
+4.30
+60.01
+6.99
+22.12
+3.71
+6.42
+6.93
+62.07
+7.68
+23.72
+4.04
+6.30
+6.72
+
+(+5.09)
+
+(+2.06)
+
+(+0.699)
+
+(+1.60)
+
+(+0.33)
+
+(-0.12)
+
+(-0.21)
+
+73.36
+
+62.07
+
+7.68
+
+23.72
+
+4.04
+
+6.30
+
+6.72
+
+(+7.19)
+
+(+2.06)
+
+(+0.699)
+
+(+1.60)
+
+(+0.33)
+
+(-0.12)
+
+(-0.21)
+
+73.96
+
+62.07
+
+7.68
+
+23.72
+
+4.04
+
+6.30
+
+6.72
+
+(+7.79)
+
+(+2.06)
+
+(+0.699)
+
+(+1.60)
+
+(+0.33)
+
+(-0.12)
+
+(-0.21)
+
+Note: The unit G is Giga, which represents 1 × 109 . The unit MB represents
+1 × 106 bytes. Speed1, Speed2, Speed3 and Speed4 are the detection speed
+on the RTX 3090 GPU, NVIDIA Jetson TX2, Jetson AGX Xavier, and
+Jetson Nano, respectively. The inference speed only includes the network
+inference speed without post-processing. TS-Conv Lite: TS-Conv Distilled
+LO-Det [41] + DTLA.
+TABLE VI
+P ERFORMANCE EVALUATION OF THE PROPOSED TS-C ONV FOR
+MULTIMODAL IMAGES ON THE D RONE V EHICLE DATASET
+Methods
+
+RGB Infrared car freight car truck bus van mAP50
+✓
+67.50
+13.72
+28.24 62.05 19.26 38.16
+✓
+79.86
+28.05
+32.84 67.32 16.44 44.90
+✓
+67.88
+26.31
+38.59 66.98 23.20 44.59
+Faster R-CNN (OBB) [1]
+✓
+88.63
+35.16
+42.51 77.92 28.52 54.55
+✓
+68.23
+26.40
+38.73 69.08 26.38 45.76
+Faster R-CNN (Dpool) [1]
+✓
+88.94
+36.79
+47.91 78.28 32.79 56.94
+✓
+68.23
+26.40
+38.73 69.08 26.38 45.76
+Mask R-CNN [1]
+✓
+88.94
+36.79
+47.91 78.28 32.79 56.94
+✓
+68.00
+27.25
+44.67 69.34 29.80 47.81
+Cascade Mask R-CNN [1]
+✓
+81.00
+38.97
+47.18 79.32 33.00 56.96
+✓
+67.89
+27.22
+44.55 70.22 28.61 47.70
+Hybrid Task Cascade [1]
+✓
+88.57
+42.85
+47.71 79.46 34.16 58.55
+✓
+68.13
+29.08
+44.17 70.55 27.64 47.91
+RoITransformer [4]
+✓
+88.85
+41.49
+51.53 79.48 34.39 59.15
+✓
+69.48
+31.46
+47.87 77.37 29.03 51.04
+ReDet [11]]
+✓
+89.47
+42.82
+53.95 79.89 36.56 60.54
+✓
+75.77
+33.75
+46.08 68.05 38.72 52.48
+Gliding Vertex [5]
+✓
+89.15
+42.95
+59.72 78.75 43.88 62.89
+✓
+89.95
+47.19
+65.67 91.66 44.84 67.86
+GGHL [7]
+✓
+94.32
+53.45
+64.63 90.85 51.38 70.93
+UA-CMDet [46]
+✓
+✓
+87.51
+46.80
+60.70 87.08 37.95 64.01
+TS-Conv
+✓
+90.07
+48.12
+64.39 91.67 46.52 68.15
+TS-Conv
+✓
+94.55
+53.70
+64.91 91.15 52.02 71.27
+✓
+✓
+94.87
+55.16
+65.93 92.04 53.64 72.33
+TS-Conv
+RetinaNet (OBB) [40]
+
+Note: The testing image size is 640 ×640 pixels. The TS-Conv∗ represents
+that it not only samples the features of different tasks separately, but also
+samples the features of different modalities.
+
+the performance of using the random rotation data augmentation (RRDA) strategy and DCK are compared in Table III. The
+performance of the model using only DCK exceeds that of the
+model using only the RRDA strategy. As shown in Table III,
+when using both the RRDA strategy and DCK, the mAP50 is
+0.28 higher than that of using DCK only and 0.83 higher than
+that of using RRDA only. The performance further confirms
+the designed DCK’s ability to enhance the model’s robustness
+to extract features with arbitrary orientations.
+C. Experiments for the Scalability of TS-Conv
+1) Scalability of TS-Conv on lightweight models. Although TS-Conv improves detection performance and robustness, the introduction of DCNs also brings additional compu11
+
+(a-2)
+
+(a-3)
+
+Localization
+
+Figs.11 (b-1)-(b-4) show the differences between task-wise and
+modality-wise features for RGB-Infrared image pairs. RGB
+images contain richer color and texture features but are more
+susceptible to lighting conditions. Infrared images highlight
+objects in low light conditions but lack more detailed features.
+Therefore, TS-Conv is extended to sample modality-wise
+features separately along the lines of ”separate sampling and
+aligned mapping”. This model is denoted as TS-Conv∗ . The
+results in Table VI reflect the effectiveness of the modalitywise samplings strategy for further improving the detection
+performance on the multimodal dataset. In the future, this
+problem is expected to be explored in more depth. In addition,
+experiments with lightweight models are also conducted to
+verify the scalability of TS-Conv on multimodal data.
+
+Classification
+
+Infrared
+
+Infrared
+
+RGB
+
+RGB
+
+(a-1)
+
+car
+
+truck
+
+bus
+
+van
+
+freight car
+
+(b-1)
+
+(b-2)
+
+Localization
+
+Classification
+
+(b-3)
+
+(b-4)
+
+Fig. 11. Visualization results of TS-Conv on the DroneVehicle dataset. Figs.
+(a-1)-(a-3) show the object detection results of RGB-Infrared multimodal
+image pairs under different lighting conditions. Figs. (b-1)-(b-4) show the
+feature sensitivity regions of different modalities and different tasks for RGBInfrared multimodal image pairs.
+
+tational burdens compared to the baseline model GGHL [7].
+For the benefits of TS-Conv to be applied in the lightweight
+model, the experiments on different embedded devices are
+designed and validated, as listed in Table V. The lightweight
+AOOD model LO-Det [41] is chosen as the baseline. First, the
+anchor-based label assignment strategy of LO-Det is improved
+to GGHL and the proposed DTLA for comparison. The results
+in Table V demonstrate that using the proposed dynamic label
+assignment strategy DTLA further improves the performance
+of the lightweight model by 2.95% (+2.10) without losing
+model inference efficiency and increasing model complexity compared to using the static label assignment strategy
+GGHL. Second, the knowledge distillation is adopted to make
+DTLA take full advantage of the task-wise sensitive features
+learned by TS-Conv without complicating the lightweight
+model structure. Specifically, The LO-Det+DTLA is utilized
+as the student model, and the TS-Conv is used as the teacher
+model. RGB images and IR images are used to train one
+teacher model each, and then two teacher models are used
+to distill knowledge to the student model according to the
+DKED strategy [51]. The model obtained from this scheme
+is denoted as TS-Conv Lite. The results show that Ts-Conv
+Lite’s performance is further improved without additional inference cost. TS-Conv Lite’s mAP50 improves 11.77% (+7.79)
+compared to the baseline model with fewer model parameters
+and faster inference because it does not rely on anchor boxes.
+In addition, experiments also compare the performance of TSConv Lite and other lightweight models. The results show that
+the proposed TS-Conv Lite has better performance and faster
+detection speed on embedded devices.
+2) Scalability of TS-Conv for multimodal data. The effectiveness of the proposed TS-Conv for multimodal data is evaluated on the multimodal AOOD dataset DroneVehicle [46]. The
+results are shown in Table VI and Fig. 11. The performance
+of the proposed TS-Conv and the baseline model GGHL are
+evaluated on RGB images, infrared images, and RGB-infrared
+image pairs, respectively. The results demonstrate that TSConv has improved performance compared with GGHL in
+all three groups of experiments. It illustrates the effectiveness
+of TS-Conv on multimodal data and demonstrates the merits
+of TS-Conv for improving the accuracy of oriented bounding
+boxes again. TS-Conv has discussed the differences in taskwise feature-sensitive regions, furthermore, the differences
+in modality-wise feature-sensitive regions are analyzed here.
+
+D. Comparison Experiments
+In this subsection, the performance of the proposed TSConv and state-of-the-art methods is compared on several
+datasets, including DOTA [1, 42], DIOR-R [45], HRSC2016
+[43], SSDD+ [47], SKU-110KR [34], etc.
+1) Comparison experiments on the DOTA datasets.
+Table VII provides the performance comparison results of the
+different methods on the most widely used AOOD dataset
+DOTAv1.0. The experimental results show that the performance and speed of the proposed TS-Conv outperform most
+of the AOOD methods (single-scale: mAP50 =78.75, multiscale: mAP50 =80.97), further validating the effectiveness of
+TS-Conv. Although the performance of TS-Conv (singlescale testing) is slightly lower than that of the two-stage
+method Oriented R-CNN [53] and the refine-stage method
+S2 ANet (with the larger backbone ResNet-101) [17] when
+single-scale testing are used, the detection speed of TSConv is much faster than those of Oriented R-CNN [53] and
+S2 ANet [17]. Furthermore, after using multi-scale training
+and testing, the proposed TS-Conv has better mAP performance than R3 Det+GWD (refine-stage), R3 Det+KLD (refinestage), CGCDet (two-stage), DODet (two-stage) and other
+methods. Its mAP is only slightly lower than R3 Det+KFIoU
+(ResNet152) by 0.06% but TS-Conv is significantly faster
+than these comparison methods. Besides, the proposed TSConv is an anchor-free method, which is more flexible and
+does not rely on many hyperparameters of anchor boxes.
+In addition, the performance of the lightweight model TSConv Lite (mAP50 =73.96) can reach the level of many larger
+models and has a detection speed that far exceeds that of
+other methods. Furthermore, the performance evaluation on
+the latest versions of the DOTA datasets, i.e., DOTAv1.5
+and DOTAv2.0 [42] are listed in Table VIII. These datasets
+cover a wider category of objects and more small objects
+that are difficult to detect. The results also demonstrate the
+performance advantage of the proposed TS-Conv over existing
+methods.
+2) Comparison experiments on other datasets. The results
+of comparison experiments on the HRSC2016 dataset are
+listed in Table IX. TS-Conv also performs better than the
+existing methods in the ship detection, where the aspect ratio
+of objects is significant. Fig. 12 shows that TS-Conv predicts
+12
+
+TABLE VII
+C OMPARATIVE EXPERIMENTS ON THE DOTAV 1.0 DATASET
+Methods
+
+Backbone
+
+Stage
+
+Anchor
+
+ROI Trans. [4]
+SCRDet [12]
+RSDet [52]
+Gliding Vertex [5]
+CSL [18]
+Oriented R-CNN∗[53]
+CGCDet [54]
+CGCDet∗[54]
+DODet [55]
+DODet∗[55]
+O2 -DNet [20]
+BBAVectors [19]
+CFC-Net [26]
+RIDet [56]
+GGHL [7]
+PolarDet [57]
+GWD∗[22]
+KFIoU∗[58]
+R3 Det [6]
+
+R-101
+R-101
+R-101
+R-101
+R-152
+R-50
+R-50
+R-50
+R-50
+R-50
+H-104
+R-101
+R-50
+R-101
+D-53
+R-101
+R-152
+R-152
+R-152
+R-50
+R-101
+R-50
+RX-101
+R-50
+R-101
+Swin-T
+R-152
+R-152
+R-152
+Swin-T
+D-53
+D-53
+Mobile2
+
+Two
+Two
+Two
+Two
+Two
+Two
+Two
+Two
+Two
+Two
+One
+One
+One
+One
+One
+One
+One
+One
+Refine
+Refine
+Refine
+Refine
+Refine
+Refine
+Refine
+Refine
+Refine
+Refine
+Refine
+Refine
+Refine
+Refine
+One
+
+AB
+AB
+AB
+AB
+AB
+AB
+AB
+AB
+AB
+AB
+AF
+AF
+AB
+AB
+AF
+AF
+AB
+AB
+AB
+AB
+AB
+AF
+AF
+AF
+AF
+AF
+AB
+AB
+AB
+AB
+AF
+AF
+AF
+
+S2 A-Net∗ [17]
+G-Rep∗ [59]
+Oriented
+RepPoints∗ [14]
+R3 Det+GWD∗ [22]
+R3 Det+KLD∗ [58]
+R3 Det+KFIoU∗ [58]
+R3 Det+KFIoU∗ [58]
+TS-Conv
+TS-Conv∗
+TS-Conv Lite
+
+PL
+
+BD
+
+BR
+
+GTF
+
+SV
+
+LV
+
+SH
+
+TC
+
+BC
+
+ST
+
+SBF
+
+RA
+
+HA
+
+SP
+
+HC
+
+88.53 77.91 37.63 74.08 66.53 62.97 66.57 90.50 79.46 76.75 59.04 56.73 62.54 61.29 55.56
+89.98 80.65 52.09 68.36 68.36 60.32 72.41 90.85 87.94 86.86 65.02 66.68 66.25 68.24 65.21
+89.80 82.90 48.60 65.20 69.50 70.10 70.20 90.50 85.60 83.40 62.50 63.90 65.60 67.20 68.00
+89.64 85.00 52.26 77.34 73.01 73.14 86.82 90.74 79.02 86.81 59.55 70.91 72.94 70.86 57.32
+90.25 85.53 54.64 75.31 70.44 73.51 77.62 90.84 86.15 86.69 69.60 68.04 73.83 71.10 68.93
+89.84 85.43 61.09 79.82 79.71 85.35 88.82 90.88 86.68 87.73 72.21 70.80 82.42 78.18 74.11
+88.93 84.45 53.93 78.56 78.54 82.46 87.90 90.87 87.46 84.79 65.56 63.45 76.15 71.58 65.32
+89.42 84.49 59.83 80.78 79.53 84.75 88.55 90.79 87.81 87.06 69.72 71.09 79.38 80.96 75.32
+89.34 84.31 51.39 71.04 79.04 82.86 88.15 90.90 86.88 84.91 62.69 67.63 75.47 72. 22 45.54
+89.96 85.52 58.01 81.22 78.71 85.46 88.59 90.89 87.12 87.80 70.50 71.54 82.06 77.43 74.47
+89.31 82.14 47.33 61.21 71.32 74.03 78.62 90.76 82.23 81.36 60.93 60.17 58.21 66.98 61.03
+88.35 79.96 50.69 62.18 78.43 78.98 87.94 90.85 83.58 84.35 54.13 60.24 65.22 64.28 55.70
+89.08 80.41 52.41 70.02 76.28 78.11 87.21 90.89 84.47 85.64 60.51 61.52 67.82 68.02 50.09
+88.94 78.45 46.87 72.63 77.63 80.68 88.18 90.55 81.33 83.61 64.85 63.72 73.09 73.13 56.87
+89.74 85.63 44.50 77.48 76.72 80.45 86.16 90.83 88.18 86.25 67.07 69.40 73.38 68.45 70.14
+89.65 87.07 48.14 70.97 78.53 80.34 87.45 90.76 85.63 86.87 61.64 70.32 71.92 73.09 67.15
+86.96 83.88 54.36 77.53 74.41 68.48 80.34 86.62 83.41 85.55 73.47 67.77 72.57 75.76 73.40
+89.46 85.72 54.94 80.37 77.16 69.23 80.90 90.79 87.79 86.13 73.32 68.11 75.23 71.61 69.49
+89.80 83.77 48.11 66.77 78.76 83.27 87.84 90.82 85.38 85.51 65.67 62.68 67.53 78.56 72.62
+89.07 82.22 53.63 69.88 80.94 82.12 88.72 90.73 83.77 86.92 63.78 67.86 76.51 73.03 56.60
+88.89 83.60 57.74 81.95 79.94 83.19 89.11 90.78 84.87 87.81 70.30 68.25 78.30 77.01 69.58
+87.76 81.29 52.64 70.53 80.34 80.56 87.47 90.74 82.91 85.01 61.48 68.51 67.53 73.02 63.54
+88.98 79.21 57.57 74.35 81.30 85.23 88.30 90.69 85.38 85.25 63.65 68.82 77.87 78.76 71.74
+87.02 83.17 54.13 71.16 80.18 78.40 87.28 90.90 85.97 86.25 59.90 70.49 73.53 72.27 58.97
+89.53 84.07 59.84 71.76 79.95 80.03 87.33 90.84 87.54 85.23 59.15 66.37 75.23 73.75 57.23
+88.72 80.56 55.69 75.07 81.84 82.40 87.97 90.80 84.33 87.64 62.80 67.91 77.69 82.94 65.46
+89.66 84.99 59.26 82.19 78.97 84.83 87.70 90.21 86.54 86.85 73.47 67.77 76.92 79.22 74.92
+89.92 85.13 59.19 81.33 78.82 84.38 87.50 89.80 87.33 87.00 72.57 71.35 77.12 79.34 78.68
+88.89 85.14 60.05 81.13 81.78 85.71 88.27 90.87 87.12 87.91 69.77 73.70 79.25 81.31 74.56
+89.50 84.26 59.90 81.06 81.74 85.45 88.77 90.85 87.03 87.79 70.68 74.31 78.17 81.67 72.37
+89.86 87.05 49.12 74.01 78.97 81.28 88.24 90.77 86.85 87.24 71.87 69.88 77.01 70.43 78.63
+89.98 88.24 59.85 80.09 79.57 83.27 89.10 90.89 88.00 87.65 71.49 70.66 77.28 80.14 78.37
+89.08 84.20 38.08 74.47 77.03 75.40 86.50 90.84 79.44 85.63 59.33 66.51 67.03 67.73 68.12
+
+Speed
+(fps)
+67.74 7.80
+72.61 9.51
+72.20
+75.02 13.10
+76.17 8.89
+80.87 8.10
+77.34 7.80
+80.70 < 2
+75.49 7.98
+80.62
+3.41
+71.04
+72.32 18.37
+73.50 17.81
+74.70 13.36
+76.95 42.30
+76.64 25.00
+76.30 13.86
+77.35 13.79
+76.47 12.39
+76.38 17.60
+79.42 13.79
+75.56 14.74
+78.47
+75.97 16.10
+76.52 14.23
+78.12
+80.23 12.40
+80.63 12.39
+81.03 9.10
+80.90
+8.85
+78.75 23.23
+80.97 16.49
+73.96 62.07
+
+mAP50
+
+Note: Bold font indicates the best results. The backbone networks R50, R-101, R-152, H-104, D-53, RX-101, Swin-T, and Mobile2 represent the ResNet50, ResNet101, ResNet152,
+Hourglass104, DarkNet53, ResNeXt101, Swin Transformer Tiny, and MobileNetv2, respectively. “AF” represents anchor-free methods, and ’AB’ represents anchor-based methods.
+The inference speed only includes the network inference speed (batch size=1) on an RTX 3090 GPU. The speed of some methods could not be tested due to the available codes,
+which is indicated by “-”. “∗” represents multi-scale training and multi-scale testing.
+
+TABLE VIII
+C OMPARATIVE PERFORMANCE OF DIFFERENT METHODS ON DOTAV 1.0,
+DOTAV 1.5, AND DOTAV 2.0 DATASETS
+
+TABLE IX
+C OMPARATIVE PERFORMANCE OF DIFFERENT METHODS ON THE
+HRSC2016 DATASET
+
+mAP50 @v1.0 mAP50 @v1.5 mAP50 @v2.0
+Methods
+RetinaNet OBB [40]
+66.28
+59.16
+46.68
+Mask R-CNN [44]
+70.71
+62.67
+49.47
+Cascade Mask R-CNN [44]
+70.96
+63.41
+50.04
+71.21
+63.40
+50.34
+Hybrid Task Mask [44]
+Faster R-CNN OBB [2]
+69.36
+62.00
+47.31
+Faster R-CNN OBB + Dpool [44]
+70.14
+62.20
+48.77
+70.11
+62.57
+48.90
+Faster R-CNN H-OBB [44]
+Faster R-CNN OBB + RT [44]
+73.76
+65.03
+52.81
+GGHL [7] (Baseline)
+73.98
+68.92
+57.17
+TS-Conv
+75.04 (+1.06)
+71.18 (+2.86)
+59.77 (+2.60)
+
+Method
+Anchor Backbone mAP50 (07) mAP50 (12) mAP75 (07)
+R2 CNN [60]
+AB
+ResNet101
+73.07
+79.73
+RoI-Transformer [4]
+AB
+ResNet101
+86.20
+Gliding Vertex [5]
+AB
+ResNet101
+88.20
+BBAVectors [19]
+AF
+ResNet101
+88.60
+CenterMap OBB [61]
+AB
+ResNet50
+92.80
+RetinaNet-R [6]
+AB
+ResNet101
+89.18
+95.21
+RetinaNet-GWD [22]
+AB
+ResNet50
+85.56
+60.31
+RetinaNet-KLD [23]
+AB
+ResNet50
+87.45
+72.39
+R3 Det [6]
+AB
+ResNet101
+89.26
+96.01
+R3 Det-DCL [62]
+AB
+ResNet101
+89.46
+96.41
+R3 Det-GWD [22]
+AB
+ResNet50
+89.43
+68.88
+R3 Det-KLD [23]
+AB
+ResNet50
+89.97
+77.38
+AB
+ResNet101
+90.17
+95.01
+S2 ANet [17]
+Oriented RepPoints [14]
+AF
+ResNet50
+90.40
+97.26
+GGHL [7] (Baseline)
+AF
+DarkNet53
+89.53
+96.50
+76.07
+TS-Conv
+AF
+DarkNet53 90.59 (+1.06) 97.64 (+1.14) 78.34 (+2.27)
+
+Note: Bold font indicates the best results. In order to make a fair comparison
+with the methods in the DOTAv2.0 benchmark [44], the experiments above
+do not use data augmentation and other tricks like these comparison methods.
+mAP50 @v1.0, mAP50 @v1.5, and mAP50 @v2.0 denote the results on the
+DOTAv1.0, DOTAv1.5, and DOTAv2.0 datasets [42], respectively.
+
+Note: Bold font indicates the best results. AF represents anchor-free
+methods, and AB represents anchor-based methods. The mAP50 (07) and
+mAP50 (12) represent the mAP calculated on standard of VOC07 and
+VOC12, respectively.
+
+more accurately and with fewer false alarms for oriented
+bounding boxes compared to GGHL [7]. As shown in Table X,
+TS-Conv also outperforms the existing methods on the DIORR dataset [45], where objects have more scale variations and
+categories. In particular, the improvements are more significant
+for mAP75 and mAP50:95 . The results on the SAR dataset
+SSDD+ are given in Table XI. The results demonstrate that
+TS-Conv performs better on the datasets with other data
+modality. More visualized results are shown in Fig. 13. In
+summary, extensive comparison experiments are conducted on
+
+datasets covering multiple scenes, multimodal images (RGB,
+infrared, SAR, and panchromatic images), multiple categories
+of objects, and different lighting conditions (daytime and
+nighttime). The state-of-the-art results demonstrate the effectiveness and generality of TS-Conv.
+13
+
+strate the following: 1) The effectiveness of each improvement
+designed in TS-Conv has been confirmed, and the claims made
+for each component have been verified. 2) TS-Conv has good
+scalability on lightweight models and for multimodal data. It
+can improve the performance of the lightweight model without
+extra inference cost and be extended to sample modalitywise features with positive results. 3) The proposed TS-Conv
+has achieved advanced performance and speed compared to
+existing AOOD methods on the datasets covering multiple
+scenes, multimodal images, etc., demonstrating its generality
+further. Nonetheless, the computational complexity of using
+DCN is still high, and the impact of OBB annotation error on
+explicit constraints of localization on TS-Conv is unclear. In
+the future, it would be interesting to investigate these issues.
+The code is available at https://github.com/Shank2358.
+
+TABLE X
+C OMPARATIVE PERFORMANCE OF DIFFERENT METHODS ON THE DIOR-R
+DATASET
+
+Methods
+Anchor Backbone
+mAP50
+mAP75
+mAP50:95
+RetinaNet-O [40]
+AB
+ResNet50
+57.55
+AB
+ResNet50
+59.54
+Faster RCNN-O [2]
+Gliding Vertex [5]
+AB
+ResNet50
+60.06
+AB
+ResNet50
+63.87
+RoI-Transformer [4]
+AOPG [45]
+AF
+ResNet50
+64.41
+Oriented RepPoints [14]
+AF
+ResNet50
+66.71
+GGHL [7] (Baseline)
+AF
+DarkNet53
+66.48
+36.99
+37.44
+AF
+DarkNet53 68.47 (+1.99) 42.69 (+5.70) 41.38 (+3.94)
+TS-Conv
+
+Note: Bold font indicates the best results. AF represents anchor-free methods,
+and AB represents anchor-based methods.
+TABLE XI
+C OMPARATIVE PERFORMANCE OF DIFFERENT METHODS ON THE SSDD+
+DATASET
+
+Methods
+
+Anchor
+
+Backbone
+
+mAP30
+
+mAP50
+
+mAP75
+
+R EFERENCES
+
+DRBox-v1 [63]
+SDOE [63]
+DRBox-v2 [64]
+GGHL [7]
+(Baseline1)
+TS-Conv
+LO-Det + GGHL [41]
+(Baseline2)
+LO-Det[41] + DTLA
+
+AB
+AB
+AB
+
+VGG16
+VGG16
+VGG16
+
+86.41
+92.81
+
+82.40
+85.17
+
+-
+
+AF
+
+DarkNet53
+
+95.10
+
+90.22
+
+22.18
+
+AF
+
+DarkNet53
+
+96.56 (+1.46)
+
+92.48 (+2.26)
+
+41.96 (+19.78)
+
+AF
+
+MobileNetv2
+
+93.87
+
+85.90
+
+16.64
+
+AF
+
+MobileNetv2
+
+93.89 (+0.02)
+
+87.08 (+1.18)
+
+26.73 (+10.09)
+
+[1] G.-S. Xia, X. Bai, J. Ding, Z. Zhu, S. Belongie, J. Luo, M. Datcu,
+M. Pelillo, and L. Zhang, “DOTA: A large-scale dataset for object
+detection in aerial images,” in Proc. IEEE/CVF Conf. Comput. Vis.
+Pattern Recognit., Salt Lake City, Utah, USA, June 2018, pp. 3974–
+3983.
+[2] S. Ren, K. He, R. Girshick, and J. Sun, “Faster R-CNN: Towards
+real-time object detection with region proposal networks,” IEEE Trans.
+Pattern Anal. Mach. Intell., vol. 39, no. 6, pp. 1137–1149, 2017.
+[3] J. Bai, J. Ren, Z. Xiao, Z. Chen, C. Gao, T. A. A. Ali, and L. Jiao,
+“Localizing from classification: self-directed weakly supervised object
+localization for remote sensing images,” IEEE Trans. Neural Netw.
+Learn. Syst., pp. 1–15, 2023.
+[4] J. Ding, N. Xue, Y. Long, G.-S. Xia, and Q. Lu, “Learning RoI
+transformer for oriented object detection in aerial images,” in Proc.
+IEEE/CVF Conf. Comput. Vis. Pattern Recognit., Long Beach, CA, USA,
+June 2019, pp. 2849–2858.
+[5] Y. Xu, M. Fu, Q. Wang, Y. Wang, K. Chen, G.-S. Xia, and X. Bai,
+“Gliding vertex on the horizontal bounding box for multi-oriented object
+detection,” IEEE Trans. Pattern Anal. Mach. Intell., pp. 1–1, Feb. 2020.
+[6] X. Yang, Q. Liu, J. Yan, and A. Li, “R3Det: Refined single-stage
+detector with feature refinement for rotating object,” arXiv preprint
+arXiv:1908.05612, 2019.
+[7] Z. Huang, W. Li, X.-G. Xia, and R. Tao, “A general gaussian heatmap
+label assignment for arbitrary-oriented object detection,” IEEE Trans.
+Image Process., vol. 31, pp. 1895–1910, 2022.
+[8] B. Jiang, R. Luo, J. Mao, T. Xiao, and Y. Jiang, “Acquisition of
+localization confidence for accurate object detection,” in Proc. Eur. Conf.
+Comput. Vis., 2018, pp. 784–799.
+[9] G. Song, Y. Liu, and X. Wang, “Revisiting the sibling head in object
+detector,” in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit.,
+2020, pp. 11 563–11 572.
+[10] Z. Piao, L. Tang, and B. Zhao, “Unsupervised domain-adaptive object
+detection via localization regression alignment,” IEEE Trans. Neural
+Netw. Learn. Syst., pp. 1–15, 2023.
+[11] J. Han, J. Ding, N. Xue, and G.-S. Xia, “ReDet: A rotation-equivariant
+detector for aerial object detection,” arXiv preprint arXiv:2103.07733,
+2021.
+[12] X. Yang, J. Yang, J. Yan, Y. Zhang, T. Zhang, Z. Guo, X. Sun, and K. Fu,
+“SCRDet: Towards more robust detection for small, cluttered and rotated
+objects,” in Proc. IEEE Int. Conf. Comput. Vis., Seoul, South Korea, Oct.
+2019, pp. 8232–8241.
+[13] Z. Yang, S. Liu, H. Hu, L. Wang, and S. Lin, “Reppoints: Point set
+representation for object detection,” in Proc. IEEE Int. Conf. Comput.
+Vis., 2019, pp. 9657–9666.
+[14] W. Li, Y. Chen, K. Hu, and J. Zhu, “Oriented reppoints for aerial object
+detection,” in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit.,
+2022, pp. 1829–1838.
+[15] B. Zhu, J. Wang, Z. Jiang, F. Zong, S. Liu, Z. Li, and J. Sun,
+“Autoassign: Differentiable label assignment for dense object detection,”
+arXiv preprint arXiv:2007.03496, 2020.
+[16] S. Zhang, C. Chi, Y. Yao, Z. Lei, and S. Z. Li, “Bridging the gap between
+anchor-based and anchor-free detection via adaptive training sample
+selection,” in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit.,
+2020, pp. 9759–9768.
+
+GGHL
+
+Note: The testing image size is 800 ×800 pixels. To be consistent with the
+comparison method, the confidence threshold is set to 0.2. AF represents
+anchor-free methods, and AB represents anchor-based methods.
+
+(a-2)
+
+(a-3)
+
+(a-4)
+
+(b-1)
+
+(b-2)
+
+(b-3)
+
+(b-4)
+
+TS-Conv
+
+(a-1)
+
+Fig. 12. Comparison of visualization results between GGHL and TS-Conv on
+the HRSC2016 dataset. Figs. (a-1)-(a-4) show the detection results of GGHL,
+and Figs. (b-1)-(b-4) show the detection results of TS-Conv.
+
+TX2
+
+Nano
+
+AGX
+Xavier
+
+(a)
+
+(b)
+
+Fig. 13. Presentation of other experiments. (a) Embedded edge devices,
+including Nvidia Jetson TX2, Nano and AGX Xavier, for evaluating the
+performance of lightweight models. (b) Visualization results of the proposed
+TS-Conv on the SSDD+ dataset.
+
+V. C ONCLUSIONS
+This paper proposes a TS-Conv method to cope with the IFS
+problem faced by the existing AOOD methods. The proposed
+TS-Conv samples the task-wise features from their respective
+sensitive regions and maps them together in alignment to guide
+a dynamic label assignment for better performance and robustness. Extensive experiments on several public datasets demon14
+
+[17] J. Han, J. Ding, J. Li, and G.-S. Xia, “Align deep features for oriented
+object detection,” IEEE Trans. Geosci. Remote Sens., pp. 1–11, 2021.
+[18] X. Yang and J. Yan, “Arbitrary-oriented object detection with circular
+smooth label,” in Proc. Eur. Conf. Comput. Vis., Online, Aug. 2020, pp.
+677–694.
+[19] J. Yi, P. Wu, B. Liu, Q. Huang, H. Qu, and D. N. Metaxas, “Oriented
+object detection in aerial images with box boundary-aware vectors,” in
+Proc. IEEE Winter Conf. Appl. Comput. Vis., Dec. 2020, pp. 2150–2159.
+[20] H. Wei, Y. Zhang, Z. Chang, H. Li, H. Wang, and X. Sun, “Oriented
+objects as pairs of middle lines,” ISPRS J. Photogramm. Remote Sens.,
+vol. 169, pp. 268–279, 2020.
+[21] L. Dai, H. Liu, H. Tang, Z. Wu, and P. Song, “AO2-DETR: Arbitraryoriented object detection transformer,” arXiv preprint arXiv:2205.12785,
+2022.
+[22] X. Yang, J. Yan, Q. Ming, W. Wang, X. Zhang, and Q. Tian, “Rethinking
+rotated object detection with gaussian wasserstein distance loss,” arXiv
+preprint arXiv:2101.11952, 2021.
+[23] X. Yang, X. Yang, J. Yang, Q. Ming, W. Wang, Q. Tian, and J. Yan,
+“Learning high-precision bounding box for rotated object detection via
+kullback-leibler divergence,” arXiv preprint arXiv:2106.01883, 2021.
+[24] Z. Guo, C. Liu, X. Zhang, J. Jiao, X. Ji, and Q. Ye, “Beyond boundingbox: Convex-hull feature adaptation for oriented and densely packed object detection,” in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit.,
+2021, pp. 8788–8797.
+[25] C. Xu, J. Ding, J. Wang, W. Yang, H. Yu, L. Yu, and G.-S. Xia,
+“Dynamic coarse-to-fine learning for oriented tiny object detection,” in
+Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit., June 2023, pp.
+7318–7328.
+[26] Q. Ming, L. Miao, Z. Zhou, and Y. Dong, “CFC-Net: A critical feature
+capturing network for arbitrary-oriented object detection in remote
+sensing images,” arXiv preprint arXiv:2101.06849, 2021.
+[27] H. Zhang, Y. Wang, F. Dayoub, and N. Sunderhauf, “Varifocalnet: An
+iou-aware dense object detector,” in Proc. IEEE/CVF Conf. Comput. Vis.
+Pattern Recognit., 2021, pp. 8514–8523.
+[28] Y. Wu, Y. Chen, L. Yuan, Z. Liu, L. Wang, H. Li, and Y. Fu, “Rethinking
+classification and localization for object detection,” in Proc. IEEE/CVF
+Conf. Comput. Vis. Pattern Recognit., 2020, pp. 10 186–10 195.
+[29] Z. Ge, S. Liu, F. Wang, Z. Li, and J. Sun, “Yolox: Exceeding yolo series
+in 2021,” arXiv preprint arXiv:2107.08430, 2021.
+[30] J. Cao, H. Cholakkal, R. M. Anwer, F. S. Khan, Y. Pang, and L. Shao,
+“D2det: Towards high quality object detection and instance segmentation,” in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit., 2020,
+pp. 11 485–11 494.
+[31] X. Zhu, H. Hu, S. Lin, and J. Dai, “Deformable convnets v2: More
+deformable, better results,” in Proc. IEEE/CVF Conf. Comput. Vis.
+Pattern Recognit., 2019, pp. 9308–9316.
+[32] J. Wang, K. Chen, S. Yang, C. C. Loy, and D. Lin, “Region proposal
+by guided anchoring,” in Proc. IEEE/CVF Conf. Comput. Vis. Pattern
+Recognit., 2019, pp. 2965–2974.
+[33] J. Dai, H. Qi, Y. Xiong, Y. Li, G. Zhang, H. Hu, and Y. Wei, “Deformable
+convolutional networks,” in Proc. IEEE Int. Conf. Comput. Vis., 2017,
+pp. 764–773.
+[34] X. Pan, Y. Ren, K. Sheng, W. Dong, H. Yuan, X. Guo, C. Ma, and C. Xu,
+“Dynamic refinement network for oriented and densely packed object
+detection,” in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit.,
+Online, June 2020, pp. 11 207–11 216.
+[35] R. Liu, J. Lehman, P. Molino, F. Petroski Such, E. Frank, A. Sergeev,
+and J. Yosinski, “An intriguing failing of convolutional neural networks
+and the coordconv solution,” Adv. Neur. In., vol. 31, 2018.
+[36] S.-C. Huang, Q.-V. Hoang, and T.-H. Le, “SFA-Net: A selective features
+absorption network for object detection in rainy weather conditions,”
+IEEE Trans. Neural Netw. Learn. Syst., vol. 34, no. 8, pp. 5122–5132,
+2023.
+[37] Z. Shao, J. Han, and D. Marnerides, and K. Debattista, “Region-object
+relation-aware dense captioning via transformer,” IEEE Trans. Neural
+Netw. Learn. Syst., pp. 1–12, 2022.
+[38] B. Yang, G. Bender, Q. V. Le, and J. Ngiam, “Condconv: Conditionally
+parameterized convolutions for efficient inference,” Adv. Neur. In.,
+vol. 32, 2019.
+[39] H. Rezatofighi, N. Tsoi, J. Gwak, A. Sadeghian, I. Reid, and S. Savarese,
+“Generalized intersection over union: A metric and a loss for bounding
+box regression,” in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit., Long Beach, CA, USA, June 2019, pp. 658–666.
+[40] T.-Y. Lin, P. Goyal, R. Girshick, K. He, and P. Dollar, “Focal loss for
+dense object detection,” in Proc. IEEE Int. Conf. Comput. Vis., Venice,
+Italy, Oct. 2017, pp. 2999–3007.
+[41] Z. Huang, W. Li, X.-G. Xia, H. Wang, F. Jie, and R. Tao, “LO-Det:
+
+Lightweight oriented object detection in remote sensing images,” IEEE
+Trans. Geosci. Remote Sens., pp. 1–15, 2021.
+[42] K. Li, G. Wan, G. Cheng, L. Meng, and J. Han, “Object detection in
+optical remote sensing images: A survey and a new benchmark,” ISPRS
+J. Photogramm. Remote Sens., vol. 159, pp. 296–307, 2020.
+[43] Z. Liu, L. Yuan, L. Weng, and Y. Yang, “A high resolution optical
+satellite image dataset for ship recognition and some new baselines,” in
+Proc. Int. Conf. Pattern Recognit. Appl. Methods, vol. 2. SciTePress,
+2017, pp. 324–331.
+[44] J. Ding, N. Xue, G.-S. Xia, X. Bai, W. Yang, M. Y. Yang, S. Belongie, J. Luo, M. Datcu, M. Pelillo, et al., “Object detection in
+aerial images: A large-scale benchmark and challenges,” arXiv preprint
+arXiv:2102.12219, 2021.
+[45] G. Cheng, J. Wang, K. Li, X. Xie, C. Lang, Y. Yao, and J. Han,
+“Anchor-free oriented proposal generator for object detection,” IEEE
+Trans. Geosci. Remote Sens., vol. 60, pp. 1–11, 2022.
+[46] Y. Sun, B. Cao, P. Zhu, and Q. Hu, “Drone-based RGB-Infrared crossmodality vehicle detection via uncertainty-aware learning,” IEEE Trans.
+Circuits Syst. Video Technol., 2022.
+[47] J. Li, C. Qu, and J. Shao, “Ship detection in sar images based on an
+improved faster r-cnn,” in Proc. SAR Big Data Era: Model., Methods
+Appl., Beijing, China, Nov. 2017, pp. 1–6.
+[48] C. Feng, Y. Zhong, Y. Gao, M. R. Scott, and W. Huang, “Tood: Taskaligned one-stage object detection,” in Proc. IEEE Int. Conf. Comput.
+Vis., 2021, pp. 3490–3499.
+[49] J. Redmon and A. Farhadi, “YOLOv3: An incremental improvement,”
+arXiv preprint arXiv:1804.02767, 2018.
+[50] Z. Tian, C. Shen, H. Chen, and T. He, “FCOS: Fully convolutional onestage object detection,” in Proc. IEEE Int. Conf. Comput. Vis., Seoul,
+South Korea, Oct. 2019, pp. 9627–9636.
+[51] Z. Huang, W. Li, and R. Tao, “Extracting and distilling directionadaptive knowledge for lightweight object detection in remote sensing
+images,” in Proc. IEEE Int. Conf. Acoust., Speech, Signal Process.
+IEEE, 2022, pp. 2360–2364.
+[52] W. Qian, X. Yang, S. Peng, Y. Guo, and C. Yan, “Learning modulated
+loss for rotated object detection,” arXiv preprint arXiv:1911.08299,
+2019.
+[53] X. Xie, G. Cheng, J. Wang, X. Yao, and J. Han, “Oriented R-CNN
+for object detection,” in Proc. IEEE Int. Conf. Comput. Vis., 2021, pp.
+3520–3529.
+[54] Y. Wang, and Z. Zhang, W. Xu, L. Chen, G. Wang, L. Yan, S. Zhong,
+and X. Zou, “Learning oriented object detection via naive geometric
+computing,” IEEE Trans. Neural Netw. Learn. Syst., pp. 1–13, 2023.
+[55] G. Cheng, Y. Yao, S. Li, K. Li, X. Xie, J. Wang, X. Yao, and J. Han,
+“Dual-aligned oriented detector,” IEEE Trans. Geosci. Remote Sens.,
+vol. 60, pp. 1–11, 2022.
+[56] Q. Ming, Z. Zhou, L. Miao, X. Yang, and Y. Dong, “Optimization
+for oriented object detection via representation invariance loss,” arXiv
+preprint arXiv:2103.11636, 2021.
+[57] P. Zhao, Z. Qu, Y. Bu, W. Tan, and Q. Guan, “Polardet: A fast, more
+precise detector for rotated target in aerial images,” Int. J. Remote Sens.,
+vol. 42, no. 15, pp. 5831–5861, 2021.
+[58] X. Yang, Y. Zhou, G. Zhang, J. Yang, W. Wang, J. Yan, X. Zhang, and
+Q. Tian, “The KFIoU loss for rotated object detection,” arXiv preprint
+arXiv:2201.12558, 2022.
+[59] L. Hou, K. Lu, X. Yang, Y. Li, and J. Xue, “G-rep: Gaussian
+representation for arbitrary-oriented object detection,” arXiv preprint
+arXiv:2205.11796, 2022.
+[60] Y. Jiang, X. Zhu, X. Wang, S. Yang, W. Li, H. Wang, P. Fu, and
+Z. Luo, “R2CNN: Rotational region CNN for orientation robust dcene
+text detection,” arXiv preprint arXiv:1706.09579, 2017.
+[61] J. Wang, W. Yang, H.-C. Li, H. Zhang, and G.-S. Xia, “Learning center
+probability map for detecting objects in aerial images,” IEEE Trans.
+Geosci. Remote Sens., vol. 59, no. 5, pp. 4307–4323, 2020.
+[62] X. Yang, L. Hou, Y. Zhou, W. Wang, and J. Yan, “Dense label encoding
+for boundary discontinuity free rotation detection,” in Proc. IEEE/CVF
+Conf. Comput. Vis. Pattern Recognit., 2021, pp. 15 819–15 829.
+[63] J. Wang, C. Lu, and W. Jiang, “Simultaneous ship detection and
+orientation estimation in SAR images based on attention module and
+angle regression,” Sensors-basel., vol. 18, no. 9-2851, pp. 1–17, 2018.
+[64] Q. An, Z. Pan, L. Liu, and H. You, “DRBox-v2: An improved detector
+with rotatable boxes for target detection in SAR images,” IEEE Trans.
+Geosci. Remote Sens., vol. 57, no. 11, pp. 8333–8349, 2019.
+[65] C. Yao, X. Bai, W. Liu, Y. Ma, and Z. Tu, “Detecting texts of arbitrary
+orientations in natural images,” in Proc. IEEE/CVF Conf. Comput. Vis.
+Pattern Recognit. IEEE, 2012, pp. 1083–1090.
+
+15
+
+S UPPLEMENTARY M ATERIALS
+A. Display of More Experiment Results
+Scale 1
+
+Scale 2
+
+Scale 3
+
+(2)
+
+(3)
+
+(4)
+
+Scale 1
+
+Scale 2
+
+Scale 3
+
+baseball-diamond
+
+bridge
+
+ground-track-field
+
+small-vehicle
+
+large-vehicle
+
+ship
+
+tennis-court
+
+basketball-court
+
+storage-tank
+
+soccer-ball-field
+
+plane
+
+roundabout
+
+harbor
+
+swimming-pool
+
+helicopter
+
+Fig. 17. Visualization results of TS-Conv on the DOTA dataset.
+(5)
+
+(1)
+
+(6)
+
+(7)
+
+After TS-Conv
+
+Before TS-Conv
+
+Fig. 14. Comparison of DTLA and GGHL label assignment strategies. Figs.
+(2)-(4) represent the positive candidate positions and their scores statically
+assigned by the GGHL strategy at three different scales, respectively. Figs.
+(5)-(7) represent the positive candidate positions and their scores dynamically
+assigned by the proposed DTLA strategy at three different scales, respectively.
+The closer the color is to red, the higher the score.
+
+Localization
+
+Localization
+
+Classification
+
+Classification
+
+(c-1)
+
+(c-2)
+
+(d-1)
+
+(d-2)
+
+Localization
+
+Classification
+
+Localization
+
+Classification
+
+airplane
+chimney
+ground track field
+storage tank
+
+(c-3)
+
+(c-4)
+
+(d-3)
+
+k=2
+
+k=1
+kernel rotated by 45°
+
+kernel rotated by 90°
+
+kernel rotated by 135°
+
+(1)
+
+(2)
+
+(3)
+
+(4)
+
+k=4
+
+k=5
+
+k=6
+
+k=7
+
+kernel rotated by 180°
+
+kernel rotated by 225°
+
+kernel rotated by 270°
+
+kernel rotated by 315°
+
+(5)
+
+(6)
+
+(7)
+
+(8)
+
+DCK
+
+DCK
+
+DCK
+
+basketball court
+Expressway-toll-station
+ship
+vehicle
+
+bridge
+golf field
+stadium
+windmill
+
+Fig. 18. Visualization results of TS-Conv on the DIOR-R dataset.
+
+the SKU-110KR [34] dataset and MSRA-TD500 [65] dataset.
+SKU110-R [34] is a dense-oriented commodity detection
+dataset containing 1,733,678 instances, of which the images
+are collected from supermarket stores. The ratio of the training
+set and test set in the experiment is 1:1. MSRA-TD500 [65]
+is an oriented text detection dataset containing 500 images,
+with a training set and test set ratio of 3:2. The results
+listed in Table XII and Table XIII, respectively, show that
+the proposed TS-Conv also achieves better performance than
+existing methods in other AOOD scenes. The visualization
+results are shown in Fig. 19.
+
+k=3
+
+kernel rotated by 0°
+
+DCK
+
+baseballfield
+Expressway-Service-area
+overpass
+train station
+
+(d-4)
+
+Fig. 15. Visualization of feature sensitivity regions. The closer the color is
+to red, the higher the sensitivity of the feature at this location. The figures in
+rows 1 and 3 (Figs. (c-1), (c-2), (d-1) and (d-2)) are the visualization results
+of feature sensitivity regions before using the designed TS-Conv. The figures
+in rows 2 and 4 (Figs. (c-3), (c-4), (d-3) and (d-4)) are the visualization results
+of feature sensitivity regions after using the designed TS-Conv.
+
+k=0
+
+airport
+dam
+harbor
+tennis court
+
+TABLE XII
+C OMPARATIVE EXPERIMENTS ON THE SKU-110KR DATASET
+
+DCK
+
+image rotated by 0°
+
+image rotated by 90°
+
+image rotated by 135°
+
+image rotated by 270°
+
+(9)
+
+(10)
+
+(11)
+
+(12)
+
+Fig. 16. Visualization of features extracted by Dynamic circular kernel
+(DCK). Figs. (1)-(8) show the features extracted by convolutional kernels
+with different rotations in DCK, respectively. Figs. (9)-(12) show the DCKextracted features of input images with different rotations, respectively.
+
+Methods
+
+Anchor
+
+Backbone
+
+mAP75
+
+YOLOv3-R [34]
+CenterNet-R [34]
+DRN [34]
+
+AB
+AF
+AF
+
+DarkNet53
+Hourglass104
+Hourglass104
+
+51.10
+61.10
+63.10
+
+GGHL [7] (Baseline)
+TS-Conv
+
+AF
+AF
+
+DarkNet53
+DarkNet53
+
+63.73
+65.32 (+1.59)
+
+Note: Bold indicates the best result. AF represents anchor-free methods, and
+AB represents anchor-based methods.
+
+C. Some Failure Cases
+
+B. Experiments in Other AOOD Scenes
+To further verify the generality of the proposed TS-Conv
+in other AOOD scenes, experiments are also conducted on
+
+Additionally, some failure cases are provided in Fig. 20 for
+the future research.
+16
+
+TABLE XIII
+C OMPARATIVE EXPERIMENTS ON THE MSRA-TD500 DATASET
+Methods
+EAST [5]
+Gliding Vertex [5]
+DBNet++ [54]
+CGCDet [54]
+KFIoU [58]
+GGHL [7] (Baseline)
+TS-Conv
+TS-Conv∗
+
+mAP50
+76.30
+70.41
+74.43 (+4.02)
+77.09 (+4.02)
+
+Precision
+91.50
+88.80
+91.50
+90.95
+89.65
+90.48
+91.52
+
+Recall
+83.30
+84.30
+83.30
+84.95
+86.21
+86.84
+87.00
+
+The 3 × 3 circular convolutional kernel generated by bilinear
+interpolation from K cls is represented as
+
+
+K̇0 K1 K̇2
+
+
+K̇ cls =  K3 K4 K5  ,
+(A-2)
+
+F-measure
+87.20
+86.50
+87.20
+87.85
+87.89
+88.62
+89.20
+
+K̇6
+
+K7
+
+K̇8
+
+where
+
+√
+√
+√
+2−1
+2−1
+3−2 2
+1
+
+K
++
+K
++
+K
++
+K4
+K̇
+=
+
+0
+1
+3
+0
+2
+2
+2
+2
+
+
+√
+√
+√
+
+ K̇ = 2−1 K + 1 K + 3−2 2 K + 2−1 K
+2
+
+Note: Bold indicates the best result. AF represents anchor-free methods, and
+AB represents anchor-based methods. “∗” represents multi-scale training and
+multi-scale testing.
+
+√
+
+1
+
+2
+
+2
+√
+
+2
+
+2
+
+4
+
+√
+
+2
+
+5
+
+. (A-3)
+
+3−2 2
+
+K̇6 = 2−1
+K4 + 12 K6 + 2−1
+
+
+2 K3 +
+2
+2 K7
+
+√
+√
+
+ K̇ = 3−2 2 K + 2−1 K + √2−1 K + 1 K
+4
+5
+7
+8
+2
+2
+2
+2 8
+
+E. GGHL Label Assignment Strategy
+Define the Gaussian probability density function (PDF) of
+the candidate position (x, y) generated by GGHL [7] as
+f (x, y) = p
+
+1
+
+1
+
+2πQΛQT
+
+T
+
+× e−2 (X−u) C
+
+−1
+
+(X−u)
+
+
+
+T
+C = AAT = QΛQT = QΛ1/2 QΛ1/2 ,
+
+(a)
+
+(b)
+
+,
+
+(B-1)
+(B-2)
+
+T
+
+where X = [x, y] . In this case, the mean vector µ =
+T
+[xc , yc ] controls
+ the spatial translation, the real orthogonal
+
+Fig. 19. Visualization results of TS-Conv on a) the SKU-110KR dataset and
+b) the MSRA-TD500 dataset.
+
+matrix Q =
+
+cos α − sin α
+sin α " cos α
+
+S1 2
+
+diagonal matrix Λ =
+
+is a rotation matrix, and the
+#
+
+2
+
+
+S2 2
+2
+
+represents the scaling.
+
+To make the value of f (x, y) in the range (0, 1), the constant
+coefficient term, ξ = √ 1 T of f (x, y) is removed to obtain
+2πQΛQ
+
+Localization
+
+Classification
+
+Localization
+
+Classification
+
+Localization
+
+Classification
+
+Gaussian heatmap score Fx,y .
+
+Fig. 20. Some failure cases of TS-Conv.
+
+D. Circular Kernel Generated by Bilinear Interpolation
+Define the vanilla 3 × 3 convolutional kernel as
+
+
+
+
+K0
+
+K1
+
+K2
+
+
+K cls =  K3
+K6
+
+K4
+
+
+K5  .
+
+K7
+
+K8
+
+(A-1)
+
+17
+
+

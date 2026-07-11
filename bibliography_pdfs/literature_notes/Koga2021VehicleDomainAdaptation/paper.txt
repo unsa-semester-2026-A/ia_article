@@ -1,0 +1,541 @@
+ADAPTING VEHICLE DETECTOR TO TARGET DOMAIN
+BY ADVERSARIAL PREDICTION ALIGNMENT
+Yohei Koga1*, Hiroyuki Miyazaki2, Ryosuke Shibasaki2
+1
+
+2
+
+Independent researcher
+Center for Spatial Information Science, The University of Tokyo, Japan
+*Corresponding author, E-mail: monotaro333@gmail.com
+ABSTRACT
+
+While recent advancement of domain adaptation techniques
+is significant, most of methods only align a feature extractor
+and do not adapt a classifier to target domain, which would
+be a cause of performance degradation. We propose novel
+domain adaptation technique for object detection that aligns
+prediction output space. In addition to feature alignment, we
+aligned predictions of locations and class confidences of our
+vehicle detector for satellite images by adversarial training.
+The proposed method significantly improved AP score by
+over 5%, which shows effectivity of our method for object
+detection tasks in satellite images.
+Index Terms— Domain Adaptation, Prediction
+Alignment, SSD, Vehicle Detection, Satellite Images
+1. INTRODUCTION
+Recently, deep learning method have achieved state-of-theart performance in various tasks, e.g., image classification,
+segmentation and object detection, and have been utilized in
+practical real-world applications. Vehicle detection in
+satellite images is one of such practical applications that often
+utilizes region-based object detectors [1]. In vehicle detection,
+region of interest is often different from training data in
+practice. This difference of data distribution between training
+data (source domain) and test data (target domain) causes
+severe performance degradation. To address this, domain
+adaptation (DA) method is applied. Typical DA methods find
+common feature space between source and target domains
+align the target domain features to the source domain and feed
+the aligned target domain features to a source domain
+classifier. While this methodology is substantially effective
+[2], there still remains subtle feature difference between
+source and target domains after feature alignment and the
+classifier cannot address the feature difference, which could
+hurt the performance.
+In some way, a classifier needs to be adapted to target
+domain directly. Several previous works addressed this issue.
+[3] applied entropy minimization to their target domain
+classifier to urge the classifier to predict more confidently. [4]
+aligned prediction uncertainty of classifier outputs by
+
+adversarial training. Similarly, [5] aligned segmentation
+outputs among source and target domains in adversarial
+manner. In contrast to those normal DA approaches that align
+target domain classifiers to source domain, [6] aligned a
+source domain classifier to target domain by training a
+classifier using “synthesized” target domain features and
+achieved high accuracy in segmentation task. Although
+above-mentioned methods work well, they are all
+classification and segmentation tasks that fall into prediction
+of class confidences, thus are not necessarily directly
+applicable to object detection task. One difficulty is that not
+only class confidence but location need to be predicted in
+object detection task. In our preliminary experiments, entropy
+minimization did not improved performance. Likewise, [6]
+was not effective in our case. We conjecture that this was
+because an object detector needs to learn structured and
+sophisticated features useful for object detection on genuine
+labeled training data thus aligning source domain features to
+target domain could not achieve this objective.
+To address the difficulty in object detection task, we
+propose a novel method of adapting a detector to target
+domain directly. We aligned predictions of both location and
+class confidence simultaneously utilizing adversarial training.
+2. METHODOLOGY
+To adapt a detector to target domain directly, we align target
+domain predictions to source domain. This is based on an
+assumption that source domain predictions are well-confident
+and quality ones because a source domain detector is trained
+on labeled dataset and this nature should be transferred to a
+target domain detector. We achieve this objective utilizing
+adversarial training that is applicable to not only class
+confidence but location prediction unlike entropy
+minimization.
+2.1. Vehicle Detector
+Considering accuracy, computational cost and simplicity, we
+adopted plain SSD [7] as our vehicle detector. SSD defines
+default boxes of several aspect ratios at every pixel in feature
+maps and a patch at every pixel is fed into a detector that
+consists of a location regressor and a classifier.
+
+Fig. 1. The overview of the proposed prediction alignment.
+Corresponding to one default box, the location regressor
+predicts location offsets from the default box (cx, cy) and
+ratios to the default box size (w, h), and the classifier predicts
+class confidence P = (p0, …, pc). c represents a class number
+and c = 0, 1 in our case (0: background, 1: vehicle). The
+training objective is as follows:
+min 𝐿𝑠𝑜𝑢𝑟𝑐𝑒 = 𝔼(𝑥𝑠,𝑦𝑠)~(𝑋𝑠~𝑌𝑠 ) [𝐿𝑆𝑆𝐷 (𝐹𝑠 (𝑀𝑠 (𝑥𝑠 )), 𝑦𝑠 )]
+
+𝑀𝑠 ,𝐹𝑠
+
+where Xs and Ys are image and label examples drawn from the
+source domain distributions respectively; M denotes a feature
+extractor and F represents a detector that consists of the
+regressor and the classifier. We refer readers to the original
+SSD paper for detail of LSSD.
+2.2. Prediction Alignment
+2.2.1. Feature alignment
+As a basis of prediction alignment, we applied feature
+alignment by adversarial training. Without feature alignment,
+a model oscillated and did not converge. We regarded a local
+3x3 patch at every pixel of a feature map as one feature unit
+and applied feature alignment to the unit because the unit is
+fed into the detector for one prediction. A discriminator is
+trained to predict domains of features and a feature extractor
+is trained to output undistinguishable features. Loss functions
+are as follows:
+min 𝐿𝑓𝑒𝑎𝑡_𝑑𝑖𝑠 = −𝔼𝑥𝑠~𝑋𝑠 [log 𝐷𝑓 (𝑀𝑠 (𝑥𝑠 ))]
+𝐷𝑓
+
+− 𝔼𝑥𝑡~𝑋𝑡 [log(1 − 𝐷𝑓 (𝑀𝑡 (𝑥𝑡 )))]
+min 𝐿𝑓𝑒𝑎𝑡_𝑒𝑥𝑡 = −𝔼𝑥𝑡 ~𝑋𝑡 [log 𝐷𝑓 (𝑀𝑡 (𝑥𝑡 ))]
+𝑀𝑡
+
+where Xt are image examples drawn from the target
+distribution; Df denotes the discriminator for feature
+alignment. In our proposed architecture, feature extractors of
+source and target domains are identical (Ms(·) = Mt(·)).
+
+2.2.2. Prediction alignment
+As shown in Fig. 1, we concatenated the outputs from the
+regressor and the classifier as a vector and applied adversarial
+training to the vector. A discriminator is trained to predict
+domains of predictions and the feature extractor and a
+detector are trained to output undistinguishable predictions.
+Loss functions are as follows:
+min 𝐿𝑝𝑟𝑒𝑑_𝑑𝑖𝑠 = −𝔼𝑥𝑠~𝑋𝑠 [log 𝐷𝑝 (𝐹𝑠 (𝑀𝑠 (𝑥𝑠 )))]
+𝐷𝑝
+
+− 𝔼𝑥𝑡~𝑋𝑡 [log(1 − 𝐷𝑝 (𝐹𝑡 (𝑀𝑡 (𝑥𝑡 ))))]
+min 𝐿𝑝𝑟𝑒𝑑_𝑑𝑒𝑡 = −𝔼𝑥𝑡~𝑋𝑡 [log 𝐷𝑝 (𝐹𝑡 (𝑀𝑡 (𝑥𝑡 )))]
+
+𝑀𝑡 ,𝐹𝑡
+
+where Dp denotes the discriminator for prediction alignment.
+In this way, predictions of locations and class confidences are
+simultaneously aligned and consequently the quality of target
+domain prediction is improved.
+2.2.3. Class weight normalization
+In object detection task, area of foreground is usually only a
+small part of an entire image, thus most part is predicted as
+background. This extreme imbalance has negative effect on
+effective learning of prediction alignment. Although
+foreground objects need to be detected well-confidently in
+consequence of prediction alignment, gradients propagated
+from the predictions of background are dominant during
+training and predictions of foreground objects could not be
+aligned sufficiently. To address this, we introduced class
+weight normalization (CWN). We applied a weight inversely
+proportional to a number of examples of each class and
+balanced contribution of each class to prediction alignment as
+shown in Fig. 2. Specifically, we first calculated class weight
+as follows:
+𝐵 = (𝑏0 , … , 𝑏𝑐 ), 𝑏𝑐 =
+
+𝑎𝑐 𝑁
+𝑛𝑐 𝐶
+
+nc is a number of predictions where the highest class
+confidences were in class c, N is a number of all predictions.
+
+(a)
+(b)
+Fig. 3 Image examples from the datasets. (a) COWC
+dataset (source) and (b) aerial images of Japan (target).
+Table 1. Specifications of the all datasets.
+Name
+
+Fig. 2. The procedure of class weight normalization.
+In our method, N is a number of all predictions in one
+minibatch and nc is calculated every iteration. ac is a
+hyperparameter that defines the final weight of each class. If
+all ac are 1, each class is equally weighted.
+Next, we allocated the class weight to each prediction
+according to highest class confidence as follows:
+
+Dataset
+S_train
+Dataset
+T_train
+Dataset
+T_test
+Dataset
+T_labels
+
+Domain
+
+Usage
+
+Source
+
+Training
+
+Target
+
+Training
+
+Target
+
+Test
+
+Target
+
+Training
+
+Size
+(pixel)
+300 ×
+300
+300 ×
+300
+1000 ×
+1000
+300 ×
+300
+
+Image
+quantity
+
+Vehicle
+annotation
+
+6,264
+
+93,344
+
+1,408
+
+-
+
+20
+
+2,722
+
+1,564
+
+23,024
+
+𝑊 = (𝑤0 , … , 𝑤𝑖 ), 𝑤𝑖 = 𝑏𝑎𝑟𝑔𝑚𝑎𝑥 𝑃𝑖
+i is a number of default box in an image, Pi is a prediction to
+i-th default box. Finally, Lpred_dis and Lpred_det can be updated
+to WLpred_dis and WLpred_det.respectively.
+2.2.4. Training objective
+Overall training objective of our proposed prediction
+alignment is as follows:
+min 𝐿𝑝𝑟𝑒𝑑1 = 𝐿𝑓𝑒𝑎𝑡_𝑑𝑖𝑠 + 𝐿𝑝𝑟𝑒𝑑_𝑑𝑖𝑠
+
+𝐷𝑓 ,𝐷𝑝
+
+min
+
+𝑀𝑠 ,𝑀𝑡 ,𝐹𝑠 ,𝐹𝑡
+
+𝐿𝑝𝑟𝑒𝑑2 = 𝐿𝑠𝑜𝑢𝑟𝑐𝑒 + 𝐿𝑓𝑒𝑎𝑡_𝑒𝑥𝑡 + 𝛼𝐿𝑝𝑟𝑒𝑑_𝑑𝑒𝑡
+
+α is a coefficient that controls weight of Lpred_det. In DA
+training, these two objectives are alternated.
+3. EXPERIMENT
+3.1. Dataset
+We adopted COWC dataset [8] as source domain dataset. We
+only used RGB images. For target domain, we used aerial
+images of Tokyo, Japan. The images are processed by
+orthorectifications that are the same as the COWC dataset.
+Fig. 3 shows an image example. We processed these two raw
+image sets and obtained training and test datasets. Table 1
+summarizes the specifications of datasets we used in this
+paper. The resampled resolution was 0.3m/pixel and we
+applied data augmentation (rotating images by 90, 180, and
+270 degrees) to obtain training datasets.
+3.2. Experimental Setting
+3.2.1. Implementation
+The input size 300x300 pixels. The backbone is VGG-16.
+
+Fig. 4. Discriminator architectures. Orange: for feature
+alignment, green: for prediction alignment.
+We changed default box sizes to {24, 30, 90, 150, 210, 270,
+330} that is suitable to vehicle sizes in our datasets. We
+applied feature alignment and prediction alignment to only
+the shallowest feature map and predictions generated from
+that feature map that are mainly responsible for vehicle
+detection. For general object detection, all feature maps and
+predictions should be aligned. The discriminator
+architectures are shown in Fig. 4.
+3.2.2. Training configuration
+We first pretrained a vehicle detector on Dataset S_train and
+finetuned the model by DA methods on Dataset T_train. In
+the pretraining, we used the original configuration of SSD
+paper [7]. The batchsize was 32. Training iterations of
+pretraining were 40000 and the schedule of decaying learning
+rate was 28000 and 35000 iterations. In DA training, the
+batchsize was 64 that consisted of 32 source domain
+examples and 32 target domain examples. For comparison,
+we trained plain adversarial DA (only feature alignment) as a
+baseline for 15000 iterations and three variants of our
+proposed method: w/o norm for 15000 iterations, norm D and
+P, norm P for 10000 iterations. If not mentioned, we used α
+=1 and (a0, a1) = (1,1). In w/o norm, we did not apply CWN.
+In norm D and P, we applied CWN to training of the
+discriminators, the feature extractor and the detector. Because
+we found applying CWN to discriminator training
+destabilized training and finally induced model collapse, we
+needed to use small α=0.1. In norm P, we applied CWN to
+only training of the feature extractor and the detector. Further,
+we adopt (a0, a1) = (3,1) according to the hyper parameter k
+
+Table 2. Performance indicators of all methods.
+Method
+
+Statistic
+
+AP
+
+F1
+
+PR
+
+RR
+
+FAR
+
+AVR
+
+78.7%
+
+80.9%
+
+83.7%
+
+78.4%
+
+15.3%
+
+STDERR
+AVR
+STDERR
+
+66.2%
+-
+
+72.8%
+-
+
+82.6%
+-
+
+65.0%
+-
+
+13.7%
+-
+
+Plain
+adv
+
+AVR
+STDERR
+
+74.7%
+0.3%
+
+80.5%
+0.1%
+
+88.3%
+0.6%
+
+74.0%
+0.4%
+
+9.9%
+0.6%
+
+w/o
+norm
+
+AVR
+STDERR
+AVR
+
+76.9%
+0.3%
+79.0%
+
+81.7%
+0.1%
+80.6%
+
+88.6%
+0.4%
+81.0%
+
+75.8%
+0.4%
+80.8%
+
+9.8%
+0.4%
+20.1%
+
+STDERR
+AVR
+
+0.3%
+79.8%
+
+1.0%
+82.2%
+
+2.4%
+84.5%
+
+0.6%
+80.2%
+
+3.6%
+14.8%
+
+STDERR
+
+0.3%
+
+0.2%
+
+0.6%
+
+0.4%
+
+0.7%
+
+Ref.
+w/o DA
+
+norm
+D and P
+norm P
+
+in the original SSD paper. Additionally, we trained a
+reference model using Dataset S_train and T_labels. We
+tested the obtained models on Dataset T_test. Experiments of
+DA methods were repeated 10 times and we report the
+statistics.
+4. RESULT AND DISCUSSION
+Results are shown in Table 2. The improvement of w/o norm
+from the baseline was slight. This indicates CWN was critical
+to performance improvement. Although norm D and P was
+substantially better than baseline, FAR was relatively high.
+While small α=0.1 managed to train a model successfully,
+applying CWN to discriminator training seems to have been
+still too strong in our case. norm P was explicitly better than
+norm D and P and scored the best performance where AP was
+higher than the baseline over 5 points. Applying CWN to only
+training of feature extractor worked well in our experimental
+setting. However, this setting of CWN was determined
+heuristically and might not be the best for different scenarios.
+A versatile setting should be explored. Additionally, our
+method of CWN was simple and could be improved. These
+would be our future works.
+While our proposed method is effective for object
+detection tasks of remote sensing images, there would be
+more difficult situations where resolution of labeled images
+is worse than test images. Even in such case, there are some
+works [9][10] that can be utilized in such situations and we
+can combine those solutions and our method. Further, our
+method could be extended to general object detection tasks.
+These would be explored in our future work.
+5. CONCLUSION
+We proposed a novel DA method called prediction alignment
+to address performance degradation caused by image feature
+difference that remains even after feature alignment. Our
+method significantly improved performance from the
+baseline and proved its effectiveness. While our CWN setting
+worked well, more general setting and a more sophisticated
+method of CWN should be explored. Further, our method
+should be extended to more difficult application scenarios
+
+including general object detection. These would be our future
+works.
+ACKNOWLEDGEMENT
+The aerial images used in this paper were provided by NTT
+Geospace (http://www.ntt-geospace.co.jp/).
+REFERENCES
+[1] T. Tang, S. Zhou, Z. Deng, H. Zou and L. Lei, “Vehicle
+Detection in Aerial Images Based on Region Convolutional Neural
+Networks and Hard Negative Example Mining,” in Sensors, 2017,
+doi:10.3390/s17020336.
+[2] Y. Koga, H. Miyazaki, R. Shibasaki, “A Method for Vehicle
+Detection in High-Resolution Satellite Images that Uses a RegionBased Object Detector and Unsupervised Domain Adaptation,” in
+Remote Sens, 2020, 12, 575. https://doi.org/10.3390/rs12030575.
+[3] M. Long, H. Zhu, J. Wang, M.I. Jordan, “Unsupervised domain
+adaptation with residual transfer networks,” Proceedings of the 30th
+International Conference on Neural Information Processing
+Systems, pp. 136-144, 2016.
+[4] J. Manders, T. van Laarhoven, E. Marchiori, “Adversarial
+alignment of class prediction uncertainties for domain adaptation,”
+arXiv:1804.04448.
+[5] Y. Tsai, W. Hung, S. Schulter, K. Sohn, M. Yang, M.
+Chandraker, “Learning to adapt structured output space for semantic
+segmentation,” 2018 IEEE/CVF Conference on Computer Vision
+and
+Pattern
+Recognition,
+pp.
+7472–7481,
+2018,
+https://doi.org/10.1109/CVPR.2018.00780.
+[6] W. Hong, Z. Wang, M. Yang, J. Yuan, “Conditional generative
+adversarial network for structured domain adaptation,” 2018
+IEEE/CVF Conference on Computer Vision and Pattern
+Recognition,
+pp.
+1335–1344,
+2018,
+https://doi.org/10.1109/CVPR.2018.00145.
+[7] W. Liu, D. Anguelov, D. Erhan, C. Szegedy, C.Y. Fu, and A.C.
+Bergs, “SSD: Single Shot MultiBox Detector,” ECCV 2016
+Proceedings Part I, pp 21-37, 2016, doi: 10.1007/978-3-319-464480_2.
+[8] T.N. Mundhenk, G. Konjevod, W.A. Sakla, K. Boakye, “A Large
+Contextual Dataset for Classification, Detection, and Counting of
+Cars with Deep Learning,” ECCV 2016 Proceedings Part III, pp
+785-800, 2016, doi: 10.1007/978-3-319-46487-9_48.
+[9] J. Shermeyer and A. Van Etten, "The Effects of SuperResolution on Object Detection Performance in Satellite Imagery,"
+2019 IEEE/CVF Conference on Computer Vision and Pattern
+Recognition Workshops (CVPRW), 2019, pp. 1432-1441, doi:
+10.1109/CVPRW.2019.00184.
+[10] Z. Guo, G. Wu, X. Song, W. Yuan, Q. Chen, H. Zhang, X. Shi,
+M. Xu, Y. Xu, R. Shibasaki, X. Shao, "Super-Resolution Integrated
+Building Semantic Segmentation for Multi-Source Remote Sensing
+Imagery," in IEEE Access, vol. 7, pp. 99381-99397, 2019, doi:
+10.1109/ACCESS.2019.2928646.
+
+
