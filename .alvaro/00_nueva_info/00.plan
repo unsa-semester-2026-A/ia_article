@@ -1,0 +1,309 @@
+# Plan de Investigación: Detección OBB Vehicular en el reto SMART Challenge 2026 (MTC)
+
+---
+
+## 1. Contexto y gap de investigación
+
+El reto SMART Challenge 2026 (MTC Perú) pide detectar y clasificar vehículos por
+**fotograma individual** usando oriented bounding boxes (OBB), en 9 clases con
+fuerte desbalance (auto domina; combi, microbus, omnibus, articulado y
+motocicleta/mototaxi son minoritarias). La métrica oficial es Macro
+AP-rIoU@[0.50:0.80]: se promedia el AP por clase y por 7 umbrales de rotated
+IoU, sin ponderar por frecuencia. La evaluación es por frame, no por video —
+usar la secuencia temporal del clip es opcional según las reglas, solo para
+mejorar consistencia. **Sin embargo, ver el punto 1.1: en la práctica esa
+secuencia temporal deja de ser opcional para nosotros.**
+
+Revisamos 4 papers que tocan piezas de este problema, pero ninguno lo cubre
+completo:
+
+- **(Ahmed2025)** demuestra que el error geométrico de detección (no en
+  píxeles, sino en distancia real) distorsiona métricas de seguridad vial como
+  el Time-To-Collision. No entrena modelos nuevos, solo compara YOLO estándar,
+  YOLO+SAM y YOLO-OBB ya existentes, en dron a 60-90m de altura.
+- **(Mo2020)** ataca el desbalance de clases con oversampling + stitching de
+  imágenes y una función de pérdida especial (center loss), pero sobre Faster
+  R-CNN (arquitectura de dos etapas, año 2020).
+- **(BinZuraimi2021)** valida en hardware de bajo rendimiento (GPU de gama
+  media), pero sin OBB — usa cajas alineadas al eje + DeepSORT para tracking.
+- **(Chen2025)** resuelve oclusión y movimiento irregular del dron mediante un
+  sistema de tracking multiobjeto completo (MOTA, IDF1), pero eso es un
+  problema distinto (seguimiento) al que pide el reto (detección por frame).
+  Importante: Chen2025 asume que **todo** vehículo detectado debe rastrearse,
+  esté parado o en movimiento — el reto MTC, en cambio, solo quiere los que
+  están en movimiento (ver 1.1), que es un recorte del problema distinto y
+  menos explorado en la literatura revisada.
+
+El gap arquitectónico: ninguno de estos trabajos usa las mejoras recientes en
+detección OBB — específicamente **YOLO26 (Jocher2026)**, publicado en junio de
+2026, que introduce STAL (asignación de etiquetas que evita que objetos
+pequeños queden sin predicción positiva — relevante para moto/mototaxi, que
+son pequeños y minoritarios) y una redefinición del rango angular en OBB que
+corrige la ambigüedad de orientación en objetos casi cuadrados. Nadie ha
+probado esto en detección vehicular urbana todavía. Vale aclarar que entre
+YOLOv8 (usado por Ahmed2025) y YOLO26 existen las versiones intermedias
+YOLOv9, YOLOv10 y YOLO11 — no vamos a re-entrenar las cinco por restricción de
+tiempo (ver sección 2), pero sí justificamos abajo cuáles usamos como puntos
+de comparación y por qué.
+
+Tampoco existe, hasta donde vimos, una implementación pública y validada de la
+métrica exacta Macro AP-rIoU@[0.50:0.80] — construirla es en sí mismo un
+aporte reutilizable.
+
+### 1.1 ⚠️ Hallazgo crítico: el dataset solo etiqueta vehículos EN MOVIMIENTO
+
+Esta es la observación más importante para el diseño del experimento, detectada
+directamente en el dataset: `train.csv` **no anota vehículos estacionados**,
+aunque estén perfectamente visibles en la imagen. Un auto parqueado al borde de
+la intersección simplemente no tiene caja, mientras que un auto casi idéntico
+que está circulando sí la tiene. A esto se suman errores menores de anotación
+(cajas mal puestas, ángulos inconsistentes) que también hay que limpiar.
+
+**Por qué esto es grave y no es solo "ruido":** un detector OBB estándar
+(YOLOv8/11/26, Oriented R-CNN, lo que sea) aprende a reconocer la *apariencia*
+de un vehículo, no si está en movimiento o no. Va a detectar correctamente los
+autos parqueados — visualmente son vehículos — pero como `train.csv` no los
+etiqueta, el evaluador los va a contar como **falsos positivos**, penalizando
+el AP de todas las clases, en todos los umbrales, para cualquier arquitectura
+que probemos. Esto no es un problema que se resuelva con más datos o mejor
+arquitectura: es un problema de **definición de la tarea**. La tarea real no es
+"detectar vehículos", es "detectar vehículos Y discriminar si están en
+movimiento", y esa segunda parte casi no se puede resolver mirando un solo
+fotograma — se necesita información temporal (comparar frames consecutivos del
+mismo clip). Esto también explica, seguramente, por qué el reto permite
+explícitamente usar la secuencia completa del clip aunque la evaluación sea por
+frame: probablemente sea la única forma razonable de acercarse al score
+máximo.
+
+**En palabras simples:** Imagina que te piden fotografiar solo a la gente que
+está caminando en una plaza, no a la que está sentada en una banca. Si solo
+miras una foto sola, alguien parado quieto se ve igual que alguien caminando en
+el instante exacto en que levantó el pie del suelo — no puedes saber si se está
+moviendo o no con una sola imagen. Necesitas ver la foto de antes y la de
+después para notar que esa persona sí cambió de lugar y la de la banca no. Eso
+es exactamente lo que hay que hacer acá, pero con autos.
+
+**Qué vamos a hacer al respecto (detallado en la sección 2):** construir un
+módulo de **filtrado por movimiento** que use frames vecinos del mismo clip
+para descartar detecciones sobre vehículos estáticos, antes de que lleguen al
+cálculo de AP. Esto se convierte en un componente obligatorio del pipeline, no
+en una capa opcional — sin él, ninguna comparación entre arquitecturas sería
+justa, porque todas arrastrarían el mismo sesgo de falsos positivos.
+
+---
+
+## 2. Enfoque propuesto: investigación en capas
+
+La idea central sigue siendo un **estudio de ablación**, estructurado en capas
+de complejidad creciente, más un paso previo obligatorio de preprocesamiento
+que ahora es indispensable por el hallazgo de 1.1.
+
+### Capa 0 — Prerrequisito: limpieza de anotaciones y filtrado por movimiento
+
+**Técnico:**
+1. *Auditoría de anotaciones:* tomar una muestra estratificada aleatoria (100-200
+   frames, cubriendo distintos clips) y revisar manualmente contra la imagen:
+   cajas duplicadas, ángulos fuera de rango, category_id inconsistente con la
+   forma del vehículo, cajas con `width`/`height` degenerados. Con eso se
+   estima la tasa de error real y se decide una política de limpieza (descartar
+   vs. corregir vs. dejar como ruido tolerable si es raro).
+2. *Determinar si la cámara es fija o móvil por clip:* comparar el fondo entre
+   frames consecutivos de un mismo clip (`v_<id>_0000` vs `v_<id>_0001`, etc.).
+   Si el fondo es estático (cámara de intersección fija, lo más probable dado
+   que son "intersecciones urbanas" y no necesariamente vista aérea de dron),
+   el filtrado de movimiento se resuelve con algo simple como diferencia de
+   frames o sustracción de fondo (background subtraction, ej. MOG2 de OpenCV).
+   Si hay movimiento de cámara, se necesita compensar el ego-movimiento antes
+   (flujo óptico denso, ej. Farneback, o un enfoque más cercano al módulo AMS de
+   Chen2025). Esto se decide con evidencia empírica el día 1, no se asume.
+3. *Módulo de filtrado:* para cada detección OBB en el frame *t*, calcular el
+   desplazamiento del centroide de esa misma instancia de vehículo a lo largo de
+   una ventana corta de frames (ej. t-2 a t+2), usando un emparejamiento simple
+   por IoU + distancia entre centros (sin necesidad de un tracker completo tipo
+   Chen2025). Si el desplazamiento acumulado es menor a un umbral calibrado
+   contra las propias etiquetas del dataset (ver siguiente punto), la detección
+   se descarta antes de reportarse.
+4. *Calibración del umbral "movimiento":* usar los propios clips con vehículos
+   ya etiquetados como en movimiento vs. los detectados-pero-no-etiquetados
+   (candidatos a estáticos) para estimar qué desplazamiento mínimo entre frames
+   corresponde al criterio real usado por los anotadores. Ojo con el caso límite:
+   un vehículo detenido en la luz roja durante todo el clip — hay que revisar en
+   la data si ese caso se etiqueta o no, porque define qué tan agresivo debe ser
+   el filtro.
+
+**En palabras simples:** Antes de entrenar cualquier modelo, primero hay que
+"enseñarle" al sistema a ignorar los autos que están quietos, igual que
+nosotros ignoramos instintivamente los autos estacionados cuando alguien nos
+pregunta "¿cuántos carros pasaron?". Vamos a revisar un pedazo de los datos a
+mano para ver qué tan sucios están, y vamos a construir un método que compare
+fotogramas seguidos del mismo video para notar cuáles autos se mueven y cuáles
+no, antes de que el modelo reciba el "reglamento" final.
+
+### Capa 1 — Núcleo: ablación arquitectura × mitigación de desbalance
+
+**Técnico:** Con el pipeline limpio de la Capa 0, entrenar y comparar:
+
+- **YOLO11-OBB** como baseline principal. Se elige por sobre YOLOv8 porque es
+  la iteración estable más madura *antes* de YOLO26 — una comparación
+  YOLO11 vs. YOLO26 aísla mejor "qué tan buenas son las mejoras específicas de
+  YOLO26" que comparar contra una versión de 2023. Deliberadamente **no**
+  re-entrenamos YOLOv9 ni YOLOv10 (retornos marginales frente al costo de
+  cómputo en 10 días); en su lugar, usamos las cifras ya publicadas de
+  YOLOv8-OBB en Ahmed2025 solo como referencia contextual de "qué tan lejos
+  estábamos en 2025", sin volver a entrenarlo nosotros.
+- **YOLO26-OBB** como candidato nuevo, aprovechando STAL (mejor para
+  motocicleta/mototaxi, que son pequeños) y la redefinición angular (relevante
+  porque en vista de intersección los vehículos casi de frente generan
+  ambigüedad de 90°).
+- Cada uno, con y sin mitigación de desbalance de clases. Mitigación elegida:
+  **pérdida ponderada por clase** (weight inversamente proporcional a la
+  frecuencia, más *focal loss* con gamma ajustado) como método principal, por
+  ser el más barato de implementar (no requiere generar imágenes nuevas). Como
+  extensión opcional si sobra tiempo: *copy-paste augmentation* (pegar recortes
+  de vehículos de clases raras sobre otros fondos), que es una versión ligera
+  del oversampling+stitching de Mo2020, sin reconstruir su pipeline completo.
+
+Total: 4 configuraciones entrenadas (YOLO11 base / YOLO11 + mitigación /
+YOLO26 base / YOLO26 + mitigación).
+
+**Protocolo de split (importante):** la división train/val se hace **por
+clip completo**, no por frame individual. Frames del mismo clip son muy
+parecidos entre sí (50 frames de 5 segundos), así que si frames de un mismo
+clip caen tanto en train como en val, el rendimiento en validación se ve
+artificialmente inflado (data leakage clásico). Cada clip completo va entero a
+un solo lado del split.
+
+**Evaluación:** con una implementación propia de Macro AP-rIoU@[0.50:0.80]
+(rotated IoU vía la función de IoU rotado que ya trae Ultralytics
+internamente, para no reinventar la geometría desde cero — solo hay que
+envolver el matching greedy por score descendente, uno-a-uno por objeto real,
+tal como especifica el reglamento del reto, y repetirlo por clase y por
+umbral). Reportamos AP **antes y después** de aplicar el filtro de movimiento
+de la Capa 0 — esa comparación por sí sola es un resultado interesante: cuánto
+del error medido realmente viene del sesgo de "vehículos estáticos no
+etiquetados" y no de que el detector sea malo.
+
+**En palabras simples:** Vamos a comparar un modelo "recién salido del horno"
+(YOLO26) contra el que hoy en día es el más usado y confiable en la práctica
+antes de que saliera ese (YOLO11) — no contra uno viejo de hace tres años, para
+que la comparación sea justa. Y en ambos casos vemos qué pasa si le damos un
+empujón extra a las clases raras (combi, articulado, etc.) para que el modelo
+no las ignore. Como bonus, vamos a poder mostrar una tabla que dice "así de mal
+se veía el modelo antes de enseñarle a ignorar autos parqueados, y así de bien
+mejora después" — eso solo ya cuenta una historia clara.
+
+### Capa 2 — Diferenciador: hardware de bajo costo
+
+**Técnico:** Exportar el mejor modelo de la Capa 1 a un formato portable
+(ONNX, opcionalmente TensorRT) y medir en una GPU accesible (T4 de Colab
+gratuito, línea de BinZuraimi2021): FPS, latencia por frame en ms, y caída de
+precisión si se cuantiza a FP16 (e incluso INT8 si el tiempo alcanza).
+Reportamos la curva precisión-vs-velocidad, no solo un número aislado.
+
+**En palabras simples:** No sirve de nada un modelo excelente si solo corre en
+una supercomputadora que un municipio peruano jamás va a tener. Esta capa mide
+qué tan bien funciona el modelo en el tipo de computadora que un país en
+desarrollo sí puede pagar — el argumento de "esto es realmente usable acá", no
+solo "esto gana en el paper".
+
+### Capa 3 — Extensión (si el tiempo alcanza): del error de detección al error de conteo
+
+**Técnico:** Reutilizando el mismo módulo de emparejamiento entre frames
+construido en la Capa 0 (para filtrar estáticos), extenderlo a un conteo por
+clip: en vez de solo "¿se movió o no?", asignar un ID temporal simple a cada
+vehículo detectado a lo largo del clip (emparejamiento greedy por IoU +
+distancia de centro, sin necesidad de un tracker completo tipo Kalman/Hungarian
+de BinZuraimi2021 o el SEM de Chen2025) para no contar el mismo vehículo 50
+veces (una por frame). Con eso, generamos un conteo vehicular por clase por
+clip y medimos cómo el error de detección (por clase, por umbral de rIoU) se
+propaga a ese conteo final.
+
+**En palabras simples:** El MTC no quiere solo "cajitas bien puestas" — quiere
+saber cuántos autos, combis, buses, etc. pasaron por una intersección. Esta
+capa responde: si mi detector se equivoca un 10% al dibujar la caja, ¿cuánto se
+equivoca el conteo final que de verdad le importa al ingeniero de tránsito? Es
+extender la idea de Ahmed2025 (que el error de detección distorsiona métricas
+de seguridad como el TTC) a un caso de uso distinto: el conteo de flujos, que
+es justo el problema que el MTC dice querer automatizar. Y de paso,
+reutilizamos casi todo el trabajo que ya hicimos para el filtro de movimiento,
+así que esta capa es más barata de lo que parece.
+
+---
+
+## 3. Aporte al conocimiento
+
+1. Es la primera evaluación conocida de YOLO26-OBB en detección vehicular
+   urbana peruana, comparada de forma justa contra YOLO11-OBB (la iteración
+   madura inmediatamente anterior), no contra una versión desactualizada.
+2. Documenta y propone una solución explícita para un problema de definición de
+   tarea no discutido en la literatura revisada: datasets de detección
+   vehicular donde **solo se etiquetan vehículos en movimiento**, cuantificando
+   cuánto de la métrica se pierde por ese sesgo si no se corrige. Ningún paper
+   de los revisados (Ahmed2025, Mo2020, BinZuraimi2021, Chen2025) documenta o
+   resuelve este escenario específico.
+3. Combina, por primera vez en este dominio, mejoras arquitectónicas recientes
+   (YOLO26) con mitigación de desbalance de clases (inspirada en Mo2020), algo
+   que ningún paper revisado hace junto.
+4. Entrega una implementación pública y validada de Macro AP-rIoU@[0.50:0.80],
+   métrica oficial del reto, que no existe documentada en ningún lado — otros
+   equipos o investigadores podrían reutilizarla.
+5. Valida en hardware accesible (línea BinZuraimi2021), dando evidencia
+   concreta de viabilidad en contextos de recursos limitados como Perú.
+6. (Si llega la Capa 3) Conecta explícitamente error de detección OBB con error
+   de conteo vehicular downstream, extendiendo el argumento de Ahmed2025 (error
+   de detección → error en TTC) a una métrica de tráfico distinta y no
+   estudiada.
+
+---
+
+## 4. Plan de trabajo — 10 días
+
+| Día | Tarea |
+|---|---|
+| 1 | Descargar dataset. Auditoría manual de anotaciones (muestra estratificada). Determinar si la cámara es fija o móvil por clip. Confirmar acceso a GPU. |
+| 1-2 | Pipeline de datos: parsing del formato, splits **por clip** (no por frame), augmentations válidas para cajas rotadas. Definir política de limpieza según la auditoría del día 1. |
+| 2 | Construir el módulo de filtrado por movimiento (Capa 0): diferencia de frames / sustracción de fondo o flujo óptico según lo determinado el día 1. Calibrar el umbral de "movimiento" contra las etiquetas existentes. |
+| 3 | Implementar el evaluador Macro AP-rIoU@[0.50:0.80] local. Validar con casos sintéticos simples antes de usarlo para comparar modelos. |
+| 4-6 | Entrenar las 4 configuraciones de la Capa 1: YOLO11-OBB base / + mitigación, YOLO26-OBB base / + mitigación. Si el cómputo es limitado, priorizar las dos corridas de YOLO26 y dejar YOLO11 base como referencia única. |
+| 7 | Evaluar las 4 corridas con y sin el filtro de movimiento aplicado (tabla comparativa antes/después). AP por clase y por umbral. |
+| 8 | Benchmark de velocidad/precisión en hardware de bajo costo (Capa 2). |
+| 9 | Si hay margen: extender el módulo de emparejamiento a conteo por clip (Capa 3). Si no, documentar como trabajo futuro. Consolidar tablas y gráficos. |
+| 10 | Redactar Related Work, Metodología, Resultados y Discusión; dejar el paper listo para la sección específica que corresponda presentar. |
+
+---
+
+## 5. Riesgos y problemas del plan
+
+- **Ambigüedad en la definición de "movimiento":** un vehículo detenido en luz
+  roja durante todo el clip es un caso límite — no sabemos aún si el dataset lo
+  etiqueta como en movimiento o no. Mitigación: revisar explícitamente ese
+  escenario en la auditoría del día 1 antes de calibrar el filtro, porque de
+  eso depende qué tan agresivo debe ser.
+- **Errores de anotación vs. vehículos intencionalmente no etiquetados:** al
+  ver un vehículo sin caja no siempre se puede saber si es porque estaba
+  parado (regla del dataset) o porque el anotador se equivocó. Mitigación:
+  la auditoría manual estratificada del día 1 debe estimar la proporción de
+  cada tipo de "hueco" para no confundir ruido con la regla real.
+- **Cómputo insuficiente:** entrenar 4 configuraciones completas en 10 días
+  puede no alcanzar si no hay GPU dedicada, más el trabajo extra de la Capa 0.
+  Mitigación: reducir a 2-3 corridas clave (YOLO26 con/sin mitigación) y usar
+  YOLO11 base solo como referencia con menos épocas.
+- **El filtro de movimiento puede introducir sus propios falsos negativos:**
+  si el umbral queda mal calibrado, podríamos descartar vehículos que sí se
+  movían lento (tráfico congestionado) — hay que reportar esto como una fuente
+  de error adicional, no asumir que el filtro es perfecto.
+- **Métrica propia mal implementada:** si el evaluador local de rIoU no
+  replica exactamente la lógica oficial (matching greedy por score, un match
+  por objeto real), los resultados locales no van a correlacionar con el
+  leaderboard. Mitigación: validar contra casos sintéticos simples primero.
+- **Dataset ya cerrado / sin leaderboard activo:** como la competencia ya
+  terminó, no hay forma de contrastar contra el Private Leaderboard real — toda
+  la validación queda en un split propio, lo cual hay que declarar
+  explícitamente como limitación metodológica.
+- **Capa 3 depende de que las Capas 0-1 salgan a tiempo:** si se atrasa el
+  entrenamiento (más probable ahora que hay una Capa 0 nueva), esta es la
+  primera en sacrificarse — comunicarlo al equipo desde ya.
+- **Tamaño de la contribución para publicación:** el aporte es sólido para
+  conferencia; para journal Q2 probablemente falte una validación más robusta
+  (cross-validation, más semillas, más arquitecturas) que no cabe en 10 días —
+  dejarlo como línea de trabajo futuro en la conclusión, no prometerlo.
