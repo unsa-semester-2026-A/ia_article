@@ -5,135 +5,137 @@
 - **Venue**: IEEE Transactions on Geoscience and Remote Sensing (TGRS)
 
 ## Resumen
-Este artículo presenta un método novedoso de detección de objetos diseñado para manejar objetos con rotación libre y tamaños arbitrarios bajo sensores de percepción remota, logrando detectar instancias extremadamente pequeñas de hasta 2 × 2 píxeles. A diferencia de las metodologías tradicionales que tratan la localización de cajas orientadas (OBB) como un problema de regresión continua (añadiendo parámetros como ángulos o coordenadas de esquinas, lo cual introduce discontinuidades de gradiente y ambigüedades), este enfoque reformula la detección como un problema de clasificación discreta pura. Mediante un backbone DarkNet-53 modificado llamado DarkNet-RI (Rotation-Invariant) estructurado en un decodificador piramidal de 5 escalas, la red aprende clasificaciones semánticas a nivel de píxel con restricciones de regularización para garantizar la invarianza a rotaciones de 360°. Las cajas orientadas mínimas se infieren en tiempo de ejecución de manera puramente geométrica a través de operaciones morfológicas y algoritmos de contorno sobre las predicciones de clase conectadas, eliminando la necesidad de definir cajas de anclaje (anchors) y la sobrecarga computacional de regresión. Las pruebas en los datasets xView y DOTA demuestran que el método supera consistentemente a detectores de regresión de vanguardia tanto en precisión como en eficiencia.
+Este artículo presenta un método novedoso de detección de objetos diseñado para manejar objetos libremente rotados y de diversos tamaños en imágenes satelitales y de drones, incluyendo objetos extremadamente pequeños (de hasta 2x2 píxeles). A diferencia de los métodos tradicionales de detección que se basan en la regresión continua de coordenadas y ángulos para estimar cajas delimitadoras orientadas (OBB), el enfoque propuesto replantea el problema como una tarea de clasificación pura y segmentación semántica multiescala. Mediante una arquitectura codificadora-decodificadora (DarkNet-RI) con skips y una estrategia de encendido/apagado (on-off) basada en el tamaño de las celdas, la red predice etiquetas semánticas y puntuaciones de confianza por píxel a través de 5 niveles de escala. En el momento de la inferencia, se aplican operaciones morfológicas, detección de contornos (algoritmo de Suzuki) y el algoritmo de rotating calipers para determinar la caja mínima envolvente orientada. El método también integra un término de regularización invariante a la rotación en el plano ($360^\circ$) que fuerza a la red a compartir características similares para orientaciones diversas. Evaluado en xView y DOTA, el método supera a las aproximaciones del estado del arte sin requerir el diseño heurístico de anclas o cómputos pesados de IoU durante la propuesta de regiones.
 
 ## Secciones y Subsecciones
 
-### I. Introduction
-Establece la importancia de la detección de objetos en imágenes de percepción remota obtenidas por satélites y drones. Identifica los principales desafíos del dominio aéreo: la presencia de objetos densamente agrupados de tamaños muy dispares (desde vehículos diminutos hasta edificios grandes) y la total ausencia de una orientación preferencial debido a la vista perpendicular del sensor.
-* **Problemas atacados**: La incapacidad de los detectores estándar para localizar de forma precisa objetos libres de orientación y de tamaño extremadamente pequeño (p. ej. autos representados por tan solo 2x2 píxeles) sin causar desalineaciones graves en las cajas delimitadoras.
-* **Limitaciones de ese entonces**: Los detectores tradicionales basan su diseño en cajas alineadas con los ejes (HBB), que incorporan demasiado ruido de fondo y superposiciones en vecindades densas. Los pocos detectores OBB existentes se apoyan en regresores de ángulos propensos a discontinuidades numéricas en los límites de rango y a configuraciones complejas de anclajes.
-* **Soluciones alcanzadas**: Propuesta de un marco CNN basado en clasificación pura libre de cajas de anclaje (anchors) que extrae características invariantes a la rotación en múltiples niveles de escala y determina OBBs únicamente en tiempo de inferencia empleando contornos geométricos.
+### I. Introducción
+Presenta los retos clave de la detección de objetos en imágenes de sensores remotos: variación de escala extrema, alta densidad en escenas complejas y orientaciones aleatorias en 360 grados debido a la perspectiva cenital.
+* **Problemas atacados**: Detección ineficiente de objetos muy pequeños y desalineaciones severas entre las cajas delimitadoras horizontales tradicionales (HBB) y los objetos orientados en escenas densas.
+* **Limitaciones de ese entonces**: Los detectores tradicionales (ej. Faster R-CNN, YOLO, SSD) usan regresión de cajas axiales y no capturan adecuadamente orientaciones arbitrarias. Las propuestas orientadas basadas en regresión añaden inestabilidad por la ambigüedad en los ángulos.
+* **Soluciones alcanzadas**: Propuesta de una arquitectura CNN (DarkNet-RI) que extrae características multiescala y resuelve la detección OBB como un problema de clasificación pura sin depender del diseño manual de anclas o regresores complejos.
 
-### II. Related Work
-Se analizan los enfoques de detección y segmentación existentes en dos vertientes principales: métodos de detección de objetos de propósito general y detectores específicos para percepción remota.
-* **Problemas atacados**: Contextualizar la propuesta de clasificación e invarianza rotacional frente a las soluciones previas de regresión de cajas horizontales y orientadas.
-* **Limitaciones de ese entonces**: Los marcos de propósito general (Faster R-CNN, YOLO, SSD) dependen fuertemente de propuestas de región o anclajes horizontales que restringen espacialmente las predicciones en zonas densas. En el ámbito de percepción remota, los modelos OBB (R-DFPN, RRPN, ICN, SCRDet, RoI Transformer) agregan complejidad matemática mediante sub-redes de regresión de ángulo que sufren de la ambigüedad en el orden de las esquinas del cuadrilátero.
-* **Soluciones alcanzadas**: Clasificación conceptual de las arquitecturas previas y propuesta de una alternativa modular que elimina por completo la etapa de regresión continua para la orientación espacial.
+### II. Trabajo Relacionado
+Analiza la literatura existente dividiéndola en métodos generales de detección y técnicas específicas de sensores remotos.
 
-#### A. General Object Detection Methods
-Detalla el funcionamiento de los métodos clásicos de dos etapas (R-CNN, Fast R-CNN, Faster R-CNN) y de una sola etapa (YOLO y variantes).
-* **Problemas atacados**: La ineficiencia en el cálculo repetitivo de propuestas y el tratamiento de áreas congestionadas.
-* **Limitaciones de ese entonces**: YOLOv3 y detectores similares aplican divisiones de grilla toscas y anclajes con restricciones espaciales estrictas. Dos objetos cuyos centros estén a menos de 32 píxeles de distancia no pueden diferenciarse en la grilla estándar de YOLO, perdiendo objetos pequeños agrupados.
-* **Soluciones alcanzadas**: Identificación de la necesidad de una grilla de predicción de mayor resolución (p. ej. decodificador denso) sin depender de propuestas externas o anclajes predefinidos.
+* **Problemas atacados**: Falta de robustez en detectores generales ante imágenes cenitales con aglomeraciones densas de objetos diminutos.
+* **Limitaciones de ese entonces**: Métodos generales (YOLO, Faster R-CNN) imponen restricciones espaciales rígidas de rejilla o anclas que provocan que objetos muy juntos (menores a 32 px en YOLOv3) se ignoren o fundan en una sola caja.
+* **Soluciones alcanzadas**: Modelar la detección aérea usando cajas orientadas OBB (ej. RRPN, RoI Transformer, SCRDet) y justificar el uso de aprendizaje de representación multiescala e invariante a la rotación en el plano mediante regularizadores.
 
-#### B. Remote Sensing Object Detection
-Revisión de detectores modificados para satélites y drones, incluyendo enfoques con cajas orientadas (OBB).
-* **Problemas atacados**: Adaptación a la rotación libre y la resolución espacial masiva de tomas aéreas.
-* **Limitaciones de ese entonces**: Los enfoques de OBB existentes (p. ej. RRPN con anclajes rotados o RoI Transformer con transformaciones espaciales) requieren un gran volumen de cómputo adicional debido al cálculo de IoU orientado sobre múltiples anclajes rotados de prueba. Además, la definición del ángulo sufre de ambigüedad de límites.
-* **Soluciones alcanzadas**: Desarrollo de una tabla comparativa (Table I) que expone las estrategias de OBB de los competidores e introduce el concepto de modelar la detección mediante clasificación semántica por píxeles y posterior extracción de contornos mínimos.
+#### II.A Métodos de Detección de Objetos Generales
+Describe algoritmos basados en regiones (R-CNN, Fast, Faster R-CNN) y de un solo paso (YOLO, SSD), detallando sus mecánicas de propuestas y restricciones espaciales.
+* **Problemas atacados**: Dificultades de localización simultánea de clase y caja en imágenes convencionales.
+* **Limitaciones de ese entonces**: R-CNN repite cómputos ineficientemente. YOLOv3 reduce imágenes por un factor de 32, impidiendo diferenciar objetos con centroides adyacentes estrechos.
+* **Soluciones alcanzadas**: Introducción de capas de alineamiento de región y pirámides de características para mitigar pérdidas de resolución.
 
-### III. Proposed Method
-Presentación de la arquitectura DarkNet-RI y de las tres fases del pipeline: segmentación semántica multiescala, determinación de cajas orientadas y refinamiento de cajas.
-* **Problemas atacados**: Detección conjunta de cajas alineadas y orientadas a múltiples escalas espaciales sin añadir sobrecargas en la función de pérdida por regresión.
-* **Limitaciones de ese entonces**: La regresión directa requiere predecir 8 coordenadas o parámetros paramétricos de ángulo propensos a inestabilidad.
-* **Soluciones alcanzadas**: Definición de un pipeline integrado que extrae características multiescala utilizando DarkNet-RI, calcula la probabilidad de clase por píxel y extrae las cajas mínimas orientadas usando geometría computacional en inferencia.
+#### II.B Detección de Objetos en Sensores Remotos
+Tabula y compara 17 metodologías previas que abordan HBB u OBB en imágenes de satélites o drones (Tabla I).
+* **Problemas atacados**: Mitigar los sesgos geométricos y de orientación.
+* **Limitaciones de ese entonces**: Métodos de OBB satelitales (ej. RoI Transformer, SARD, CAD-Net) dependen casi en su totalidad de la regresión continua de ángulos y coordenadas de esquina, lo cual sufre de ambigüedad en la definición del target (ej. ordenamiento de vértices).
+* **Soluciones alcanzadas**: Reemplazar la regresión continua por una clasificación pixel-wise que deduce las coordenadas de la caja orientada mediante geometría computacional en la salida segmentada.
 
-#### A. Problem Setup
-Formulación matemática de la tarea de predicción de cajas orientadas y la representación del objeto.
-* **Problemas atacados**: Representación unificada y robusta de las coordenadas de las cajas de esquina de los objetos.
-* **Limitaciones de ese entonces**: La descripción clásica de cajas delimita incorrectamente objetos con rotaciones inclinadas y asume anclajes de proporciones fijas.
-* **Soluciones alcanzadas**: Representación de cada caja orientada mediante sus 4 esquinas ordenadas de forma que la orientación quede resuelta implícitamente por la geometría del polígono circunscrito.
+### III. Método Propuesto
+Describe el flujo de DarkNet-RI en tres componentes principales: segmentación semántica multiescala, determinación geométrica de cajas orientadas y refinamiento final de cajas.
 
-#### B. Multi-Scale Semantic Segmentation
-Arquitectura de codificador-decodificador basada en DarkNet-53 con skip connections e invarianza de rotación acoplada al entrenamiento.
-* **Problemas atacados**: Extracción de características robustas e invariantes a rotaciones en el plano.
-* **Limitaciones de ese entonces**: El aumento de datos clásico por rotación es insuficiente para garantizar que la red aprenda características idénticas para diferentes orientaciones. Añadir capas de invarianza de rotación a la red incrementa el riesgo de sobreajuste y la carga computacional.
-* **Soluciones alcanzadas**: Creación de DarkNet-RI que conecta el decodificador de 5 niveles con skip connections y una función de pérdida que introduce un término de regularización de invarianza a la rotación, forzando a que las características extraídas de una instancia original y su contraparte rotada sean similares.
+* **Problemas atacados**: Formulación inestable de regresores de 5 o 8 parámetros en cajas orientadas y control del solapamiento.
+* **Limitaciones de ese entonces**: Los regresores continuos sufren ante rotaciones periódicas ($0$ y $180$ grados se ven similares pero causan altos gradientes).
+* **Soluciones alcanzadas**: Transformación del problema a predicciones por píxel unificadas mediante morfología matemática y eliminación de falsos positivos en múltiples niveles jerárquicos de escala.
 
-##### 1) Pyramid Representation Learning Layer
-Estructura piramidal para la estimación a 5 escalas espaciales distintas.
-* **Problemas atacados**: Desbalance de escala entre objetos pequeños y grandes en la misma escena aérea.
-* **Limitaciones de ese entonces**: Los detectores piramidales estándar evalúan todos los tamaños de objetos en todos los niveles, lo que confunde a las capas finas con objetos gigantes y a las gruesas con objetos minúsculos.
-* **Soluciones alcanzadas**: Implementación de una estrategia multiescala "on-off" (Fig. 3) que activa o desactiva la responsabilidad de un objeto en un nivel de escala específico basándose en si su tamaño físico cabe por completo dentro de una sola celda de la grilla de ese nivel.
+#### III.A Configuración del Problema
+Define la formulación de una caja bi-dimensional orientada $b_i = (x_1, y_1, x_2, y_2, x_3, y_3, x_4, y_4, c_i)$ y la orientación de la caja $R_i$.
+* **Problemas atacados**: Representación unificada de objetos rotados en el plano bidimensional.
+* **Limitaciones de ese entonces**: Cajas horizontales normales capturan exceso de píxeles de objetos vecinos en distribuciones congestionadas.
+* **Soluciones alcanzadas**: Modelado implícito de la rotación resolviendo las esquinas a partir del contorno mínimo que delimita la clase predicha.
 
-##### 2) In-Plane Rotation-Invariance
-Formulación del término de regularización para forzar representaciones de características consistentes bajo rotaciones de 360 grados.
-* **Problemas atacados**: Pérdida de características discriminantes ante inclinaciones arbitrarias de los objetos en tomas aéreas.
-* **Limitaciones de ese entonces**: Métodos anteriores agregaban capas matemáticas complejas a la red que degradaban el tiempo de procesamiento.
-* **Soluciones alcanzadas**: Diseño de una pérdida de regularización de rotación (Eq. 1) que penaliza la distancia euclidiana entre las representaciones vectoriales del objeto original y su versión rotada aleatoriamente, aplicada únicamente en su área geométrica de traslape (Fig. 5).
+#### III.B Segmentación Semántica Multiescala
+Detalla el uso de DarkNet-53 con conexiones skip y un decodificador que genera 5 mapas de resolución.
+* **Problemas atacados**: Detección unificada de objetos gigantes y extremadamente pequeños en la misma toma.
+* **Limitaciones de ese entonces**: El decodificador tradicional suaviza los objetos pequeños perdiendo su rastro en mapas gruesos.
+* **Soluciones alcanzadas**: Arquitectura DarkNet-RI que genera predicciones de etiqueta y confianza a 5 niveles de tamaño diferentes.
 
-##### 3) Training
-Definición de la función de pérdida multiobjetivo combinada.
-* **Problemas atacados**: Optimización conjunta de la presencia de objetos, clasificación de categorías y la invarianza rotacional.
-* **Limitaciones de ese entonces**: Funciones de pérdida inestables cuando se combinan pérdidas de regresión suaves con pérdidas de clasificación.
-* **Soluciones alcanzadas**: Función de pérdida compuesta (Eq. 2) que integra una pérdida de confianza por Softmax, una pérdida de clasificación por Entropía Cruzada y la pérdida de regularización rotacional, sumadas en los 5 niveles del decodificador.
+##### III.B.1 Capa de Aprendizaje de Representación Piramidal
+Explica la técnica de encendido/apagado (on-off) basada en el tamaño del objeto con respecto a la celda de la cuadrícula.
+* **Problemas atacados**: Interferencia mutua de gradientes entre escalas cuando un objeto diminuto es forzado a aprenderse en resoluciones bajas.
+* **Limitaciones de ese entonces**: La pérdida se calcula uniformemente sobre todas las escalas, forzando a capas gruesas a modelar ruido de baja frecuencia de objetos pequeños.
+* **Soluciones alcanzadas**: Si un objeto es menor que $1/8$ del tamaño de la celda en una escala $s$, esa escala se apaga ("off") para dicho objeto, delegando su aprendizaje exclusivamente a las capas finas superiores.
 
-#### C. Oriented Box Determination
-Algoritmo de inferencia geométrica para generar cajas orientadas mínimas a partir de mapas de clases binarias.
-* **Problemas atacados**: Obtención de cajas orientadas precisas sin realizar regresiones paramétricas continuas.
-* **Limitaciones de ese entonces**: Los métodos basados en regresión de cajas orientadas sufren de discontinuidades angulares y sobrecostos por evaluar miles de anclajes rotados.
-* **Soluciones alcanzadas**: Inferencia puramente geométrica en tiempo de ejecución. La red genera matrices de clase por píxel a las que se aplican operaciones morfológicas de suavizado y denoising. Luego, se extraen los contornos con el algoritmo de Suzuki, se calcula el convex hull y se determina la caja orientada de área mínima mediante el algoritmo de Rotating Calipers, devolviendo $(x, y, w, h, \alpha)$.
+##### III.B.2 Invariancia a la Rotación en el Plano
+Introduce el regularizador de rotación que mide la similitud L2 de las características de un objeto antes y después de rotarlo.
+* **Problemas atacados**: Sesgo del detector ante orientaciones de objetos no presentes en el conjunto de entrenamiento.
+* **Limitaciones de ese entonces**: Capas invariantes a rotación explícitas añaden parámetros excesivos y causan sobreajuste (overfitting). El aumento de datos simple no garantiza que la red comparta el mismo mapa de características para diferentes ángulos.
+* **Soluciones alcanzadas**: Adición de una pérdida de regularización L2 sobre las áreas solapadas de imágenes rotadas aleatoriamente en un rango de 0 a 360 grados, forzando a la red a mapear vectores idénticos ante variaciones rotacionales sin cambiar la estructura de la red.
 
-#### D. Box Refinement
-Estrategia de supresión de no máximos multiescala y filtrado de propuestas de baja calidad.
-* **Problemas atacados**: Eliminación de cajas redundantes y falsos positivos en zonas de alta densidad sin eliminar objetos pequeños legítimos vecinos.
-* **Limitaciones de ese entonces**: El NMS tradicional con un solo umbral global elimina objetos pequeños legítimos adyacentes a objetos grandes o muy agrupados.
-* **Soluciones alcanzadas**: Implementación de un NMS multiescala utilizando umbrales distintos $\{\theta_1, ..., \theta_5\}$ para cada nivel de la pirámide. Además, se refina el criterio de eliminación promediando la confianza de todas las celdas individuales dentro de la caja mínima para descartar propuestas inconsistentes.
+##### III.B.3 Entrenamiento
+Detalla los términos de la función de coste final: $\ell_s = \ell_{conf} + \ell_{class} + \ell_{rotation}$.
+* **Problemas atacados**: Optimización simultánea de confianza de objeto, categoría semántica e invariancia rotacional.
+* **Limitaciones de ese entonces**: Costes de regresión de cajas sesgaban el entrenamiento impidiendo la convergencia del clasificador.
+* **Soluciones alcanzadas**: Uso de softmax para puntuación de confianza, entropía cruzada multiclase para categorización por celdas, y regularizador L2 para la pérdida de rotación.
 
-### IV. Experiments
-Evaluación cuantitativa e implementación sobre los datasets de gran escala xView y DOTA, comparando el rendimiento frente a múltiples detectores de referencia.
-* **Problemas atacados**: Validación empírica del rendimiento y la velocidad del método propuesto en escenarios reales de percepción remota.
-* **Limitaciones de ese entonces**: Muchos estudios no desglosaban el rendimiento en clases de objetos extremadamente pequeños o densamente poblados.
-* **Soluciones alcanzadas**: Implementación del framework en una GPU Titan RTX logrando tiempos de inferencia de 60 ms por imagen en xView y 10 ms en DOTA.
+#### III.C Determinación de la Caja Orientada
+Detalla la conversión morfológica de matrices de etiquetas en cajas orientadas usando el algoritmo de Suzuki y rotating calipers.
+* **Problemas atacados**: Extracción geométrica de las OBB a partir de mapas discretos de predicciones semánticas por píxel.
+* **Limitaciones de ese entonces**: Las predicciones segmentadas pixel-wise suelen ser ruidosas en los bordes y no proporcionan una caja geométrica directa.
+* **Soluciones alcanzadas**: Aplicación secuencial de morfología matemática para denotar regiones conexas, detección de contornos usando el algoritmo de Suzuki, cálculo del convex hull y uso de Rotating Calipers para determinar el rectángulo mínimo envolvente en formato $(x, y, w, h, \alpha)$.
 
-#### A. Datasets and Protocols
-Descripción de las especificaciones de xView y DOTA y el protocolo de evaluación comparativa.
-* **Problemas atacados**: Normalización del tamaño de las imágenes para el procesamiento en la red.
-* **Limitaciones de ese entonces**: Las resoluciones masivas y variables de las imágenes satelitales impiden su introducción directa en redes convolucionales estándar.
-* **Soluciones alcanzadas**: Estrategia de segmentación en parches de $512 \times 512$ píxeles con un solapamiento de 10 píxeles y relleno con ceros (zero padding) para mantener las relaciones de aspecto de la imagen original.
+#### III.D Refinamiento de Cajas
+Presenta el algoritmo NMS adaptado con umbrales independientes por escala $\{\theta_1, ..., \theta_5\}$ y el uso de puntuación de confianza promediada.
+* **Problemas atacados**: Falsos positivos por propuestas duplicadas en bordes de parches o entre escalas.
+* **Limitaciones de ese entonces**: El NMS con un solo umbral elimina cajas correctas de tamaño pequeño si se solapan con cajas grandes. Además, NMS estándar usa la confianza máxima de un solo punto en vez de la región.
+* **Soluciones alcanzadas**: Ejecución de NMS por capas con umbrales diferenciados. Se descartan cajas de baja calidad promediando la confianza de todas las celdas interiores de la OBB determinada.
 
-#### B. xView Dataset Experiment
-Resultados experimentales detallados en xView, enfocándose en la detección de 19 clases de objetos pequeños y similares.
-* **Problemas atacados**: Detección de objetos pequeños en condiciones de alto desbalance de clases y alta similitud interclase.
-* **Limitaciones de ese entonces**: Los detectores SSD y YOLOv3 fallan ante objetos pequeños en vecindades densas debido a las restricciones de tamaño de celda de la grilla final.
-* **Soluciones alcanzadas**: El método propuesto superó a todos los competidores logrando un mAP de 0.3065 en las 19 clases pequeñas y un mAP general de 0.5315 en las 60 categorías completas de xView, demostrando la efectividad de la grilla fina de $256 \times 256$ en el nivel más detallado.
+### IV. Experimentos
+Presenta los resultados empíricos del modelo evaluados en dos conjuntos de datos: xView y DOTA.
 
-#### C. DOTA Dataset Experiment
-Evaluación del desempeño en la tarea de cajas orientadas (OBB) del dataset DOTA.
-* **Problemas atacados**: Extracción precisa de cajas orientadas en un conjunto de 15 categorías de objetos aéreos comunes.
-* **Limitaciones de ese entonces**: Los detectores con OBB basados en regresión (como SCRDet o RoI Transformer) cometen fallos por ambigüedad angular en objetos con relaciones de aspecto alargadas.
-* **Soluciones alcanzadas**: DarkNet-RI alcanzó un mAP del 75.5%, superando a competidores líderes como SARD (72.95%) y RoI Transformer (69.56%), y lideró el rendimiento en 8 categorías individuales.
+* **Problemas atacados**: Validación empírica del rendimiento del modelo frente a detectores basados en regresión.
+* **Limitaciones de ese entonces**: Carencia de benchmarks extensos sobre clases con severo desbalance de muestras.
+* **Soluciones alcanzadas**: Entrenamiento y testeo en ambos datasets dividiendo las imágenes en parches de 512x512 y comparando el mAP frente al estado del arte.
 
-#### D. Ablation Study
-Estudios de ablación para validar de forma aislada las contribuciones del modelamiento multiescala y de invarianza de rotación.
-* **Problemas atacados**: Demostrar el impacto individual del término de regularización rotacional y la pirámide de escalas.
-* **Limitaciones de ese entonces**: Dificultad para discernir si las mejoras provienen de la arquitectura de la red o de la estrategia de aumento de datos.
-* **Soluciones alcanzadas**: Confirmación de que: 1) la regularización de invarianza rotacional supera al aumento de datos simple (0.5315 mAP vs 0.5185 mAP), 2) excluir la pirámide multiescala reduce drásticamente el mAP en clases grandes, y 3) el backbone DarkNet-RI supera a arquitecturas clásicas como UNet y SegNet adaptadas al mismo pipeline.
+#### IV.A Conjuntos de Datos y Protocolos
+Describe las características de xView (846 imágenes, 60 clases) y DOTA (2,806 imágenes, 15 clases) y los hiperparámetros de entrenamiento.
+* **Problemas atacados**: Configuración física y reproducibilidad del experimento.
+* **Limitaciones de ese entonces**: Diferencias en los tamaños de los parches y tasas de solapamiento inducían errores de escala en comparaciones cruzadas.
+* **Soluciones alcanzadas**: Estandarización de parches a 512x512 con un solapamiento de 10 px. Entrenamiento de 240 épocas usando un lote de 4 en una GPU Titan RTX.
 
-##### 1) Rotation-Invariant Feature Learning
-* **Problemas atacados**: Validar la contribución del término de regularización angular.
-* **Limitaciones de ese entonces**: El aumento tradicional de rotaciones no cubre de forma continua y suave la representación de las características.
-* **Soluciones alcanzadas**: Demostración de que la inclusión de la pérdida de regularización eleva la precisión de 0.5018 (sin rotación) a 0.5315 mAP en xView.
+#### IV.B Experimento con el Dataset xView
+Evalúa el mAP en las 60 clases globales y un conjunto específico de 19 clases pequeñas e imprecisas.
+* **Problemas atacados**: Detección de vehículos e infraestructura pequeña en situaciones de alta densidad urbana y desbalance de clases.
+* **Limitaciones de ese entonces**: Los modelos SSD y YOLOv3 no detectan objetos de menos de 10 píxeles por pérdida de resolución espacial.
+* **Soluciones alcanzadas**: DarkNet-RI alcanza un mAP récord de 0.3065 en las 19 clases críticas pequeñas y 0.5315 mAP global en 60 clases, superando a YOLT, RFL y SSD. Es capaz de detectar pequeños vehículos de 2x2 píxeles.
 
-##### 2) Multi-Scale Feature Representation
-* **Problemas atacados**: Determinar la contribución de las capas intermedias del decodificador.
-* **Limitaciones de ese entonces**: Falta de justificación para usar múltiples niveles de resolución en clasificación de contornos.
-* **Soluciones alcanzadas**: Demostración de que desactivar los niveles de escala intermedios provoca un colapso en el rendimiento (ROC de Fig. 10), afectando severamente a categorías de objetos de escala media y grande.
+#### IV.C Experimento con el Dataset DOTA
+Evalúa el desempeño de la tarea OBB en las 15 categorías de DOTA.
+* **Problemas atacados**: Validación de la estimación de ángulos y cajas orientadas en DOTA.
+* **Limitaciones de ese entonces**: Detectores basados en regresión de 5 parámetros pierden mAP por desalineación de bordes angulares en objetos de gran aspect ratio (ej. barcos, camiones).
+* **Soluciones alcanzadas**: DarkNet-RI obtiene un mAP de 75.5%, superando a RoI Transformer (69.56%), SCRDet (72.61%) y SARD (72.95%), liderando en 8 categorías individuales.
 
-##### 3) Multi-Scale Semantic Segmentation
-* **Problemas atacados**: Evaluar la superioridad de DarkNet-RI sobre arquitecturas de segmentación clásicas.
-* **Limitaciones de ese entonces**: La suposición de que cualquier modelo de segmentación semántica produciría el mismo rendimiento al extraer OBBs.
-* **Soluciones alcanzadas**: Pruebas comparativas que demuestran que el uso de DarkNet-RI (75.5% mAP) supera significativamente a UNet (55.4%), SegNet (60.4%) y SCAttNet (61.9%) debido a la integración más densa de características y skip connections.
+#### IV.D Estudio de Ablación
+Evalúa el impacto individual de cada componente técnico implementado.
 
-#### E. Limitations
-Discusión honesta sobre los casos de fallo detectados en el sistema propuesto.
-* **Problemas atacados**: Identificar las debilidades del detector ante instancias muy elongadas o anidadas.
-* **Limitaciones de ese entonces**: Ningún detector de OBB está completamente libre de errores de segmentación geométrica en condiciones límite.
-* **Soluciones alcanzadas**: Identificación y documentación de tres modos de fallo: 1) fragmentación de cajas en objetos muy largos (puentes) o por división de parches, 2) desalineación leve con el eje mayor del objeto, y 3) omisión de objetos pequeños anidados dentro de clases geográficamente más grandes (p. ej. barcos dentro de puertos).
+* **Problemas atacados**: Justificar matemáticamente y por rendimiento las decisiones de diseño del DarkNet-RI.
+* **Limitaciones de ese entonces**: Redes segmentadoras comunes se aplican directamente sin adaptar a detección.
+* **Soluciones alcanzadas**: Pruebas empíricas aislando el regularizador de rotación, la multiescala y el modelo base.
 
-### V. Conclusion
-Resumen de las contribuciones y propuestas para desarrollos futuros.
-* **Problemas atacados**: Delinear el futuro de la detección de objetos sin anclajes en percepción remota.
-* **Limitaciones de ese entonces**: La excesiva dependencia de los detectores de anclajes e IoU predefinidos que restringen la generalización.
-* **Soluciones alcanzadas**: Consolidación del modelo como un detector libre de anclajes y de regresión angular mediante clasificación pura, proponiendo para el futuro el uso de extractores de características jerárquicas para resolver similitudes interclase muy finas.
+##### IV.D.1 Aprendizaje de Características Invariantes a Rotación
+* **Problemas atacados**: Determinar el valor de la pérdida de rotación $\ell_{rotation}$ frente al aumento de datos puro.
+* **Limitaciones de ese entonces**: El aumento de datos con rotaciones aleatorias no asegura que el extractor aprenda la misma representación matemática.
+* **Soluciones alcanzadas**: Aislar $\ell_{rotation}$ mejora el mAP de 0.5185 a 0.5315, demostrando que el regularizador L2 en el área de solapamiento forza representaciones robustas.
+
+##### IV.D.2 Representación de Características Multiescala
+* **Problemas atacados**: Validar la influencia de las conexiones y pérdidas intermedias FC1-FC4.
+* **Limitaciones de ese entonces**: Eliminar la pirámide degrada el rendimiento de clases grandes.
+* **Soluciones alcanzadas**: Comparación con un baseline de escala única de 256x256 que revela pérdidas severas en la curva ROC y degradación de rendimiento en categorías grandes (Figura 10).
+
+##### IV.D.3 Segmentación Semántica Multiescala
+* **Problemas atacados**: Evaluar a DarkNet-RI frente a arquitecturas segmentadoras famosas (UNet, SegNet, SCAttNet).
+* **Limitaciones de ese entonces**: Modelos de segmentación estándar no están diseñados para fusionar escalas de manera óptima para cajas delimitadoras.
+* **Soluciones alcanzadas**: DarkNet-RI supera ampliamente a UNet (55.4%), SegNet (60.4%) y SCAttNet (61.9%) logrando 75.5% de mAP.
+
+#### IV.E Limitaciones
+* **Problemas atacados**: Análisis honesto de fallas cualitativas de DarkNet-RI.
+* **Limitaciones de ese entonces**: Los detectores sufren ante objetos muy alargados o sub-objetos anidados.
+* **Soluciones alcanzadas**: Identificación de tres fallas principales: 1) Cajas que se parten en dos para objetos muy largos o cortados por el solapamiento del parche, 2) cajas OBB ligeramente desalineadas con los ejes mayores y 3) omisión de objetos pequeños anidados dentro de clases de infraestructura mayor (ej. barcos dentro de un puerto).
+
+### V. Conclusión
+* **Problemas atacados**: Resumen de los aportes teóricos y líneas de trabajo futuro.
+* **Limitaciones de ese entonces**: La complejidad computacional y sesgos de anclas limitan la generalización a otros dominios.
+* **Soluciones alcanzadas**: Demostración de que la detección puede resolverse de forma puramente matemática a partir de predicciones segmentadas discretas, eliminando la necesidad de optimizar anclas y el cálculo de IoU pesado en el entrenamiento. Se sugiere explorar extractores de características jerárquicos en el futuro para clasificar subclases complejas (ej. tipos de camiones).

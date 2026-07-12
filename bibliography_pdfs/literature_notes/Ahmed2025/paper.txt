@@ -1,0 +1,915 @@
+Applied Geomatics (2026) 18:13
+https://doi.org/10.1007/s12518-025-00662-2
+
+RESEARCH
+
+Automated geolocalization of vehicles from UAV footage: evaluating
+measurement precision of object detection and segmentation
+methods
+Muhammad Waqas Ahmed1 · Muhammad Adnan1
+Afzal Ahmed3 · Wim Ectors1
+
+· Muhammad Ahmed2
+
+· Davy Janssens1
+
+· Geert Wets1
+
+·
+
+Received: 24 March 2025 / Accepted: 15 October 2025 / Published online: 1 November 2025
+© The Author(s), under exclusive licence to Società Italiana di Fotogrammetria e Topografia (SIFET) 2025
+
+Abstract
+Modern Road Traffic Monitoring (RTM) systems rely on advanced and precise technologies. Unmanned Aerial Vehicles
+(UAVs) coupled with state-of-the-art computer vision methods offer great utility in intelligent traffic monitoring and road
+safety analysis. However, the precision of these cutting-edge technologies is still under debate due to technical complexities, such as inaccurate road-user localization resulting in overestimated bounding dimensions, which could hinder their
+effectiveness in real-world scenarios. This research introduces a geolocalization method combining a feature-matching
+algorithm, SIFT, for automatic georeferencing of UAV frames with deep learning-based object detection and segmentation
+models. The study focuses on finding the most precise solution for vehicle geolocalization, preserving the vehicle shape
+and dimensions. The study explores three different configurations of YOLO object detectors: a standard YOLOv8 model,
+a hybrid model that integrates YOLOv8 with the Segment Anything Model (SAM), and a YOLOv8 variant that employs
+Oriented Bounding Boxes (OBB). The evaluation of results is focused on the dimensional accuracy, internal variabilities,
+impact of altitude variations, vehicle tilt or rotation, and inference speed of each method. Experimental results reveal that
+the YOLOv8 coupled with SAM and the YOLOv8-OBB exhibit comparable precision and excel in accurately localizing
+road users while preserving their dimensions. This can be instrumental in a practically feasible vision-based RTM solution.
+In terms of speed-to-error ratio, OBB-enabled object detectors present the most practical option, allowing for near-realtime solutions in key road safety workflows, such as conflict analysis.
+Keywords UAV · Geolocalization · Measurement · Road safety · Deep learning · YOLO
+
+Introduction
+Given the global surge in vehicular traffic, conventional road
+traffic monitoring (RTM) methods are gradually proving
+ineffective. This emerging challenge demands the adoption
+
+Muhammad Waqas Ahmed
+waqas.ahmed@uhasselt.be
+1
+
+UHasselt, Transportation Research Institute (IMOB),
+Martelarenlaan 42, Hasselt 3500, Belgium
+
+2
+
+Department of Urban and Infrastructure Engineering, NED
+University of Engineering and Technology, Karachi
+75270, Pakistan
+
+3
+
+Institute of Transportation Studies, University of Leeds,
+Leeds LS2 9JT, UK
+
+of Intelligent Transportation Systems (ITS), which seek to
+mitigate traffic management issues through the integration
+of state-of-the-art technologies, notably Unmanned Aerial
+Vehicles (UAVs) and Artificial Intelligence (AI)-based
+object detection models. The utilization of UAVs marks a
+paradigm shift, offering an aerial perspective that is nonexistent in other methods. UAVs had transformative impacts
+across various fields of science, including agriculture, earth
+observation, geology, and climatology (Tewes 2018).
+The popularization of AI has enabled the evolution of
+smart cities, positioning them at the forefront of global urban
+development strategies. RTMs are a critical infrastructure
+component of smart cities that ensure road-user safety and
+facilitate smooth traffic flow, thereby improving the quality of life for urban dwellers (Elloumi et al. 2018). Despite
+the remarkable progress over the past decade, much of the
+
+13
+
+13 Page 2 of 13
+
+research remains fragmented across specific disciplines or
+narrowly defined tasks, often relying on controlled assumptions that limit direct applicability in complex real-world
+environments. In the transportation domain, advances in
+computer vision and deep learning (DL) have made it practically feasible to detect and localize road users from video
+data with a high degree of automation (Zhou et al. 2022;
+Duan et al. 2018). Adopting these vision-based DL models
+into automated workflows could reduce the need for manual
+intervention, thus optimizing traffic management operations.
+Nevertheless, deploying such state-of-the-art technologies
+comes with its inherent challenges. Estimating a vehicle’s
+precise location and dimensions is crucial for practical road
+safety improvements. This precision in measuring distances
+between road users is essential for effectively implementing the surrogate safety indicators such as Time to Collision
+(TTC), Post-Encroachment Time (PET), Time Advantage,
+and Time Gap. This precision plays a central role in ensuring
+the integrity of these safety metrics (Jiang et al. 2021; Johnsson et al. 2018; Laureshyn et al. 2010). Current applications of AI in traffic safety research face several limitations
+that hinder large-scale adoption, particularly in complex,
+real-world traffic environments where multiple vehicles
+interact simultaneously. As vehicles change their orientation in motion, for example, during turning or lane changes,
+their bounding box sizes often fluctuate, impacting the positional accuracy and size estimates. Because surrogate safety
+measures such as PET and TTC rely on road users’ actual
+positions, distances, and footprints, overestimated bounding
+
+Applied Geomatics (2026) 18:13
+
+boxes can result in flawed assessments of safety thresholds,
+as illustrated in Fig. 1. To develop an automated road safety
+solution, it is essential to review existing object localization
+methods in real-world experiments and identify the most
+accurate solution.
+To address this knowledge gap, we present this research
+by conducting experiments on several state-of-the-art detection and segmentation models and evaluating their localization accuracy in real-world environments. The study
+introduces an automated solution for vehicle geolocalization from UAV footage, combining a feature-matching
+algorithm SIFT for georeferencing with three configurations
+of the 8th-generation YOLO object detector: a standard
+YOLOv8 model, a hybrid model that integrates YOLOv8
+with the Segment Anything Model (SAM), and a YOLOv8
+variant that employs Oriented Bounding Boxes (OBB).
+Georeferencing plays a critical role in transforming pixelbased YOLO detections into precise real-world positions
+and dimensions, which is essential for surrogate safety
+measures, as illustrated in Fig. 1. The accuracy of geolocalization was assessed by comparing bounding boxes from
+each YOLO variant with ground truth, considering precision, internal fluctuations, and sensitivity to factors such as
+UAV altitude and vehicle orientation. The results provide
+insights into the strengths and limitations of each approach
+and demonstrate the potential for implementing automated
+road safety workflows using object detection and segmentation models in real-world scenarios.
+
+Fig. 1 An illustration of how overestimated vehicle bounding boxes could lead to wrong estimation of TTC and PET
+
+13
+
+Applied Geomatics (2026) 18:13
+
+Related works
+With the recent technological advancements in AI, computer vision, and UAV-based systems, researchers have
+been exploring the potential of these cutting-edge technologies to enable automation within different domains (Chen
+et al. 2023). One prominent application is traffic monitoring and road safety, where accurate localization of vehicles
+is critical. A fundamental step toward object detection in
+real geographic space is the calibration of video pixels into
+real-world coordinates, a process known as georeferencing.
+In this process, pixel coordinates are converted into a geographical coordinate system. However, georeferencing of
+UAV-based data often poses a challenge due to the dynamic
+nature of UAV platforms. Ahmed et al. (2025) addressed
+this issue by proposing a feature-matching-based automated
+near-real-time solution. The authors employed the SIFT
+feature-matching algorithm for automated georeferencing and subsequently blurred private properties in a UAV
+livestream. Feature-matching algorithms are often used
+for visual odometry, principally for UAVs’ absolute visual
+localization (AVL) in GPS-denied environments. The underlying principle behind these methods is to match the UAV’s
+current visual input with a pre-existing satellite map or reference aerial imagery from an earlier flight (Couturier and
+Akhloufi 2021). Long et al. (2016) developed a method for
+correcting geometric biases in remotely sensed aerial imagery by using the Scale-Invariant Feature Transform (SIFT)
+algorithm coupled with least squares matching (LSM) to
+improve the accuracy. This method employed pre-existing
+online aerial imagery to align and match larger remote sensing (RS) images. The approach enabled precise and efficient
+image matching by segmenting a large image into smaller
+and manageable tiles. The results confirmed that the proposed methodology could identify ground control points
+(GCPs) in tens of seconds with satellite images having spatial resolution ranging between 30 m and 2 m, proving it to
+be a convenient solution for automated georeferencing.
+The utilization of YOLO-based Convolutional Neural
+Network (CNN) architectures has increased, primarily due
+to their unparalleled inference capabilities and noteworthy
+accuracy. A significant contribution to this field was made
+by Tao et al. (2017), where the authors conducted a comparative analysis of various algorithms, including FastRCNN, Faster-RCNN, R-FCN, YOLO, SSD, OYOLO,
+and OYOLO + RFCN. This study employed a custom dataset derived from road cameras, integrated into the KITTI
+dataset, with a training-to-testing ratio of 9:1. The results
+indicated that Optimized YOLO (OYOLO) achieved the
+highest inference speed at 44 ms while maintaining a precision rate of 80.1%. The authors also proposed the integration of OYOLO with RFCN to enhance precision. Another
+
+Page 3 of 13 13
+
+research work by Zuraimi and Zaman (2021) explores the
+implementation of YOLOv4 with the DeepSORT algorithm
+for vehicle detection and tracking, on footage captured by
+roadside cameras. These authors benchmarked the combined performance of custom-trained YOLOv4 and DeepSORT against earlier YOLO architectures, revealing that
+their proposed method surpasses all previous algorithms,
+achieving a mean Average Precision (mAP) of 82.08%.
+UAVs have significant advantages over roadside camera
+systems, primarily due to their enhanced mobility, extensive coverage, and exclusive aerial perspective. Integrating UAVs with advanced computer vision technologies
+can facilitate the development of a robust traffic monitoring system. Chen et al. (2023) thoroughly reviewed YBUT
+(YOLO-based UAV technology), tracing its technological evolution within engineering, transportation, and other
+civil applications. Researchers have also explored object
+detection in real geographical spaces, also known as geolocalization, which provides the foundation for our study.
+A notable contribution to this field is the work by Pratama
+et al. (2020), which introduces a novel approach utilizing
+a YOLO-based CNN architecture on aerial imagery. The
+model is trained on a dataset comprising Google Earth
+images and then applied to aerial imagery in Geotiff format to detect and localize three specific object classes: airplanes, cars, and ships. Notably, the system demonstrated
+an accuracy of 81.05% and a positional Mean Absolute
+Error (MAE) ranging between 0.000012⁰ − 0.000034⁰. In
+another research, Coulibaly et al. (2023) integrated geographical information derived from aerial imagery with
+advanced detection capabilities of YOLOv8 to geolocalize
+degraded asphaltic pavement. To achieve this, high-resolution aerial photographs captured by a UAV were employed
+to train the YOLOv8 model. The model accurately detected
+and localized degraded pavement sections and logged the
+geographical coordinates of these degraded segments. The
+experimental results revealed that the model exhibited a
+precision of 86.7%, a recall of 78.8%, and an F1 score of
+82.5%. The findings also underline the model’s efficiency in
+distinguishing between various forms of pavement degradation, including cracks, ruts, and potholes. The results of this
+study could be used to facilitate road maintenance activities,
+highlighting a practical use case for disruptive technologies
+in smart city and road safety applications.
+In road traffic monitoring and road safety solutions, the
+robust inference capabilities of YOLO and the precise georeferencing abilities of feature-matching can be combined to
+develop fully automated UAV-based road traffic monitoring
+solutions. A recent study on vehicle geolocation using UAV
+footage combines a feature-matching algorithm for georeferencing with the deep learning model YOLOv8. Although
+the authors focused on the positional accuracy of vehicles,
+
+13
+
+13 Page 4 of 13
+
+the dimensional accuracy of geolocalized vehicles is still a
+research gap that can be explored (Novikov et al. 2024).
+
+Materials and methods
+The feature-matching-based AVL methods employed for
+UAV localization in GPS-denied environments can be effectively adapted for geolocalizing road traffic. Feature-matching methods are generally free from error accumulation or
+drift, which GNSS-based and Relative Visual Localization
+(RVL) methods produce; therefore, the pixel calibrated
+through feature-matching is extremely precise (Couturier
+and Akhloufi 2021). The study proposes a method that
+adopts the principles of AVL to geolocalize vehicles while
+preserving their shape and dimensions. The method combines advanced object detection and segmentation techniques with a geospatial approach. As illustrated in Fig. 2,
+the initial step involves the creation of an orthomosaic,
+which serves as a reference image for feature matching and
+coordinate transformation processes.
+This template or reference image is generated on a UTMbased projected coordinate system using an open-source tool
+named WebODM, a product of the OpenDroneMap™. For
+the experiment, two sets of footage were collected at differing altitudes (60 and 90 m) and locations during daylight
+hours under clear sky conditions using the DJI mini 3 pro
+
+Fig. 2 Methodological framework of the study
+
+13
+
+Applied Geomatics (2026) 18:13
+
+at 3840 × 2160 resolution @ 30FPS. The experimental footage was recorded in daylight hours for the feature-matching algorithm to function. A Python script was developed
+and tested on a workstation with a 3.60 GHz Intel® Core™
+i9-9900 processor and 64GB RAM to facilitate the accurate positioning of objects. Feature matching with georeferenced aerial imagery was used to compute a homography
+matrix, producing a planar projective transformation that
+converts pixel coordinates into the corresponding UTM
+coordinates. This transformation enables object detection in
+real-world space, allowing for analysis of vehicle dimensions in metric units. After the calibration process, three different algorithmic settings of YOLOv8 were used to detect,
+track, and localize vehicles in the sample frames. The first
+setting employed the conventional YOLOv8 model. The
+second setting combined YOLOv8 with the Segment Anything Model (SAM) developed by Meta AI. This method
+applies a segmentation mask to the detected object to refine
+the bounding box dimensions. The third setting used an oriented bounding box (OBB) enabled version of YOLOv8.
+These three configurations were chosen as the study focuses
+on the dimensional accuracy of detected objects instead of
+detection accuracy, which has been extensively researched
+and established previously. The resulting detections consist of four bounding box corners in UTM projection for an
+object across all sample frames. These bounding boxes were
+then compared against ground-truth measurements, which
+
+Applied Geomatics (2026) 18:13
+
+were obtained from the reference image using the measurement tool in QGIS. All three methods were evaluated based
+on both accuracy and inference speed.
+
+Calibration of UAV frames in projected coordinate
+system using SIFT
+To enable spatial awareness within video data, it is essential to convert pixel coordinates into a real-world coordinate system. This enables the estimation of important traffic
+flow parameters, as it requires the physical location of
+vehicles across time (Ahmed et al. 2024). When combined
+with existing reference maps, feature-matching algorithms
+can automate this calibration process for UAV-based traffic
+footage (Ahmed et al. 2025). In this study, the pixel calibration process was automated by employing an automated
+georeferencing workflow using the feature-matching algorithm SIFT developed by Lowe (2004). The SIFT process
+can be divided into four stages. The first stage is scale-space
+extrema detection, where a Gaussian scale-space pyramid is
+created. This involves generating successive blurred images
+through convolution with Gaussian functions, thus forming
+multiple octaves. The parameter sigma establishes the initial Gaussian blur for the first level of each octave. In this
+stage, the Difference of Gaussian (DoG) method is applied,
+calculating the difference between images at different scales
+within an octave. The parameter n-scale indicates the number of scales sampled in each octave. While increasing the
+number of scales can result in more detected key points, it
+may also decrease their stability. A balance must be struck
+between the total number of key points and the stable key
+points found. The second step is feature localization, where
+a detailed fitting is conducted for each extremum to ascertain its location, scale, and the ratio of principal curvatures.
+Keypoints found in areas of low contrast or along edges
+are filtered out to ensure the robustness of the feature set.
+Next is the orientation assignment phase, where an orientation is assigned to each key point based on the local
+image gradients. This step is crucial for achieving rotational
+
+Page 5 of 13 13
+
+invariance in the final feature descriptors. Finally, during the feature descriptor creation stage, SIFT computes a
+descriptor for each key point invariant to residual variations.
+Each descriptor is a vector comprising 128 elements, which
+encapsulates pixel properties within the vicinity of a feature (Castillo-Carrión and Guerrero-Ginel 2017). SIFT has
+greater tolerance to seasonality due to its ability to match
+features despite variations in pixel intensities caused by
+variations in illumination or other seasonal causes, but the
+computational time for SIFT is exceptionally high, making
+it unsuitable for near real-time applications (Karami et al.
+2017); (Van Quan et al. 2023). Speed optimization methods
+can be implemented to address the computational complexity of SIFT, including Principal Component Analysis (PCA)
+to reduce the dimensions of vector descriptors and limit the
+key-point area. These adjustments can make SIFT more
+effective for visual odometry and similar applications (Van
+Quan et al. 2023).
+The preconstructed orthomosaic was used as a reference image to construct a homography matrix using SIFT
+descriptors and convert pixel coordinates of input footage to
+UTM coordinates. To develop this image, a DJI Mini 3 Pro
+drone was flown at a height of 90 m, equipped with a 48-MP
+camera set at a top-down orientation. Multiple images were
+captured by maintaining a visual line of sight (VLOS) during the data acquisition flight, and an orthomosaic with a
+UTM projection system was generated using the WebODM
+application of OpenDroneMap™. This orthomosaic image
+served as a reference image for the feature-matching algorithm to match and calibrate input frames and produce georeferenced output frames in the UTM system (see Fig. 3).
+After matching key points from the input frame with
+the reference image and descriptor generation, a Lowe’s
+ratio test was used to filter out the unsuitable matches, and
+the Random Sample Consensus (RANSAC) method was
+used to further filter out the outliers (Kaplan et al. 2016).
+Based on the homography matrix obtained from the best
+matches, pixel coordinates of input frames were converted
+to corresponding real-world coordinates. This facilitates the
+
+Fig. 3 The SIFT-based pixel-to-geographical coordinate system conversion of the input frame after feature-matching with the template image. The
+output is a georeferenced image with UTM-based coordinates
+
+13
+
+13 Page 6 of 13
+
+Applied Geomatics (2026) 18:13
+
+geolocalization of cars in the input image, converting the
+bounding box corner coordinates into the UTM coordinate
+system and enabling real-world measurements. The method
+is designed for two-dimensional frames; therefore, the
+camera angle of the UAV during footage acquisition must
+be identical to that of the reference image (in this case, 90
+degrees or top-down) for the feature-matching algorithm to
+function correctly.
+
+pixel coordinates into their corresponding UTM coordinates, an approach adopted and tested in an earlier work
+for vehicle trajectory localization (Ahmed et al. 2024). The
+coordinates of all four corners of the bounding box were
+logged into GeoJSON format and mapped on the QGIS platform for analysis.
+
+Vehicle detection and localization
+
+Precise geolocalization is essential for estimating vehicle
+headway and calculating other road safety measures. SAM
+by Meta AI has been a significant milestone in this domain,
+presenting a model with unique segmentation capabilities
+for all kinds of visual inputs (Kirillov et al. 2023). This
+functionality distinguishes SAM from the other models,
+positioning it as one of the foundational segmentation models in computer vision. SAM has been trained on an SA-1B
+dataset comprising 11 million images and 1 billion masks.
+SAM has shown proficiency in generalizing across various
+images and objects, emphasizing its potential to transform
+image analysis and understanding, which has been established in earlier research works (Deng et al. 2023; Ji et al.
+2023; Li et al. 2024; Mazurowski et al. 2023).
+To enable segmentation capabilities within the YOLOv8
+model without necessitating further training, a hybrid model
+was developed by integrating YOLOv8 with SAM (Khatua
+et al. 2024; Zhang et al. 2024). This approach leverages the
+same YOLOv8 model, trained on the Visdrone dataset. Once
+a vehicle is detected, the generated bounding boxes are used
+as inputs for SAM, which allows the extraction of object
+masks and contours. Subsequently, the largest contour in
+each dimension (x and y) was selected as a benchmark to
+refine the bounding box dimensions for each vehicle (see
+Fig. 4), thereby minimizing the overestimation of the area
+covered. Additionally, the estimation of object contours
+facilitates the rotational refinement of the bounding boxes,
+which the conventional YOLOv8 fails to provide.
+
+8th generation you only look once (YOLO) architecture
+YOLO algorithm represents a significant jump forward
+in object detection, introducing a single-stage detection.
+YOLO divides the input image into a grid, simultaneously
+predicting bounding boxes and class probabilities. This
+grid-based approach allows for faster inference, enabling
+real-time applications (Boudjit and Ramzan 2022). YOLO
+algorithm has seen numerous enhancements over the years,
+resulting in several versions, each offering improvements in
+detection precision and inference speed. The eighth generation of YOLO architecture has drawn considerable attention
+due to its superior performance in object detection compared to its predecessors and in some cases its successors
+(Sundaresan Geetha et al. 2024). Researchers have rigorously evaluated YOLOv8 in diverse experimental setups.
+The proposed method employed YOLOv8 for detection and
+its default tracking algorithm, Bot-SORT. The Bot-SORT
+algorithm possesses the ability to reidentify objects even
+after they have momentarily vanished from view, ensuring seamless and accurate tracking, which is a critical feature for applications demanding continuous monitoring of
+objects over time, such as RTM (Kalake et al. 2021; Yang
+et al. 2024). The rationale for using YOLOv8 instead of its
+successors was its superior performance for detecting larger
+road user classes, such as cars, vans, and trucks. In contrast, the 10th-generation YOLO architecture exhibits better
+detection capabilities for smaller objects, such as pedestrians (Sundaresan Geetha et al. 2024).
+The selected YOLOv8 weights were trained on the VisDrone2019-DET dataset – specifically designed for object
+detection of low-lying objects (Chen et al. 2021). The model
+exhibited an average precision AP @0.5 of 64% for the class
+of interest: cars, which is adequate, as all the vehicles in the
+experiment footage remained detected throughout all sample
+frames and were manually verified for each sample frame.
+This combination of YOLOv8 and Bot-SORT enabled the
+consistent localization of each vehicle’s object with its ID
+throughout the sample frames. The bounding boxes corresponding to each track were geolocalized within the UTM
+coordinate system. This was accomplished by converting
+
+13
+
+Segment anything model (SAM)
+
+YOLOv8 oriented bounding boxes
+Recent YOLO architectures (YOLOv8 onwards) offer a
+new feature called oriented bounding boxes (OBB), capturing the orientation of detected objects. Earlier YOLO
+versions utilized axis-aligned bounding boxes (AABB),
+lacking angular adjustments and, therefore, do not capture
+the true orientation of detected objects. The YOLOv8-OBB
+model trained on the DOTA dataset incorporates an additional parameter—the object’s angle—to locate objects precisely (Feng et al. 2024).
+YOLOv8 OBB model maintains the existing attributes of
+its predecessors while addressing the limitations of conventional bounding boxes (see Fig. 5). The OBB variant enables
+
+Page 7 of 13 13
+
+Applied Geomatics (2026) 18:13
+
+Fig. 4 A step-by-step reconstruction of rotated bounding boxes
+using YOLOv8 + SAM models. (a) shows the original detection
+using YOLOv8, (b) demonstrates segmentation masks implemented
+
+by SAM, (c) displays the extraction of contours from segmentation
+masks, and (d) visualizes the corrected bounding boxes estimated from
+the minimum area rectangle enclosing the object’s contours
+
+Fig. 5 A side-by-side comparison of (a) YOLOv8 with the (b) new YOLOv8 variant with OBB-enabled localization
+Table 1 Summary of experimental footage
+Data
+Altitude
+Unique
+(m)
+Tracks
+
+Sampled
+Frames
+
+Footage 01
+Footage 02
+
+300
+300
+
+60
+90
+
+17
+73
+
+Bounding
+Boxes
+5,100
+21,900
+
+improved localization of objects. It avoids overestimation
+of object bounds, which can be of extreme advantage for
+road safety applications where dimensions and distances are
+important.
+
+Results and discussion
+Experimental findings
+The experimental footages were collected in Hasselt, Belgium, at two distinct locations, flown at altitude levels of 60
+and 90 meters, respectively. This variation in altitude was
+
+selected to evaluate the impact of flight altitude on vehicle
+localization accuracy. 300 sample frames were extracted
+from the two experimental videos (as discussed in Table 1)
+for the analysis. The first footage, captured at 60 m, included
+17 unique vehicle tracks, yielding approximately 5,100
+localized bounding boxes. The second footage, recorded
+at 90 m, contained 73 distinct vehicle tracks, with object
+detection producing 21,900 bounding boxes, all in the UTM
+coordinate system.
+For ground truthing, the dimensions or footprint of the
+vehicle in the reference image were manually measured
+in square meters using the measurement tool in QGIS.
+These reference measurements were then used to calculate the RMSE for each track by comparing the estimated
+vehicle footprint from the detected bounding boxes with
+the manually measured values (see Eq. 1). Manual tracing
+was preferred over the manufacturer’s dimensions due to
+the problem’s visual nature. Factors such as optical occlusions, shifting shadows, and overall errors in the reference
+image can influence the representation of the detected
+
+13
+
+13 Page 8 of 13
+
+Applied Geomatics (2026) 18:13
+
+Fig. 6 Geolocalization of vehicles from the three methods: (a) conventional YOLOv8 detection, (b) YOLOv8 combined with SAM for rotated
+bounding boxes, and (c) visualization of the results of YOLOv8-OBB localization
+
+Fig. 7 Area comparison of detected objects (in m2) from the first footage across sample frames
+
+object. Since each method localizes objects differently, each
+produced different bounding box dimensions for the exact
+vehicle (see Figs. 6 and 7). The extracted bounding boxes
+were used to estimate the vehicle footprint in square meters
+and compared with the manually obtained reference measurements from QGIS.
+Comparing the dimensions of geolocalized vehicles with
+the reference values revealed that the dimensions estimated
+from YOLOv8 showed the highest deviation from the reference values (see Fig. 7).
+
+13
+
+A certain level of variability is produced by the geolocalization workflow, and quantifying this variability is
+essential for ascertaining each model’s effectiveness for
+road safety applications. As previously emphasized, overestimated bounding boxes can result in false positives for
+TTC or headway estimations. The geolocalized bounding
+boxes were further examined by calculating the Root Mean
+Square Error (RMSE) for each track, aggregated to assess
+the variability generated by each algorithm.
+For each track (t), RMSE was calculated by Eq. (1):
+
+Page 9 of 13 13
+
+Applied Geomatics (2026) 18:13
+Table 2 Comparison of each model’s internal variabilities based on
+aggregated RMSE
+Algorithm
+Mean Standard Deviation CI (95%) CI (95%)
+(µ)
+Lower
+Upper
+YOLOv8
+3.31 2.41
+2.87
+3.82
+YOLOv8 + SAM 1.32 0.87
+1.13
+1.52
+YOLOv8-OBB 0.99 0.93
+0.80
+1.20
+
+RM SE t =
+
+√
+
+1 ∑ nt
+2
+i=1 (∆ i,t ) (1)
+nt
+
+Where:
+RMSEt is the root mean square error for each track t in
+m2, nt is the number of frames for each track. ∆ i,t is the
+error for the i-th frame of the track representing the difference between the estimated vehicle dimensions from the
+algorithm and the reference value or actual area. n1t is the
+average of squared errors.
+The analysis, discussed in Table 2 and illustrated in Fig. 8,
+YOLOv8-OBB exhibits the best performance with the lowest mean of 0.99 and a consistent performance (SD = 0.93),
+with a CI of [0.80, 1.20], suggesting the highest reliability. YOLOv8 + SAM follows with a mean of 1.32, an SD of
+0.87, and a CI of [1.13, 1.52], suggesting moderate error and
+low variability but a performance comparable to YOLOv8OBB. On the other hand, YOLOv8 shows the highest mean
+of 3.31, with significant variability (SD = 2.41) and a wide
+CI of [2.87, 3.82], indicating less consistency and poorer
+overall performance than its counterparts.
+The initial analysis indicates that both YOLOv8-OBB
+and YOLOv8 + SAM demonstrate comparable accuracy in
+geolocalization and are suitable for road safety applications
+within RTM systems. These two algorithms are particularly
+valuable for identifying critical situations such as Time to
+
+Collision (TTC), where underestimation may pose dangers,
+while overestimation could result in false positive alerts.
+
+Impact of UAV altitude and vehicle rotation on
+localization
+Given that this study involves UAV-based aerial footage,
+assessing how different factors could impact geolocalization
+accuracy is crucial. Excessively high altitudes can impair
+detection precision, as smaller objects may become undetectable. Additionally, the traditional YOLO model relies on
+axis-aligned bounding boxes (AABB), which usually overapproximate the bounding box of objects that are not axis
+aligned in the frame or moving objects (see shown in Fig.
+9). This issue is alleviated either by redefining the bounding
+box dimensions through segmentation contours or by introducing a rotation angle from OBB. In the context of road
+safety analysis and conflict indicators, this oversight could
+result in false positive alerts in TTC and PET estimations.
+(
+
+−
+
+−
+
+)
+
+X1 − X2
+(2)
+t= √ 2
+s1
+s22
+n1 + n1
+
+Welch’s t-test was conducted to investigate sensitivity to
+these two conditions (Eq. 2). It indicates how significantly
+the means of the groups differ from one another relative to
+the variation observed in the sample data. Vehicle tracks
+from the sampled frames were categorized into two independent groups based on the UAV altitude and the vehicle’s
+rotation (see Tables 3 and 4). Welch’s t-test was chosen
+because it accounts for unequal variances between groups,
+providing a robust assessment of whether differences in
+RMSE are statistically significant or due to random variation. This approach makes the impact of altitude and vehicle
+
+Fig. 8 Kernel Density Estimation (KDE) Plots of Vehicle Dimension Estimations for internal variabilities of each method
+
+13
+
+13 Page 10 of 13
+
+Applied Geomatics (2026) 18:13
+
+Fig. 9 The rotation angle and its impact on the size of traditional or axis-aligned bounding boxes
+
+orientation more interpretable, with higher absolute t-statistic values indicating greater separation between group
+means, and values near zero suggesting minimal differences.
+Where:
+
+13
+
+−
+
+−
+
+X 1 and X 2 are the sample means of two groups, altitudes
+(60 and 90 m respectively) and rotation (no vehicle rotation and rotated vehicles), s21 and s22 are sample variances,
+and n1 and n2 are sample sizes of the two groups. The
+p-value indicates the probability that any observed differences occurred by random chance under the null hypothesis.
+
+Page 11 of 13 13
+
+Applied Geomatics (2026) 18:13
+Table 3 Welch’s t-test for the impact of altitude on RMSE for each
+algorithm
+−
+−
+Algorithm
+t-statistic1
+p-value2
+X1
+X2
+YOLOv8
+3.226
+2.76
+0.94
+0.37
+YOLOv8 + SAM
+1.265
+1.265
+−0.002
+0.99
+YOLOv8-OBB
+0.97
+1.09
+0.34
+0.74
+1
+(H₀) UAV altitude does not impact the localization accuracy (RMSE)
+EndFragment
+2
+
+A p-value of less than 0.05 indicates statistically significant differences EndFragment
+Table 4 Welch’s t-test for the impact of rotation on RMSE for each
+algorithm
+−
+−
+Algorithm
+t-statistic3
+p-value4
+X1
+X2
+YOLOv8
+2.80
+3.51
+−5.07
+0.0036
+YOLOv8 + SAM
+1.26
+2.06
+−1.08
+0.32
+YOLOv8-OBB
+0.98
+0.77
+−0.51
+0.62
+3
+(H₀) = Vehicle rotation does not impact the localization accuracy
+(RMSE)
+4
+
+A p-value of less than 0.05 indicates statistically significant differences
+
+A p-value below the conventional threshold of 0.05 denotes
+that the findings are statistically significant.
+The results in Table 3 show no significant differences
+in RMSE of vehicle dimensions at the two altitudes for all
+three models. The YOLOv8 model had a t-statistic of 0.94
+and a p-value of 0.37; the YOLOv8 + SAM model showed a
+t-statistic of −0.002 and a p-value of 0.99, and the YOLOv8OBB model had a t-statistic of 0.34 and a p-value of 0.74,
+supporting the other models’ findings. These findings confirm the null hypothesis (H₀) that altitude does not influence
+the accuracy of bounding box coordinates.
+In contrast, Table 4 shows that vehicle rotation impacts
+the base YOLOv8 model. The traditional YOLOv8 had a
+t-statistic of −5.07 and a p-value of 0.0036, indicating a statistically significant effect of rotation on bounding box estimates (as illustrated in Fig. 9). However, YOLOv8 + SAM
+and YOLOv8-OBB showed no significant differences
+between the two orientations, with t-statistics of −1.08
+(p = 0.32) and − 0.51 (p = 0.62), respectively. The results
+suggest that while the traditional YOLO algorithm with
+AABB is sensitive to the object’s orientation, both segmentation and OBB-enabled configuration maintain consistent
+performance as these bounding boxes perfectly encapsulate
+the detected objects, capturing their true dimensions. This
+makes these algorithms more suited for conflict analysis.
+In terms of precision, all tests indicate that
+YOLOv8 + SAM and YOLOv8-OBB yield comparable
+results, demonstrating minimal error and variability. Additionally, these models are resistant to the effects of vehicle
+orientation, a limitation posed by the standard YOLOv8
+model. However, a notable drawback is the computational
+
+expense associated with segmentation. When comparing the three algorithms in speed, YOLOv8 is the fastest,
+while YOLOv8-OBB operates at 1.5 times slower speed.
+The slowest of the three is YOLOv8 + SAM, which is 382
+times slower than YOLOv8. While its performance can be
+enhanced using a GPU instead of a CPU, this still limits
+the feasibility of applications requiring near-real-time localization, which is critical in RTM systems. This experiment
+confirms that OBB-enabled variants of YOLO are particularly best-suited for road safety applications and can effectively localize vehicles for road safety analysis.
+
+Conclusion
+This study presents a vehicle geolocalization method from
+UAV data that combines state-of-the-art DL-based object
+detection and segmentation methods with a feature-matching algorithm to geolocalize road users. The focus was on
+the dimensional accuracy, as the study was aimed at identifying a technically viable solution for road safety applications. Three different combinations of YOLOv8 capable of
+object detection, segmentation, and OBB were used.
+Each algorithm was tested rigorously to evaluate the best
+algorithmic configuration for this use case. The evaluation
+included the overall precision of each method, the impact
+of the UAV’s altitude and vehicle’s orientation on geolocalization accuracy, and the inference time. The experimental results reveal that integrating YOLOv8 with SAM and
+using the OBB-enabled YOLO model notably improved the
+system’s ability to accurately detect and localize vehicles in
+real space and preserve their shapes. However, the inference
+time of segmentation is steep; therefore, near-real-time and
+real-time implementation is practically infeasible. Hence,
+OBB-enabled YOLO models are best suited for road safety
+applications. The study’s findings will have profound implications in this domain, as it is a significant step towards
+automation in road safety, where dimensional accuracy is
+paramount. Despite these benefits, the study also acknowledges the limitations of visual-based methods. Limitations
+include dependency on clear-sky and daylight conditions
+and UAV battery constraints, which restrict prolonged
+data collection. Nevertheless, the advantages of the aerial
+perspective and AI integration outweigh these drawbacks,
+making UAVs an effective tool for traffic monitoring and
+safety analysis.
+In conclusion, the study presents a strong argument for
+adopting UAV technology and AI for road safety systems.
+These disruptive technologies can offer scalable and effective solutions for vehicle detection and geolocalization
+challenges, paving the way for the next generation of intelligent transportation systems. As we move forward, further
+
+13
+
+13 Page 12 of 13
+
+research and development must continue to build upon
+these foundations, exploring new possibilities and pushing
+the limits of what can be achieved in road traffic safety and
+management.
+Acknowledgements The authors would like to express their sincere
+gratitude to the BOF/BILA program at UHasselt for co-financing this
+research.
+Author contributions Conceptualization: Muhammad Waqas Ahmed
+and Wim Ectors; Methodology: Muhammad Waqas Ahmed and Wim
+Ectors; Software: Muhammad Waqas Ahmed; Validation, Wim Ectors.; Formal analysis and investigation: Muhammad Waqas Ahmed
+and Wim Ectors; Resources, Wim Ectors, Muhammad Adnan, Davy
+Janssens, Geert Wets; Data Curation: Muhammad Waqas Ahmed and
+Wim Ectors; Writing—original draft preparation: Muhammad Waqas
+Ahmed.; writing—review and editing, Muhammad Waqas Ahmed,
+Wim Ectors, Muhammad Adnan; Visualizations: Muhammad Waqas
+Ahmed; Supervision, Wim Ectors, Muhammad Ahmed, Muhammad
+Adnan; Project Administration: Wim Ectors, Davy Janssens, Muhammad Adnan, Muhammad Ahmed, Geert Wets, Afzal Ahmed; Funding
+acquisition, Wim Ectors, Davy Janssens, Geert Wets.
+Funding This research was co-funded by the BOF-BILA program at
+UHasselt, grant number 14406 (BOF24BL02).
+Data availability The data presented in this study are available on
+request from the corresponding author due to privacy concerns.
+
+Declarations
+Competing interests The authors declare no competing interests.
+
+References
+Ahmed MW, Adnan M, Ahmed M, Janssens D, Wets G, Ahmed A,
+Ectors W (2024) From stationary to nonstationary UAVs: deeplearning-based method for vehicle speed estimation. Algorithms
+17(12):558
+Ahmed MW, Adnan M, Ahmed M, Janssens D, Wets G, Ahmed A,
+Ectors W (2025) Near real-time privacy protection: automated
+location-dependent video blurring in UAV live-streams. Transp
+Res Procedia 84:201–208. ​h​t​t​p​​s​:​/​​/​d​o​i​​.​o​​r​g​/​​1​0​.​1​​0​1​6​​/​j​.​​t​r​p​r​o​.​2​0​2​5​.​0​
+3​.​0​6​4
+Boudjit K, Ramzan N (2022) Human detection based on deep learning YOLO-v2 for real-time UAV applications. J Exp Theor Artif
+Intell 34(3):527–544
+Castillo-Carrión S, Guerrero-Ginel J-E (2017) Sift optimization and
+automation for matching images from multiple temporal sources.
+Int J Appl Earth Obs Geoinf 57:113–122. ​h​t​t​p​​s​:​/​​/​d​o​i​​.​o​​r​g​/​​1​0​.​1​​0​1​6​​
+/​j​.​​j​a​g​.​2​0​1​6​.​1​2​.​0​1​7
+Chen G, Wang W, He Z, Wang L, Yuan Y, Zhang D, Zhang J, Zhu P,
+Van Gool L, Han J (2021) VisDrone-MOT2021: The vision meets
+drone multiple object tracking challenge results. Proceedings of
+the IEEE/CVF International Conference on Computer Vision
+Chen C, Zheng Z, Xu T, Guo S, Feng S, Yao W, Lan Y (2023) YOLObased UAV technology: a review of the research and its applications. Drones 7(3):190
+Coulibaly A, Ngom I, Dembélé JM, Sadio O, Tall MM, Diagne I (2023)
+Detection of asphalt roads degradation using Deep Learning
+applied to Unmanned Aerial Vehicle imagery. 2023 International
+
+13
+
+Applied Geomatics (2026) 18:13
+Conference on Intelligent Computing and Next Generation Networks (ICNGN)
+Couturier A, Akhloufi MA (2021) A review on absolute visual localization for UAV. Robot Auton Syst 135:103666. ​h​t​t​p​​s​:​/​​/​d​o​i​​.​o​​r​g​/​​1​0​.​1​​
+0​1​6​​/​j​.​​r​o​b​o​t​.​2​0​2​0​.​1​0​3​6​6​6
+Deng R, Cui C, Liu Q, Yao T, Remedios LW, Bao S, Landman BA,
+Wheless LE, Coburn LA, Wilson KT (2023) Segment anything
+model (sam) for digital pathology: Assess zero-shot segmentation
+on whole slide imaging. arXiv preprint arXiv:2304.04155
+Duan Z, Yang Y, Zhang K, Ni Y, Bajgain S (2018) Improved deep
+hybrid networks for urban traffic flow prediction using trajectory
+data. IEEE Access 6:31820–31827
+Elloumi M, Dhaou R, Escrig B, Idoudi H, Saidane LA (2018) Monitoring road traffic with a UAV-based system. 2018 IEEE wireless
+communications and networking conference (WCNC)
+Feng S, Huang Y, Zhang N (2024) An improved YOLOv8 OBB model
+for ship detection through stable diffusion data augmentation.
+Sensors 24(17):5850
+Ji G-P, Fan D-P, Xu P, Cheng M-M, Zhou B, Van Gool L (2023) Sam
+struggles in concealed scenes–empirical study on. segment anything. Sci China Inf Sci. ​h​t​t​p​​s​:​/​​/​d​o​i​​.​o​​r​g​/​​1​0​.​1​​0​0​7​​/​s​1​​1​4​3​2​-​0​2​3​-​3​8​
+8​1​-​x
+Jiang R, Zhu S, Chang H, Wu J, Ding N, Liu B, Qiu J (2021) Determining an improved traffic conflict indicator for highway safety
+estimation based on vehicle trajectory data. Sustainability
+13(16):9278
+Johnsson C, Laureshyn A, De Ceunynck T (2018) In search of surrogate safety indicators for vulnerable road users: a review of surrogate safety indicators. Transp Rev 38(6):765–785. ​h​t​t​p​​s​:​/​​/​d​o​i​​.​o​​
+r​g​/​​1​0​.​1​​0​8​0​​/​0​1​​4​4​1​​6​4​7​​.​2​0​1​​8​.​​1​4​4​2​8​8​8
+Kalake L, Wan W, Hou L (2021) Analysis based on recent deep learning approaches applied in real-time multi-object tracking: a
+review. IEEE Access 9:32650–32671. ​h​t​t​p​​s​:​/​​/​d​o​i​​.​o​​r​g​/​​1​0​.​1​​1​0​9​​/​A​
+C​​C​E​S​S​.​2​0​2​1​.​3​0​6​0​8​2​1
+Kaplan A, Avraham T, Lindenbaum M (2016) Interpreting the ratio
+criterion for matching SIFT descriptors. Computer Vision–ECCV
+2016: 14th European Conference, Amsterdam, The Netherlands,
+October 11–14, 2016, Proceedings, Part V 14
+Karami E, Prasad S, Shehata M (2017) Image matching using SIFT,
+SURF, BRIEF and ORB: performance comparison for distorted
+images. arXiv preprint arXiv:1710.02726
+Khatua A, Bhattacharya A, Goswami AK, Aithal BH (2024) Developing approaches in Building classification and extraction with
+synergy of YOLOV8 and SAM models. Spat Inform Res, 1–20
+Kirillov A, Mintun E, Ravi N, Mao H, Rolland C, Gustafson L, Xiao
+T, Whitehead S, Berg AC, Lo W-Y (2023) Segment anything.
+Proceedings of the IEEE/CVF International Conference on Computer Vision
+Laureshyn A, Svensson Å, Hydén C (2010) Evaluation of traffic safety,
+based on micro-level behavioural data: theoretical framework and
+first implementation. Accid Anal Prev 42(6):1637–1646. ​h​t​t​p​​s​:​/​​/​d​
+o​i​​.​o​​r​g​/​​1​0​.​1​​0​1​6​​/​j​.​​a​a​p​.​2​0​1​0​.​0​3​.​0​2​1
+Li Y, Hu M, Yang X (2024) Polyp-sam: Transfer sam for polyp segmentation. Medical Imaging 2024: Computer-Aided Diagnosis
+Long T, Jiao W, He G, Zhang Z (2016) A fast and reliable matching
+method for automated georeferencing of remotely-sensed imagery. Remote Sens 8(1):56
+Lowe G (2004) Sift-the scale invariant feature transform. Int J
+2(2):91–110
+Mazurowski MA, Dong H, Gu H, Yang J, Konz N, Zhang Y (2023)
+Segment anything model for medical image analysis: an experimental study. Med Image Anal 89:102918
+Novikov D, Sotirelis P, Yilmaz A (2024) Vehicle geolocalization from
+drone imagery. ISPRS Ann Photogramm Remote Sens Spat Inf
+Sci 10:171–178
+
+Applied Geomatics (2026) 18:13
+Pratama B, Gunawan D, Gultom R (2020) Deep learning-based object
+detection and geographic coordinate estimation system for GeoTiff imagery. Journal of Physics: Conference Series. ​h​t​t​p​s​:​​​/​​/​d​o​​i​.​o​​
+r​​g​​/​​1​0​​.​1​0​​​8​8​/​​1​​7​​4​2​-​6​​​5​9​6​​/​​1​​5​​7​7​/​1​/​0​1​2​0​0​3
+Sundaresan Geetha A, Alif MAR, Hussain M, Allen P (2024) Comparative analysis of YOLOv8 and YOLOv10 in vehicle detection: performance metrics and model efficacy. Vehicles 6(3):1364–1382
+Tao J, Wang H, Zhang X, Li X, Yang H (2017) 21–22 Oct. 2017). An
+object detection system based on YOLO in traffic scene. 2017
+6th International Conference on Computer Science and Network
+Technology (ICCSNT)
+Tewes A (2018) Investigating the Potential of UAV-Based Low-Cost
+Camera Imagery for Measuring Biophysical Variables in Maize.
+Universitäts-und Landesbibliothek Bonn]
+Van Quan N, Luyen DD, Anh PH, Thu PTH, Thanh NC, Thai VD
+(2023) Speeding Up SIFT for Faster Feature-Based UAV Visual
+Localization. International Conference on Advances in Information and Communication Technology
+Yang Y, Pi D, Wang L, Bao M, Ge J, Yuan T, Yu H, Zhou Q (2024)
+Based on improved YOLOv8 and bot SORT surveillance video
+traffic statistics
+Zhang K, Chen J, Zhang R, Hu C (2024) A Hybrid Approach for Efficient Traffic Sign Detection Using Yolov8 And SAM. Proceedings
+
+Page 13 of 13 13
+of the 2024 3rd Asia Conference on Algorithms, Computing and
+Machine Learning
+Zhou S, Xu H, Zhang G, Ma T, Yang Y (2022) Leveraging deep convolutional neural networks pre-trained on autonomous driving data
+for vehicle detection from roadside lidar data. IEEE Trans Intell
+Transp Syst 23(11):22367–22377
+Zuraimi MAB, Zaman FHK (2021) 3–4 April 2021). Vehicle Detection and Tracking using YOLO and DeepSORT. 2021 IEEE 11th
+IEEE Symposium on Computer Applications & Industrial Electronics (ISCAIE)
+Publisher’s note Springer Nature remains neutral with regard to jurisdictional claims in published maps and institutional affiliations.
+Springer Nature or its licensor (e.g. a society or other partner) holds
+exclusive rights to this article under a publishing agreement with the
+author(s) or other rightsholder(s); author self-archiving of the accepted
+manuscript version of this article is solely governed by the terms of
+such publishing agreement and applicable law.
+
+13
+
+

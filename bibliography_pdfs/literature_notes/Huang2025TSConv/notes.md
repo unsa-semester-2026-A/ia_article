@@ -53,39 +53,39 @@ DTLA extiende la estrategia estática GGHL (asignación basada en mapas de calor
 ### IV. Experiments and Discussions
 
 #### A. Experimental Conditions
-Describe los datasets utilizados: DOTAv1.0 (188K objetos, 15 categorías, 2806 imágenes), DOTAv2.0 (1.79M objetos, 18 categorías), HRSC2016 (detección de barcos, 1061 imágenes), DIOR-R (190K objetos, 20 categorías, 23463 imágenes), DroneVehicle (datos infrarrojo-RGB para vehículos, ~28K pares), SSDD+ (SAR, 1160 imágenes). Métricas: mAP50, mAP75, mAP50:95. Plataforma: servidor AMD 3950WX + 4 GPUs NVIDIA RTX 3090 + dispositivos embebidos Jetson AGX Xavier y TX2.
+Describe los datasets utilizados: DOTAv1.0, DOTAv2.0, HRSC2016, DIOR-R, DroneVehicle, SSDD+. Plataforma: AMD 3950WX + 4 GPUs NVIDIA RTX 3090 + dispositivos embebidos Jetson AGX Xavier y TX2.
 * **Problemas atacados**: Evaluar la generalidad y escalabilidad de TS-Conv en escenarios diversos (múltiples escenas, modalidades, categorías, condiciones de iluminación).
 * **Limitaciones de ese entonces**: Los métodos previos típicamente se evaluaban solo en DOTA, sin probar en múltiples modalidades (infrarrojo, SAR) ni en dispositivos embebidos.
 * **Soluciones alcanzadas**: Protocolo de evaluación comprehensivo que cubre 5+ datasets de distintas características para demostrar la generalidad de TS-Conv.
 
 #### B. Ablation Experiments
-Los experimentos ablación sobre DOTAv1.0 validan cada componente de TS-Conv con GGHL como baseline (mAP50=76.95, mAP75=44.19, mAP50:95=44.29). LS-Conv solo mejora mAP75 en +2.19 (el mayor impacto individual), demostrando su importancia para localización precisa. CS-Conv con DCK mejora +1.11 en mAP50. La combinación TS-DCN (LS+CS) logra +1.18/+2.40/+1.80 en mAP50/mAP75/mAP50:95. DTLA añade +0.62 en mAP50 sin costo de inferencia. TS-Conv completo alcanza +1.80/+2.41/+1.98 vs baseline. Las visualizaciones confirman que TS-Conv alinea correctamente las regiones sensibles de localización y clasificación en posiciones espacialmente consistentes.
+Los experimentos ablación sobre DOTAv1.0 validan cada componente de TS-Conv con GGHL como baseline. LS-Conv solo mejora mAP75 en +2.19, demostrando su importancia para localización precisa. CS-Conv con DCK mejora +1.11 en mAP50. DTLA añade +0.62 en mAP50 sin costo de inferencia. TS-Conv completo alcanza +1.80/+2.41/+1.98 vs baseline.
 * **Problemas atacados**: Verificar la contribución independiente de cada componente (LS-Conv, CS-Conv+DCK, DTLA) y sus interacciones sinérgicas.
-* **Limitaciones de ese entonces**: Los experimentos comparativos con shared-offset DCNs (como en RepPoints) mostraron que el alineamiento forzado sacrifica la calidad de localización por ligeramente mejorar clasificación.
+* **Limitaciones de ese entonces**: Los experimentos comparativos con shared-offset DCNs mostraron que el alineamiento forzado sacrifica la calidad de localización por ligeramente mejorar clasificación.
 * **Soluciones alcanzadas**: Cada componente de TS-Conv contribuye de manera complementaria: LS-Conv mejora principalmente localización precisa (mAP75), CS-Conv+DCK mejora robustez a orientaciones, y DTLA integra ambas en una asignación coherente.
 
 #### C. Experiments for the Scalability of TS-Conv
 
 ##### 1) Scalability on Lightweight Models
-TS-Conv se extiende a modelos ligeros mediante destilación de conocimiento (knowledge distillation). El modelo LO-Det ligero con DTLA mejora +2.10 en mAP50 sin costo de inferencia adicional. TS-Conv Lite (LO-Det distilado desde TS-Conv como teacher) mejora +7.79 sobre el baseline con menos parámetros y mayor velocidad. Alcanza mAP50=73.96 en DOTAv1.0 a 62.07 fps en GPU, superando a YOLOv6nano y YOLOXnano en rendimiento. En dispositivos Jetson (TX2, AGX Xavier, Nano) también muestra ventaja de velocidad y precisión.
+TS-Conv se extiende a modelos ligeros mediante destilación de conocimiento. El modelo LO-Det ligero con DTLA mejora +2.10 en mAP50 sin costo de inferencia adicional. TS-Conv Lite mejora +7.79 sobre el baseline con menos parámetros y mayor velocidad.
 * **Problemas atacados**: El alto costo computacional de DCNs que limita la aplicación de TS-Conv en dispositivos embebidos o aplicaciones de tiempo real.
 * **Limitaciones de ese entonces**: Los modelos AOOD de alta precisión eran generalmente pesados y lentos, no aptos para dispositivos edge con recursos limitados.
-* **Soluciones alcanzadas**: Mediante destilación de conocimiento, los beneficios de TS-Conv (features task-aware) se transfieren a modelos ligeros sin incrementar la complejidad de inferencia.
+* **Soluciones alcanzadas**: Mediante destilación de conocimiento, los beneficios de TS-Conv se transfieren a modelos ligeros sin incrementar la complejidad de inferencia.
 
 ##### 2) Scalability for Multimodal Data
-TS-Conv se extiende para datos multimodales (RGB+infrarrojo) mediante TS-Conv* que muestrea características por modalidad además de por tarea. En DroneVehicle, TS-Conv (solo infrarrojo) logra 71.27% mAP50, y TS-Conv* (RGB+IR) alcanza 72.33%, superando a UA-CMDet (multimodal específico) en 64.01%. Las visualizaciones muestran que RGB e infrarrojo tienen regiones sensibles distintas para localización y clasificación, demostrando la utilidad del muestreo por modalidad.
+TS-Conv se extiende para datos multimodales (RGB+infrarrojo) mediante TS-Conv* que muestrea características por modalidad además de por tarea.
 * **Problemas atacados**: La dificultad de fusionar eficazmente información de múltiples modalidades de imagen con distintas propiedades espectrales y sensibilidades.
-* **Limitaciones de ese entonces**: Los métodos multimodales existentes (UA-CMDet) usaban estrategias de fusión más complejas y especializadas que no se basaban en el principio de "muestreo separado, mapeo alineado".
-* **Soluciones alcanzadas**: TS-Conv* demuestra que el principio de muestreo separado y mapeo alineado de TS-Conv se generaliza naturalmente a múltiples modalidades, obteniendo mejoras significativas con bajo overhead.
+* **Limitaciones de ese entonces**: Los métodos multimodales existentes usaban estrategias de fusión más complejas y especializadas que no se basaban en el principio de "muestreo separado, mapeo alineado".
+* **Soluciones alcanzadas**: TS-Conv* demuestra que el principio de muestreo separado y mapeo alineado de TS-Conv se generaliza naturalmente a múltiples modalidades.
 
 #### D. Comparison Experiments
-TS-Conv se compara contra métodos AOOD de punta en múltiples datasets. En DOTAv1.0 (escala única): mAP50=78.75 a 23.23 fps, superando a la mayoría de métodos anchor-free y siendo competitivo con métodos anchor-based más lentos. En escala múltiple: mAP50=80.97 a 16.49 fps. En DOTAv1.5 y v2.0 también supera al baseline GGHL en +2.86 y +2.60 respectivamente. En HRSC2016: mAP50(07)=90.59, mAP75(07)=78.34, mejorando al baseline GGHL en +1.06 y +2.27 respectivamente. En DIOR-R: mAP75=42.69 (+5.70) y mAP50:95=41.38 (+3.94), mostrando ganancias especialmente notables en métricas de alta precisión. En SSDD+ (SAR) también supera a métodos existentes.
+TS-Conv se compara contra métodos AOOD de punta en múltiples datasets. En DOTAv1.0 (escala única): mAP50=78.75. En escala múltiple: mAP50=80.97. También muestra mejoras consistentes en DOTAv1.5, v2.0, HRSC2016, DIOR-R y SSDD+.
 * **Problemas atacados**: Demostrar que TS-Conv tiene rendimiento superior y general frente al estado del arte en múltiples escenarios y configuraciones de evaluación.
-* **Limitaciones de ese entonces**: Muchos métodos AOOD state-of-the-art son o bien más lentos (métodos de dos etapas o refinamiento) o bien menos precisos (métodos anchor-free de una etapa).
-* **Soluciones alcanzadas**: TS-Conv logra un mejor equilibrio velocidad-precisión que los métodos comparados, siendo especialmente notable la mejora en mAP75 y mAP50:95 que indican mayor calidad de localización.
+* **Limitaciones de ese entonces**: Muchos métodos AOOD state-of-the-art son o bien más lentos o bien menos precisos.
+* **Soluciones alcanzadas**: TS-Conv logra un mejor equilibrio velocidad-precisión que los métodos comparados, siendo especialmente notable la mejora en mAP75 y mAP50:95.
 
 ### V. Conclusions and Discussions
-Resume las contribuciones: (1) análisis comprehensivo del IFS en AOOD, (2) TS-Conv con muestreos explícitamente supervisados por tarea, (3) DCK para robustez a orientaciones, (4) DTLA dinámica de asignación de etiquetas, (5) escalabilidad a modelos ligeros y datos multimodales. Limitaciones reconocidas: el uso de DCNs incrementa la complejidad computacional frente al baseline, y el impacto del error de anotación OBB en las restricciones explícitas de LS-Conv no está completamente analizado. Se señala como trabajo futuro la investigación de estas limitaciones. El código está disponible en https://github.com/Shank2358.
+Resume las contribuciones e identifica como limitaciones el costo de DCNs y la sensibilidad potencial a errores de anotación OBB.
 * **Problemas atacados**: Síntesis de los avances logrados y reconocimiento honesto de las limitaciones que quedan por resolver.
 * **Limitaciones de ese entonces**: El costo adicional de DCNs respecto al baseline simple, y la sensibilidad potencial a errores de anotación OBB en las restricciones de LS-Conv.
 * **Soluciones alcanzadas**: TS-Conv demuestra efectividad, escalabilidad y generalidad en múltiples datasets y modalidades, con desempeño superior en métricas de calidad de localización (mAP75, mAP50:95) frente al estado del arte.

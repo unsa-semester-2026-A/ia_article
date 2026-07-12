@@ -5,243 +5,229 @@
 - **Venue**: IEEE Transactions on Pattern Analysis and Machine Intelligence (TPAMI)
 
 ## Resumen
-
-Este artículo presenta DOTA (Dataset of Object deTection in Aerial images), el dataset más grande de detección de objetos en imágenes aéreas disponible públicamente al momento de su publicación. La motivación central del trabajo es que el progreso en detección de objetos para imágenes naturales no se trasladaba eficientemente a imágenes aéreas, principalmente por la falta de un benchmark de gran escala con anotaciones de *oriented bounding boxes* (OBB). DOTA-v2.0, la versión expandida presentada, contiene 1,793,658 instancias en 18 categorías, anotadas con OBBs y recolectadas de 11,268 imágenes aéreas provenientes de múltiples fuentes (Google Earth, satélites GF-2 y JL-1, e imágenes aéreas CycloMedia). Además del dataset, los autores construyen una librería de código unificada basada en MMDetection para detección orientada, evalúan más de 70 configuraciones de 10 algoritmos de detección y proveen un servidor de evaluación en línea. Los resultados demuestran que el diseño de detectores para imágenes aéreas difiere significativamente del de imágenes naturales (e.g., número óptimo de propuestas mucho mayor, beneficio extremo de aumentos de datos rotacionales y multi-escala). El dataset y los desafíos organizado han atraído más de 1300 equipos de investigación a nivel mundial.
+Este artículo presenta DOTA (Dataset of Object deTection in Aerial images), un conjunto de datos a gran escala y un benchmark exhaustivo para la detección de objetos en imágenes aéreas (ODAI). La detección de objetos en este dominio es especialmente compleja debido a las grandes variaciones de escala y a las orientaciones arbitrarias de los objetos observados desde una vista cenital. Para solucionar esto, DOTA introduce anotaciones con cajas delimitadoras orientadas (OBB), permitiendo una delimitación precisa de los objetos. En su versión v2.0, DOTA se expande a 11,268 imágenes aéreas y 1,793,658 instancias de objetos distribuidas en 18 categorías comunes. Utilizando este dataset, los autores evalúan 10 algoritmos de detección del estado del arte bajo más de 70 configuraciones unificadas, analizando a fondo aspectos críticos como el diseño de módulos geométricos (RoI Transformer vs. Deformable RoI Pooling), la cantidad de propuestas de regiones y las técnicas de aumento de datos por escala y rotación. También se libera una biblioteca de código y un kit de desarrollo para facilitar la investigación reproducible en el área.
 
 ## Secciones y Subsecciones
 
-### 1. Introduction
+### 1. Introducción
+Presenta el contexto de la detección de objetos en imágenes aéreas (ODAI) y su importancia en aplicaciones reales como rescates de emergencia, agricultura de precisión y gestión urbana. Identifica las principales dificultades del dominio: orientación arbitraria de los objetos, variación de escala masiva, densidad de distribución no uniforme y relaciones de aspecto extremas.
+* **Problemas atacados**: La falta de conjuntos de datos a gran escala con anotaciones orientadas que reflejen las condiciones del mundo real, y la carencia de una biblioteca unificada que permita evaluar de forma justa y reproducible los modelos.
+* **Limitaciones de ese entonces**: Los detectores convencionales entrenados en imágenes naturales usan cajas delimitadoras horizontales (HBB), inservibles para discriminar objetos densos y orientados (como barcos o vehículos aparcados). Además, los datasets aéreos previos tenían pocas instancias y categorías, y las bibliotecas populares (como MMDetection o Detectron) no admitían detección orientada.
+* **Soluciones alcanzadas**: Propuesta del dataset DOTA expandido (v2.0) con anotaciones OBB detalladas, desarrollo de una biblioteca específica y un servidor de evaluación en línea, y construcción de benchmarks integrales con 10 algoritmos evaluados bajo las mismas condiciones de hardware y software.
 
-La introducción contextualiza el problema de detección de objetos en imágenes aéreas (ODAI). Las imágenes aéreas presentan dificultades únicas: orientaciones arbitrarias de los objetos, variaciones extremas de escala, densidades no uniformes y relaciones de aspecto muy grandes. El principal diferenciador respecto a las imágenes naturales es la vista cenital, que hace que los objetos puedan aparecer en cualquier ángulo, invalidando el supuesto de orientación preferencial que tienen los detectores entrenados con imágenes de escenas naturales. Se señala explícitamente la carencia de datasets a gran escala con anotaciones OBB como el principal obstáculo para el avance del área.
+### 2. Trabajo Relacionado
+Revisa los antecedentes en tres subtemas principales: bases de datos para detección horizontal convencional, bases de datos aéreas previas, detectores profundos adaptados al dominio aéreo y bibliotecas de código de detección.
 
-* **Problemas atacados**: Ausencia de un benchmark de gran escala con anotaciones OBB para imágenes aéreas; inadecuación de los detectores de imágenes naturales para escenas aéreas.
-* **Limitaciones de ese entonces**: Los datasets existentes (e.g., xView, NWPU, VEDAI, DLR 3K) tenían un número limitado de instancias, usaban anotaciones HBB en lugar de OBB, o no cubrían la diversidad de sensores y condiciones del mundo real.
-* **Soluciones alcanzadas**: Presentación de DOTA como el dataset de mayor escala para Earth vision, con OBBs, 18 categorías, multi-fuente y ~1.8 millones de instancias.
+* **Problemas atacados**: Comparación de las características estructurales de DOTA frente a otros datasets, y justificación de la necesidad de modelar la rotación y escala.
+* **Limitaciones de ese entonces**: Los datasets de imágenes naturales (PASCAL VOC, MS COCO, ImageNet) no tienen vistas cenitales ni anotaciones de rotación. Los datasets de imágenes aéreas anteriores (NWPU VHR-10, VEDAI, etc.) contaban con muy pocas instancias u omitían el uso de OBB, limitándose a HBB.
+* **Soluciones alcanzadas**: Posicionamiento de DOTA como el mayor dataset del dominio con anotaciones OBB, alta densidad de instancias por imagen (promedio de 159.18 en v2.0) y diversidad de fuentes de datos.
 
-### 2. Related Work
+#### 2.1 Conjuntos de Datos para Detección de Objetos Convencionales
+Detalla bases de datos de imágenes naturales y destaca que, en imágenes aéreas, el tamaño en megapíxeles y el número de instancias por imagen son métricas más relevantes para comparar escalas que el conteo puro de imágenes.
+* **Problemas atacados**: Falta de representatividad de las métricas clásicas de tamaño de imágenes en el dominio de Earth vision.
+* **Limitaciones de ese entonces**: Datasets convencionales como PASCAL VOC e ImageNet tienen baja densidad de instancias por imagen y carecen de objetos pequeños aglomerados.
+* **Soluciones alcanzadas**: Comparación analítica (Tabla 1) que demuestra que DOTA-v2.0 supera a MS COCO y VOC en el promedio de cajas delimitadoras por imagen (159.18 frente a 7.19 y 2.42).
 
-#### 2.1 Datasets for Conventional Object Detection
+#### 2.2 Conjuntos de Datos para Detección de Objetos en Imágenes Aéreas
+Analiza y tabula las bases de datos aéreas previas detallando su tipo de anotación (HBB, OBB, polígonos, puntos centrales), categorías, número de instancias y sensores.
+* **Problemas atacados**: Fragmentación y sesgo de los datasets previos hacia categorías únicas (ej. solo vehículos o barcos).
+* **Limitaciones de ese entonces**: Datasets previos eran pequeños, carecían de imágenes de fondo (muestras negativas) o usaban HBBs, lo que no permite la separación de objetos apilados.
+* **Soluciones alcanzadas**: Demostración de que DOTA cumple con cuatro principios: volumen sustancial de datos, imágenes grandes con contexto, anotaciones OBB y balance en las fuentes de adquisición.
 
-Se revisan los principales benchmarks de detección de objetos en imágenes naturales: PASCAL VOC (2005–2012, 20 clases, ~27K bounding boxes), ImageNet (200 clases, ~478K instancias) y MS COCO (91 categorías, 2.5M objetos). Se establece una comparación cuantitativa con DOTA en términos de número de imágenes, área de píxeles, número de instancias y promedio de instancias por imagen, mostrando que DOTA-v2.0 supera a todos en cantidad promedio de instancias por imagen (159.18 vs. 7.19 de COCO).
+#### 2.3 Modelos Profundos para Detección de Objetos en Imágenes Aéreas
+Discute la evolución de los modelos para manejar rotación (capas invariantes a rotación, filtros rotativos activos ORN, módulos deformables) y variaciones de escala (pirámides de características FPN y pirámides de imágenes), así como la resolución de ambigüedades en la definición del orden de esquinas en cuadriláteros.
+* **Problemas atacados**: Variación extrema de orientación y escala, ambigüedad en la definición de la regresión OBB (permutaciones de las esquinas) e insuficiencia de memoria GPU para procesar imágenes gigantescas.
+* **Limitaciones de ese entonces**: Los detectores estándar fallan en objetos muy juntos al aplicar NMS horizontal. Además, regresar directamente las esquinas de un cuadrilátero causa inestabilidad numérica por la ambigüedad del punto de inicio.
+* **Soluciones alcanzadas**: Clasificación de métodos en basados en regresión de OBB vs. basados en máscaras (segmentación por instancia), y la estrategia estándar de división de imágenes grandes en parches (patches) con posterior fusión mediante NMS orientado.
 
-* **Problemas atacados**: Necesidad de contextualizar DOTA frente a los benchmarks más conocidos del área para justificar su relevancia y escala.
-* **Limitaciones de ese entonces**: Los datasets de imágenes naturales no modelan la distribución real de objetos en imágenes aéreas (orientaciones, densidades, tamaños diminutos).
-* **Soluciones alcanzadas**: DOTA alcanza una escala comparable a COCO e ImageNet en número de instancias, con la particularidad de tener un promedio de instancias por imagen mucho más alto.
+#### 2.4 Bibliotecas de Código para Detección de Objetos
+Revisa el estado de frameworks como Detectron y MMDetection.
+* **Problemas atacados**: Incompatibilidad de las bibliotecas de visión tradicionales con las operaciones geométricas necesarias para la rotación.
+* **Limitaciones de ese entonces**: Ninguna biblioteca principal soportaba detección orientada de forma nativa ni operaciones como RoI Align rotado de manera eficiente.
+* **Soluciones alcanzadas**: Enriquecimiento de la biblioteca MMDetection con operadores matemáticos y de GPU optimizados para detección orientada (Rotated RoI Align).
 
-#### 2.2 Datasets for Object Detection in Aerial Images
+### 3. Construcción de DOTA
+Explica el proceso sistemático de recolección de imágenes, selección de categorías y el flujo de anotación manual con control de calidad.
 
-Se revisan datasets aeroespaciales previos: TAS, SZTAKI-INRIA, NWPU VHR-10, VEDAI, DLR 3K, UCAS-AOD, HRSC2016, xView, VisDrone, DIOR, iSAID, entre otros. Se argumenta que la mayoría son de categoría única o limitada, usan HBB en lugar de OBB, o provienen de una única fuente, lo que introduce sesgos de dominio. Se define formalmente el conjunto de propiedades deseables de un buen dataset para ODAI: (1) datos anotados suficientes, (2) imágenes grandes con información contextual, (3) anotaciones OBB precisas y (4) balance en las fuentes de imágenes.
+* **Problemas atacados**: Sesgos de sensores y errores de anotación humana en tareas complejas de rotación.
+* **Limitaciones de ese entonces**: Los datasets previos sufrían de sesgos de dominio severos debido al uso de un solo tipo de satélite o sensor.
+* **Soluciones alcanzadas**: Colección multisensor de Google Earth, Gaofen-2, Jilin-1 y CycloMedia (fotos aéreas de Rotterdam con vistas oblicuas y nadir).
 
-* **Problemas atacados**: Brecha entre los datasets aéreos disponibles y los requisitos reales para entrenar detectores profundos robustos.
-* **Limitaciones de ese entonces**: Datasets como xView y DIOR usan solo HBBs; datasets como NWPU solo tienen 800 imágenes; ninguno combinaba multi-fuente, OBB y escala masiva.
-* **Soluciones alcanzadas**: DOTA-v2.0 cumple todas las propiedades deseadas: multi-fuente (Google Earth, GF-2, JL-1, CycloMedia), OBB, 18 categorías y ~1.8M instancias.
+#### 3.1 Colección de Imágenes
+Detalla las fuentes de las imágenes y la inclusión de imágenes aéreas oblicuas (ángulo de inclinación de 45°).
+* **Problemas atacados**: Variabilidad de sensores, resoluciones y ángulos de cámara en la vida real.
+* **Limitaciones de ese entonces**: Falta de imágenes con vistas oblicuas reales y tamaños representativos del flujo de trabajo cartográfico.
+* **Soluciones alcanzadas**: Integración de imágenes gigantes (hasta 29,200 x 27,620 píxeles) para acercarse a la distribución de la producción real.
 
-#### 2.3 Deep Models for Object Detection in Aerial Images
+#### 3.2 Selección de Categorías
+Justifica las 18 categorías seleccionadas en función de su frecuencia de aparición y valor práctico.
+* **Problemas atacados**: Representación de categorías con límites difusos ("stuff") pero de alto valor contextual.
+* **Limitaciones de ese entonces**: Datasets anteriores ignoraban el valor de categorías como aeropuertos o puertos, cuyos límites contextuales ayudan a guiar la búsqueda de aviones o barcos.
+* **Soluciones alcanzadas**: Inclusión de 18 categorías, integrando objetos móviles (aviones, helicópteros, vehículos) e infraestructura ("stuff") con fronteras razonablemente definibles (puertos, aeropuertos, helipuertos).
 
-Se revisan los principales métodos de detección profunda adaptados a imágenes aéreas. Se mencionan: (a) métodos de representación invariante a la rotación (ORN, RRD), (b) métodos que explotan anotaciones OBB explícitamente (R-RCNN con RRoI pooling, RoI Transformer, S2A-Net), (c) métodos que resuelven ambigüedades de definición de OBB (Gliding Vertex, CSL, Mask OBB, CenterMap), y (d) métodos para manejar imágenes aéreas de gran tamaño mediante particionado en parches. Se destaca que la ambigüedad en la definición del OBB (cuatro permutaciones posibles de los vértices de un cuadrilátero) es un reto algorítmico abierto.
+#### 3.3 Anotación de Objetos Orientados
+Describe el protocolo de anotación de cuadriláteros ordenados mediante la selección de 4 puntos y la forma de resolver la orientación del "frente/cabeza" del objeto.
+* **Problemas atacados**: Dificultad e ineficiencia de rotar manualmente cajas horizontales para ajustarlas a objetos orientados. Ambigüedad de la secuencia de esquinas.
+* **Limitaciones de ese entonces**: Rotar cajas horizontalmente requiere ajustar 5 parámetros de forma tediosa. La falta de un criterio para el punto inicial de la caja causaba inestabilidades en la pérdida de regresión.
+* **Soluciones alcanzadas**: Interfaz de "clics extremos" en las 4 esquinas del objeto. Para categorías con orientación definida (ej. vehículos), el primer clic denota la "cabeza". Para categorías simétricas, se establece por defecto el vértice superior izquierdo. Se usó un proceso iterativo con grupos de anotadores y revisores expertos.
 
-* **Problemas atacados**: Adaptación de detectores de imágenes naturales a la detección orientada en imágenes aéreas, especialmente ante variaciones de orientación, escala y densidad.
-* **Limitaciones de ese entonces**: Los detectores genéricos no incorporan invarianza a la rotación; las librerías de código existentes (MMDetection, Detectron) no soportaban detección orientada. La ambigüedad de la representación OBB generaba inestabilidades en el entrenamiento.
-* **Soluciones alcanzadas**: Revisión sistemática del estado del arte; identificación de los módulos clave a evaluar en los baselines.
+### 4. Propiedades de DOTA
+Analiza cuantitativamente la composición de DOTA-v2.0, cubriendo fuentes de datos, resolución (GSD), distribución de orientaciones, tamaños físicos, relaciones de aspecto (AR), densidades de objetos y la evolución cronológica del dataset.
 
-#### 2.4 Code Libraries for Object Detection
+* **Problemas atacados**: Entender las características intrínsecas del dataset para guiar el diseño de redes neuronales (ej. tamaño de anclas, preprocesamiento).
+* **Limitaciones de ese entonces**: Falta de caracterización de la densidad de objetos y su GSD en conjuntos de datos previos.
+* **Soluciones alcanzadas**: Análisis detallado de las variaciones y propuesta de estrategias de división del dataset.
 
-Se repasan las librerías populares de detección de objetos: TensorFlow Detection API, Detectron, MaskRCNN-Benchmark, Detectron2, MMDetection y SimpleDet. Se señala que estas librerías diseñadas con arquitectura modular facilitan el desarrollo, pero casi ninguna soportaba detección orientada al momento del trabajo (solo Detectron2 tenía soporte limitado). La disparidad en hardware y configuración entre distintas implementaciones dificulta comparaciones justas.
+#### 4.1 Fuentes de Imágenes
+Reporta la distribución de área y píxeles de primer plano (foreground) para cada origen de datos (Google Earth vs. Gaofen y Jilin).
+* **Problemas atacados**: Sesgo de muestras positivas.
+* **Limitaciones de ese entonces**: Los datasets con exceso de muestras positivas tienden a generar falsos positivos elevados en imágenes de fondo realistas.
+* **Soluciones alcanzadas**: Inclusión de grandes extensiones de fondo sin objetos en las imágenes de satélite Gaofen y Jilin para simular entornos reales (menor ratio de foreground, ver Tabla 3).
 
-* **Problemas atacados**: Falta de una librería unificada para comparar algoritmos de detección orientada en condiciones controladas.
-* **Limitaciones de ese entonces**: MMDetection y similares carecían de operadores críticos para OBB (RoI Align rotado, NMS rotado, cabezas de regresión de ángulo).
-* **Soluciones alcanzadas**: Se extiende MMDetection con los módulos necesarios para detección orientada y se usa como librería base para todos los baselines del paper.
+#### 4.2 Información de Resolución Espacial
+Presenta el GSD (Ground Sample Distance) promedio de las imágenes (desde 0.1m/píxel en CycloMedia hasta 4.5m/píxel en Google Earth).
+* **Problemas atacados**: Pérdida de invariancia de escala por mezcla de diferentes alturas de vuelo y sensores.
+* **Limitaciones de ese entonces**: Sin GSD, los modelos no pueden normalizar el tamaño de los objetos o filtrar ruido.
+* **Soluciones alcanzadas**: Proveer GSD para el 30% del dataset y sugerir estimadores de aprendizaje para el resto.
 
-### 3. Construction of DOTA
+#### 4.3 Variaciones en la Orientación de las Instancias
+Presenta el histograma de ángulos de los objetos.
+* **Problemas atacados**: Modelado de rotación en 360 grados.
+* **Limitaciones de ese entonces**: A diferencia de textos o rostros en fotos naturales, las fotos aéreas no tienen un ángulo preferente (gravedad inútil en vista cenital).
+* **Soluciones alcanzadas**: Confirmación estadística de que los ángulos de los objetos en DOTA se distribuyen uniformemente en $[-\pi, \pi]$.
 
-#### 3.1 Image Collection
+#### 4.4 Variaciones en el Tamaño de Píxel de las Instancias
+Mide la distribución del tamaño físico en píxeles, clasificándolos en pequeño (10-50 px), mediano (50-300 px) y grande (>300 px).
+* **Problemas atacados**: Detección de objetos extremadamente pequeños.
+* **Limitaciones de ese entonces**: Los datasets previos ignoraban objetos por debajo de 10 píxeles.
+* **Soluciones alcanzadas**: DOTA-v2.0 anota objetos de hasta 10 píxeles, logrando un 77% de instancias pequeñas, un balance ideal para entrenar redes robustas en multiescala.
 
-Las imágenes de DOTA-v2.0 se recolectan de cuatro fuentes: Google Earth, satélites GF-2 y JL-1, e imágenes aéreas de CycloMedia (Rotterdam). Para Google Earth se seleccionaron regiones de interés en todo el mundo (aeropuertos, puertos, áreas urbanas) y se obtuvieron imágenes de 800×800 a 4000×4000 píxeles. Las imágenes de GF-2 y JL-1 se conservan en su tamaño original (hasta ~29,200×27,620 píxeles). Se incluyen tanto vistas nadir como vistas oblicuas (~45°). Esta diversidad de fuentes minimiza el sesgo de dominio del dataset.
+#### 4.5 Variaciones en la Relación de Aspecto (AR) de las Instancias
+Analiza la relación de aspecto tanto de las cajas OBB como de sus contenedores horizontales HBB.
+* **Problemas atacados**: Selección del rango de anclas (anchors) para los detectores basados en regiones.
+* **Limitaciones de ese entonces**: Anclas diseñadas para imágenes de COCO (relaciones 1:1, 1:2, 2:1) fallan al detectar vehículos largos o barcos que tienen relaciones de aspecto de hasta 1:10 en OBB.
+* **Soluciones alcanzadas**: Provisión de curvas de distribución de AR en DOTA para asistir en el diseño de configuraciones de anclas.
 
-* **Problemas atacados**: Sesgo de dominio por fuente única en datasets previos; falta de imágenes de baja densidad de objetos que representen la distribución real del mundo.
-* **Limitaciones de ese entonces**: Datasets anteriores usaban principalmente Google Earth, creando un sesgo hacia escenas con alta densidad de objetos de interés.
-* **Soluciones alcanzadas**: Combinación de cuatro fuentes de diferente resolución, perspectiva y distribución de objetos, logrando una distribución más fiel a aplicaciones reales.
+#### 4.6 Variaciones en la Densidad de las Instancias en las Imágenes
+Mide la distancia al vecino más cercano de la misma categoría.
+* **Problemas atacados**: Detección en aglomeraciones críticas.
+* **Limitaciones de ese entonces**: Algoritmos NMS tradicionales eliminan detecciones válidas adyacentes si sus cajas horizontales se solapan.
+* **Soluciones alcanzadas**: Identificación de los tanques de almacenamiento, barcos y vehículos pequeños como las categorías más densas, impulsando el desarrollo de técnicas como el Rotated NMS.
 
-#### 3.2 Category Selection
-
-Se seleccionan 18 categorías: avión, barco, tanque de almacenamiento, diamante de béisbol, cancha de tenis, piscina, pista de atletismo, puerto, puente, vehículo grande, vehículo pequeño, helicóptero, rotonda, campo de fútbol, cancha de baloncesto, grúa de contenedor, aeropuerto y helipuerto. Las primeras 10 categorías son comunes en datasets previos; las adicionales se eligen por su relevancia en aplicaciones del mundo real (e.g., "helicóptero" como objeto en movimiento, "rotonda" para análisis vial). Se incluyen categorías "stuff" (puerto, aeropuerto) cuyas fronteras son relativamente definibles y que aportan información contextual.
-
-* **Problemas atacados**: Necesidad de cubrir un espectro amplio y representativo de objetos relevantes para aplicaciones reales de Earth vision.
-* **Limitaciones de ese entonces**: Datasets previos cubrían pocas categorías o solo objetos de una clase específica (vehículos, barcos, edificios).
-* **Soluciones alcanzadas**: 18 categorías que van desde objetos pequeños (vehículo pequeño) hasta objetos tipo "stuff" (aeropuerto), con criterios de selección basados en frecuencia de aparición y valor aplicado.
-
-#### 3.3 Oriented Object Annotation
-
-El proceso de anotación usa OBBs representadas como cuatro vértices {(xi, yi) | i=1,2,3,4} en orden horario. Para facilitar la anotación precisa, los anotadores hacen clic en los cuatro esquinas físicas del objeto o en 4 puntos clave cuando la forma del objeto difiere de un rectángulo (e.g., para aviones se usan: cabeza, dos puntas de ala y cola, luego se convierte al OBB mínimo). Se define un protocolo para resolver la ambigüedad de los cuatro posibles ordenes de vértices: para objetos con cabeza/cola distinguible (vehículos, helicópteros), el primer punto indica la "cabeza"; para objetos sin referencia visual de orientación, se elige el punto superior-izquierdo. El pipeline incluye anotadores expertos, voluntarios en grupos "junior" y "senior", y revisión doble.
-
-* **Problemas atacados**: Ambigüedad en la representación de OBBs (cuatro permutaciones de vértices para el mismo objeto); dificultad de anotación precisa sin referencias claras.
-* **Limitaciones de ese entonces**: Las herramientas de anotación previas orientadas a HBBs no eran eficientes para OBBs; la ambigüedad no tenía un protocolo estándar de resolución.
-* **Soluciones alcanzadas**: Herramienta de anotación personalizada con clic en esquinas físicas; protocolo claro para el orden de puntos; proceso de revisión doble con expertos en teledetección.
-
-### 4. Properties of DOTA
-
-#### 4.1 Image Sources
-
-DOTA-v2.0 contiene imágenes de tres fuentes: Google Earth (10,186 imágenes, alta densidad de objetos), GF&JL satélite (516 imágenes, baja densidad, más representativas del mundo real) y CycloMedia aérea (566 imágenes, muy baja densidad, ratio de fondo elevado). El ratio de foreground (objetos/imagen) va de 0.003 (satelitales) a 0.037 (Google Earth). Las imágenes de GF-2 y JL-1 son en escala de grises (banda pancromática de 10 bits convertida a 8 bits), mientras que Google Earth y CycloMedia son RGB. Los metadatos de fecha de adquisición están disponibles para todas las imágenes de GF-2, JL-1 y CycloMedia, y para el 27% de las de Google Earth.
-
-* **Problemas atacados**: Sesgo por fuente única y por sobre-representación de escenas densas en objetos.
-* **Limitaciones de ese entonces**: Datasets anteriores dominados por imágenes de Google Earth, que son seleccionadas precisamente porque contienen muchos objetos, no representando la distribución real.
-* **Soluciones alcanzadas**: Incorporación de imágenes satelitales y aéreas con muy baja densidad de objetos, mejorando la representatividad del dataset para aplicaciones reales.
-
-#### 4.2 Spatial Resolution Information
-
-La resolución espacial (*Ground Sample Distance*, GSD) varía ampliamente en DOTA-v2.0: de 0.1 a 4.5 m/pixel en Google Earth, 0.81 m/pixel para GF-2, 0.72 m/pixel para JL-1, y 0.1 m/pixel para CycloMedia. Solo el 30% de las imágenes tienen GSD disponible, pero esto no es crítico ya que se puede estimar con métodos de aprendizaje. El GSD puede ser útil para filtrar outliers, mejorar clasificación y realizar normalización de escala en los detectores.
-
-* **Problemas atacados**: La falta de información de resolución espacial impide explotar priors de tamaño físico de objetos en los detectores.
-* **Limitaciones de ese entonces**: La mayoría de datasets aéreos no incluían información de GSD; los detectores no la aprovechaban.
-* **Soluciones alcanzadas**: Provisión de GSD para el 30% de las imágenes; análisis estadístico de la distribución de GSD; discusión de aplicaciones potenciales en detectores.
-
-#### 4.3 Various Instance Orientations
-
-Los objetos en imágenes aéreas tienen distribución uniforme de orientaciones en [-π, π], a diferencia de objetos en escenas naturales (texto, caras) que tienen sesgo gravitacional hacia [-π/2, π/2]. Esta propiedad única de DOTA lo hace especialmente valioso para investigar extracción de características invariante a la rotación y detección de objetos orientados.
-
-* **Problemas atacados**: Los detectores basados en características no invariantes a la rotación fallan ante la distribución uniforme de ángulos en imágenes aéreas.
-* **Limitaciones de ese entonces**: Benchmarks de texto y caras no capturaban la variedad completa de orientaciones presente en imágenes aéreas.
-* **Soluciones alcanzadas**: DOTA ofrece un benchmark con distribución de orientaciones verdaderamente uniforme, ideal para evaluar métodos de detección orientada.
-
-#### 4.4 Various Instances Pixel Sizes
-
-El 77% de las instancias en DOTA-v2.0 son de tamaño pequeño (10–50 píxeles), el 22% medianas (50–300) y solo el 1% grandes (>300). Esto contrasta con PASCAL VOC donde el 61% son medianas. Las variaciones de escala son extremas tanto dentro como entre categorías, haciendo el dataset particularmente desafiante para detectores basados en anclas con configuración fija.
-
-* **Problemas atacados**: Detección de objetos de tamaño muy pequeño y manejo de variaciones extremas de escala en imágenes aéreas.
-* **Limitaciones de ese entonces**: Los detectores optimizados para imágenes naturales no manejaban bien la alta proporción de objetos diminutos (< 10 píxeles) en imágenes aéreas.
-* **Soluciones alcanzadas**: DOTA-v1.5 y v2.0 incluyen anotaciones de objetos diminutos (< 10 píxeles) ausentes en v1.0, proporcionando un benchmark más completo para investigación en detección de pequeños objetos.
-
-#### 4.5 Various Instance Aspect Ratios (ARs)
-
-DOTA presenta distribuciones de ARs tanto para OBBs como para HBBs. Muchas instancias tienen ARs elevadas (e.g., puentes, barcos), lo que guía el diseño de anclas en detectores como Faster R-CNN y YOLO. Las relaciones de aspecto de los HBBs generados a partir de OBBs son generalmente mayores que las de los OBBs originales, reflejando la "distorsión" que introduce la representación horizontal en objetos orientados.
-
-* **Problemas atacados**: El diseño adecuado de anclas para detectores depende de la distribución de ARs; anclas mal diseñadas degradan el rendimiento.
-* **Limitaciones de ese entonces**: Los detectores usaban distribuciones de ARs derivadas de imágenes naturales que no se adaptan a la distribución de objetos aéreos.
-* **Soluciones alcanzadas**: Análisis cuantitativo de la distribución de ARs (OBB y HBB) en DOTA que guía el diseño de anclas para detectores orientados.
-
-#### 4.6 Various Instance Densities of the Images
-
-El número de instancias por parche de 1024×1024 varía enormemente en DOTA: desde 1 hasta más de 1000. Las categorías más densas son "storage tank", "ship" y "small vehicle" (distancias al vecino más cercano < 10 píxeles). Esta variación de densidad es mucho mayor que en cualquier dataset de imágenes naturales, exigiendo más propuestas por imagen y configuraciones de NMS adaptadas.
-
-* **Problemas atacados**: Los hiperparámetros estándar (número de propuestas, umbrales de NMS) optimizados para imágenes naturales son inadecuados para imágenes aéreas.
-* **Limitaciones de ese entonces**: Detectores configurados para 300 propuestas (óptimo en PASCAL VOC) no podían capturar los miles de instancias posibles en imágenes aéreas.
-* **Soluciones alcanzadas**: Análisis de densidad por categoría; experimentos que muestran que 8000 propuestas es el óptimo para DOTA (vs. 300 en PASCAL VOC).
-
-#### 4.7 DOTA Versions
+#### 4.7 Versiones de DOTA
+Compara cronológicamente las versiones del dataset (Tabla 5).
 
 ##### 4.7.1 DOTA-v1.0
-Primera versión con 15 categorías, 2,806 imágenes y 188,282 instancias. Los objetos diminutos (< 10 píxeles) no están anotados y las imágenes provienen principalmente de Google Earth. División: 50% entrenamiento, 1/6 validación, 1/3 prueba.
-
-* **Problemas atacados**: Necesidad de un primer benchmark a escala suficiente para entrenar redes profundas para ODAI.
-* **Limitaciones de ese entonces**: No incluía objetos diminutos; sesgo hacia fuente única (Google Earth); no cubría escenas con baja densidad de objetos.
-* **Soluciones alcanzadas**: Primer dataset público de escala suficiente para entrenar detectores profundos para imágenes aéreas sin necesidad de preentrenamiento en COCO/ImageNet.
+* **Problemas atacados**: Establecimiento de la primera versión del dataset.
+* **Limitaciones de ese entonces**: Ausencia de datos para entrenar redes orientadas a gran escala.
+* **Soluciones alcanzadas**: 15 categorías, 2,806 imágenes y 188,282 instancias.
 
 ##### 4.7.2 DOTA-v1.5
-Usa las mismas imágenes que v1.0 pero añade anotaciones de objetos extremadamente pequeños (< 10 píxeles) y agrega la categoría "container crane". Total: 402,089 instancias.
-
-* **Problemas atacados**: Cobertura de objetos diminutos que son críticos en aplicaciones reales (vehículos pequeños, helipads).
-* **Limitaciones de ese entonces**: v1.0 ignoraba objetos sub-10 píxeles, subestimando la dificultad real del problema.
-* **Soluciones alcanzadas**: Extensión de anotaciones y adición de una categoría industrial relevante, sirviendo como base del desafío DOAI 2019 de CVPR.
+* **Problemas atacados**: Inclusión de objetos de tamaño sub-10 píxeles y nuevas clases.
+* **Limitaciones de ese entonces**: DOTA-v1.0 omitía objetos excesivamente pequeños.
+* **Soluciones alcanzadas**: Anotación de instancias diminutas y adición de la categoría "grúa de contenedores" (CC), elevando las instancias a 402,089.
 
 ##### 4.7.3 DOTA-v2.0
-Versión más completa: 18 categorías, 11,268 imágenes (4× más que v1.0), 1,793,658 instancias (~9.5× más que v1.0). Añade categorías "airport" y "helipad". Incorpora imágenes de GF-2 y CycloMedia para mayor diversidad. Dividido en entrenamiento, validación, test-dev y test-challenge (similar a COCO).
-
-* **Problemas atacados**: Necesidad de un dataset que cubra objetos en imágenes de gran tamaño (>20,000×20,000 píxeles) con baja densidad, y que tenga split de test-challenge para competiciones controladas.
-* **Limitaciones de ese entonces**: v1.5 aún usaba solo imágenes de Google Earth, sin incluir las imágenes GF-2 y aéreas de alta resolución con distribución real de objetos.
-* **Soluciones alcanzadas**: Dataset multi-fuente, multi-resolución, con el mayor número de instancias anotadas con OBB en la historia del Earth vision al momento de publicación.
+* **Problemas atacados**: Mitigar el sobreajuste y agregar categorías complejas de infraestructura aérea.
+* **Limitaciones de ese entonces**: Desbalances y riesgo de sobreajuste por poseer conjuntos de prueba pequeños.
+* **Soluciones alcanzadas**: Expansión masiva a 11,268 imágenes, 1,793,658 instancias y 18 categorías (añadiendo "aeropuerto" y "helipuerto"). Se divide el dataset en entrenamiento, validación, test-dev y test-challenge, liberando los datos sin anotación para pruebas a ciegas en su servidor web.
 
 ### 5. Benchmarks
+Establece la metodología de evaluación y los detalles de implementación bajo un entorno unificado.
 
-#### 5.1 Evaluation Tasks and Metrics
+* **Problemas atacados**: Evaluaciones injustas de algoritmos debido a diferencias en plataformas, hiperparámetros o hardware.
+* **Limitaciones de ese entonces**: Las publicaciones de ODAI reportaban resultados con diferentes librerías y trucos de entrenamiento, imposibilitando la comparación directa.
+* **Soluciones alcanzadas**: Implementación de todos los modelos basándose en una versión modificada de MMDetection con el mismo hardware (Tesla V100 GPU) e hiperparámetros básicos.
 
-Se definen dos tareas: detección con HBB y detección con OBB. La métrica principal es mAP (mean Average Precision) usando el protocolo PASCAL VOC 07 (área bajo la curva precisión-recall de 0 a 1). El IoU para OBBs se calcula entre polígonos convexos; el área de intersección se computa descomponiendo los polígonos en triángulos. Se provee código para computar IoU de OBBs tanto en CPU como GPU.
+#### 5.1 Tareas y Métricas de Evaluación
+Define las dos tareas principales (detección con HBB y detección con OBB) y el uso de la métrica mAP de PASCAL VOC 07.
+* **Problemas atacados**: Evaluación cuantitativa del error de localización rotacional.
+* **Limitaciones de ese entonces**: El cálculo del IoU para polígonos convexos orientados es costoso y no estaba estandarizado.
+* **Soluciones alcanzadas**: Implementación eficiente en C/Python para calcular el IoU entre cuadriláteros descomponiéndolos en triángulos convexos.
 
-* **Problemas atacados**: Definición de métricas estandarizadas para evaluar detección orientada de manera comparable y reproducible.
-* **Limitaciones de ese entonces**: No existía un protocolo de evaluación estándar para OBBs; el IoU entre polígonos orientados es computacionalmente no trivial.
-* **Soluciones alcanzadas**: Protocolo basado en PASCAL VOC 07 mAP con cómputo de IoU entre OBBs; código abierto CPU/GPU.
+#### 5.2 Detalles de Implementación
+Explica el proceso de corte de imágenes gigantes en parches de 1,024 x 1,024 píxeles con un paso de 824 píxeles, el entrenamiento con 4 GPUs (lote de 8 imágenes) y tasas de aprendizaje estandarizadas.
+* **Problemas atacados**: Restricciones de memoria en GPUs modernas.
+* **Limitaciones de ese entonces**: Reducir la resolución de imágenes satelitales gigantes a un tamaño estándar (ej. 800 px de lado) elimina los objetos de interés.
+* **Soluciones alcanzadas**: Técnica de troceado en parches durante entrenamiento e inferencia, mapeando las coordenadas de detección locales de regreso a la imagen global mediante NMS orientado (umbral 0.1 en OBB, 0.3 en HBB).
 
-#### 5.2 Implementation Details
+##### 5.2.1 Líneas Base con HBBs
+Detalla los detectores entrenados directamente para cajas horizontales o convertidos desde predicciones orientadas.
+* **Problemas atacados**: Establecer el rendimiento de referencia horizontal.
+* **Limitaciones de ese entonces**: Comparar OBB con HBB requería conversiones heurísticas no uniformes.
+* **Soluciones alcanzadas**: Uso de RetinaNet, Mask R-CNN, Cascade Mask R-CNN, HTC y Faster R-CNN como baselines de HBB.
 
-Todos los algoritmos se implementan en una librería unificada derivada de MMDetection. Las imágenes grandes se recortan en parches de 1,024×1,024 con stride de 824. Durante inferencia, los resultados de los parches se mapean de vuelta a coordenadas de imagen original y se aplica NMS global. Se usan 4 GPUs con batch total de 8; lr=0.01; esquema "1×" de Detectron (excepto RetinaNet que usa "2×").
+##### 5.2.2 Líneas Base con OBBs
+Describe las adaptaciones realizadas en las cabezas de regresión para predecir $(x, y, w, h, \theta)$.
+* **Problemas atacados**: Regresión directa de cajas orientadas con respecto a anclas horizontales.
+* **Limitaciones de ese entonces**: La ambigüedad de los ángulos periódicos y el ordenamiento de esquinas generaba gradientes inestables.
+* **Soluciones alcanzadas**: Implementación de la regresión de cajas orientadas calculando previamente las 4 formas permutadas del target y seleccionando la de menor distancia euclidiana (Fórmula 1). Se desarrollaron variantes como Faster R-CNN OBB, RetinaNet OBB y Mask R-CNN (adaptando la máscara al OBB mínimo contenedor).
 
-* **Problemas atacados**: Comparación justa entre métodos usando el mismo hardware, software y configuración.
-* **Limitaciones de ese entonces**: Comparaciones previas en DOTA-v1.0 usaban implementaciones heterogéneas con distintas configuraciones, dificultando la interpretación de diferencias de rendimiento.
-* **Soluciones alcanzadas**: Evaluación de 10 algoritmos y más de 70 configuraciones bajo condiciones controladas idénticas.
+#### 5.3 Base de Código y Kit de Desarrollo
+Detalla las herramientas liberadas en GitHub.
+* **Problemas atacados**: Dificultades de los investigadores novatos para manejar las tareas de troceado, conversión y evaluación de DOTA.
+* **Limitaciones de ese entonces**: Carencia de un kit de desarrollo accesible para ODAI.
+* **Soluciones alcanzadas**: Publicación del `DOTA devkit` que incluye: visualización de etiquetas, cálculo acelerado por GPU de IoU en OBB, scripts de evaluación del mAP y utilidades para recortar/fusionar parches.
 
-##### 5.2.1 Baselines with HBBs
-Se usan dos estrategias: (1) predicción directa de HBBs con RetinaNet, Mask R-CNN, Cascade Mask R-CNN, Hybrid Task Cascade y Faster R-CNN; (2) conversión de OBBs predichos a HBBs como resultado alternativo.
+### 6. Resultados
+Presenta y analiza el rendimiento de los 70+ experimentos en precisión, velocidad e impacto de elecciones de diseño.
 
-##### 5.2.2 Baselines with OBBs
-Dos enfoques: **OBB Head** (reemplaza la cabeza de regresión de HBB para regresionar OBBs como (x,y,w,h,θ), con selección del mejor GT entre cuatro formas posibles) y **Mask Head** (trata la OBB como una máscara gruesa de nivel de píxel, usando Mask R-CNN). Se evalúan Faster R-CNN OBB, RetinaNet OBB, Faster R-CNN OBB + Dpool, Faster R-CNN OBB + RoI Transformer y variantes.
+* **Problemas atacados**: Cuantificar el impacto de los desarrollos recientes en ODAI sobre DOTA y proponer guías prácticas de arquitectura.
+* **Limitaciones de ese entonces**: Los resultados de modelos orientados se limitaban a datos sintéticos o datasets muy simples.
+* **Soluciones alcanzadas**: Confirmación de que el mAP disminuye drásticamente de DOTA-v1.0 a v2.0 (Tabla 6), confirmando el aumento de dificultad y realismo.
 
-* **Problemas atacados**: Ausencia de baselines comparables bajo condiciones controladas para detección orientada.
-* **Limitaciones de ese entonces**: Las librerías existentes no permitían predicción de OBBs; implementar correctamente la selección del mejor GT y la regresión de ángulo requería modificaciones no triviales.
-* **Soluciones alcanzadas**: Dos enfoques complementarios (regresión de OBB vs. clasificación por máscara) con análisis detallado de ventajas y desventajas en cada dataset.
-
-#### 5.3 Codebase and Development Kit
-
-La librería de código extiende MMDetection con: OBB Head, rotated RoI Align, rotated position-sensitive RoI Align y soporte para RRPN y RoI Transformer. El development kit incluye: carga/visualización de GTs, cómputo de IoU entre OBBs (Python/C, CPU y GPU), evaluación de resultados, y herramientas de particionado y fusión de imágenes grandes.
-
-* **Problemas atacados**: Reproducibilidad e implementación eficiente de algoritmos de detección orientada.
-* **Limitaciones de ese entonces**: No existía una librería pública que integrara todos los operadores necesarios para ODAI orientada.
-* **Soluciones alcanzadas**: Librería modular compatible con MMDetection, pública en GitHub, que facilita la implementación de nuevos algoritmos de detección orientada.
-
-### 6. Results
-
-#### 6.1 Benchmark Results and Analyses
-
-Los resultados muestran una caída progresiva de mAP de DOTA-v1.0 (hasta 73.76%) a v1.5 (65.03%) a v2.0 (52.81%), confirmando el aumento de dificultad. En todos los datasets, Faster R-CNN OBB + RoI Transformer es el mejor método en la curva velocidad-precisión. El Mask Head converge más fácilmente pero es más lento; OBB Head es más rápido. Los resultados de OBB mAP son ligeramente menores que los de HBB mAP para el mismo detector, ya que la tarea OBB exige localización más precisa.
-
-* **Problemas atacados**: Caracterización exhaustiva del rendimiento de detectores bajo las condiciones específicas de imágenes aéreas.
-* **Limitaciones de ese entonces**: No existían experimentos sistemáticos que analizaran el impacto de cada componente del detector en imágenes aéreas.
-* **Soluciones alcanzadas**: Más de 70 configuraciones evaluadas, identificando las mejores prácticas para diseño de detectores orientados en imágenes aéreas.
+#### 6.1 Resultados del Benchmark y Análisis
+Compara los 10 algoritmos basándose en ResNet-50-FPN y mide sus velocidades (FPS) en una GPU V100.
+* **Problemas atacados**: Compromiso entre velocidad y precisión en el diseño de detectores aéreos.
+* **Limitaciones de ese entonces**: Falta de análisis de eficiencia temporal para modelos OBB.
+* **Soluciones alcanzadas**: Faster R-CNN OBB + RoI Transformer se establece como el modelo más robusto, superando a las alternativas en la curva velocidad-precisión (ver Tabla 6).
 
 ##### 6.1.1 Mask Head vs. OBB Head
-La cabeza Mask aborda la detección orientada como clasificación a nivel de píxel, convergiendo más fácilmente y logrando mejores resultados, pero con mayor costo computacional. La cabeza OBB trata el problema como regresión, siendo más rápida. En DOTA-v2.0, Mask R-CNN supera a Faster R-CNN H-OBB en 0.57 puntos de OBB mAP pero es 4 fps más lento.
+* **Problemas atacados**: Determinar la mejor estrategia de modelado: regresión directa (OBB Head) vs. segmentación de instancias (Mask Head).
+* **Limitaciones de ese entonces**: Los métodos basados en máscaras se asumían superiores pero no se habían comparado en velocidad e inferencia OBB directa.
+* **Soluciones alcanzadas**: Mask R-CNN supera a Faster R-CNN H-OBB por 0.57 puntos en mAP en DOTA-v2.0, pero a costa de ser 4 FPS más lento. Las cabezas de máscara convergen más rápido pero requieren más FLOPS.
 
 ##### 6.1.2 RoI Transformer vs. Deformable RoI Pooling
-El RoI Transformer, diseñado específicamente para imágenes aéreas, supera al Deformable RoI Pooling general, validando que módulos de transformación geométrica diseñados a propósito para el dominio aéreo son superiores a módulos de propósito general.
+* **Problemas atacados**: Modelado específico del alineamiento geométrico de las características de la región orientada.
+* **Limitaciones de ese entonces**: Módulos generales como Deformable RoI Pooling (Dpool) se asumían suficientes para cualquier deformación geométrica.
+* **Soluciones alcanzadas**: El uso de RoI Transformer supera sistemáticamente a Dpool (Tabla 6), demostrando que la supervisión directa de la rotación y el aprendizaje de transformaciones espaciales específicas de la región son cruciales en imágenes aéreas.
 
-##### 6.1.3 Excluding Small Instances
-Los objetos extremadamente pequeños causan inestabilidad numérica durante el entrenamiento. Los experimentos muestran que filtrar instancias con área ≤ 80 y max(w,h) ≤ 10 tiene impacto mínimo en el mAP pero estabiliza el entrenamiento.
+##### 6.1.3 Exclusión de Instancias Pequeñas
+* **Problemas atacados**: Evitar la inestabilidad numérica provocada por gradientes extremos de objetos diminutos de menos de 10 píxeles.
+* **Limitaciones de ese entonces**: Intentar entrenar con muestras demasiado pequeñas causaba explosión de gradientes en OBB.
+* **Soluciones alcanzadas**: Evaluar umbrales de filtrado (área $\le$ 50/80, lado $\le$ 10/12). Se comprobó que filtrar estas instancias diminutas tiene un impacto marginal en el mAP global (Tabla 10).
 
-##### 6.1.4 Number of Proposals
-El número óptimo de propuestas en DOTA es ~8,000, mucho mayor que los 300 óptimos de PASCAL VOC. Esto evidencia la diferencia fundamental entre la densidad de objetos en imágenes naturales y aéreas. Con 2,000 propuestas se obtiene buen balance velocidad-precisión.
+##### 6.1.4 Número de Propuestas (Proposals)
+* **Problemas atacados**: Determinar el número óptimo de propuestas de región generadas por la RPN.
+* **Limitaciones de ese entonces**: Los detectores de imágenes naturales usan 300 propuestas (óptimo para VOC/COCO).
+* **Soluciones alcanzadas**: El mAP mejora drásticamente al incrementar las propuestas hasta 8,000 en DOTA (mejora de 2.2 puntos en RoI Transformer, ver Tabla 11), confirmando la alta densidad de objetos y la necesidad de buscar más candidatos, aunque a expensas de reducir los FPS.
 
-##### 6.1.5 Data Augmentation
-Los aumentos de datos multi-escala y rotacional mejoran sustancialmente el rendimiento: en DOTA-v1.5, de 65.03% (baseline) a 77.60% OBB mAP con todos los aumentos. Esto muestra que FPN y RoI Transformer no resuelven completamente el problema de variación de escala y orientación, y que el modelado geométrico con CNNs sigue siendo un problema abierto.
+##### 6.1.5 Aumento de Datos (Data Augmentation)
+* **Problemas atacados**: Robustez de los modelos ante rotaciones continuas y variaciones de escala del mundo real.
+* **Limitaciones de ese entonces**: Los detectores fallan al procesar escalas u orientaciones no vistas en el entrenamiento.
+* **Soluciones alcanzadas**: El aumento multiescala y por rotación conjunta en entrenamiento/test provee mejoras masivas en el mAP (Tabla 12, aumento de 65.03% a 77.60% de mAP). Esto demuestra que los operadores de red (FPN, RoI Transformer) no resuelven por completo el problema del modelado de escala y rotación por sí mismos.
 
-##### 6.1.6 Class-Wise Results
-La comparación entre DOTA-v1.0 y v1.5 para la clase "small vehicles" muestra una caída de 25.4 puntos de AP al incluir objetos diminutos (de 77.45 a 52.05 con RoI Transformer). Las OBBs superan a las HBBs especialmente en objetos densos: Faster R-CNN OBB supera a Faster R-CNN en 8 puntos de AP en "large vehicles" en DOTA-v1.0.
+##### 6.1.6 Resultados por Clase
+* **Problemas atacados**: Evaluar el rendimiento específico de las clases difíciles.
+* **Limitaciones de ese entonces**: Desconocimiento de qué clases sufren más con la escala pequeña o aglomeración.
+* **Soluciones alcanzadas**: Comparar DOTA-v1.0 con DOTA-v1.5 muestra que la detección de vehículos pequeños (SV) cae de 77.45 a 52.05 de AP debido a la inclusión de objetos sub-10 píxeles. También confirma que los detectores OBB superan holgadamente a los HBB en categorías densas (ej. barcos y vehículos grandes).
 
-##### 6.1.7 Visualization of the Results
-La visualización muestra cuatro tipos de dificultades: (1) vehículos grandes densamente empaquetados (HBBs fallan, OBBs detectan bien), (2) instancias alargadas con gran AR (auto-similitud genera predicciones múltiples por instancia), (3) confusión entre categorías similares (puentes/aeropuertos/puertos), y (4) instancias extremadamente pequeñas con recall muy bajo.
+##### 6.1.7 Visualización de Resultados
+* **Problemas atacados**: Identificar errores recurrentes de los mejores modelos.
+* **Limitaciones de ese entonces**: Dificultad para entender cualitativamente las fallas de los detectores.
+* **Soluciones alcanzadas**: El análisis cualitativo (Figura 12) revela: 1) RetinaNet OBB tiene menor precisión de localización por desalineamiento de características, 2) los objetos alargados y auto-similares (como puentes) generan detecciones duplicadas fragmentadas, y 3) existe alta confusión mutua entre puentes, puertos y aeropuertos por sus patrones de textura similares.
 
-* **Problemas atacados**: Identificación visual de los casos difíciles específicos de imágenes aéreas para guiar el desarrollo futuro.
-* **Limitaciones de ese entonces**: Los detectores de imágenes naturales fallan sistemáticamente en estas cuatro categorías de dificultad.
-* **Soluciones alcanzadas**: Catálogo visual de casos de fallo que sirve como guía de investigación futura.
+#### 6.2 Resultados del Estado del Arte en DOTA-v1.0
+* **Problemas atacados**: Comparar el baseline de RoI Transformer con otros métodos publicados en la literatura.
+* **Limitaciones de ese entonces**: Falta de comparaciones con aumentos de datos estándar.
+* **Soluciones alcanzadas**: Faster R-CNN OBB + RoI Transformer con aumentos alcanza un mAP de 79.82% en OBB, superando a métodos reconocidos como $S^2A$-Net, Gliding Vertex y SCRDet.
 
-#### 6.2 State-of-the-Art Results on DOTA-v1.0
+#### 6.3 Resultados del Desafío DOAI 2019
+* **Problemas atacados**: Rendimiento de los modelos en competiciones abiertas.
+* **Limitaciones de ese entonces**: Las soluciones de los retos solían estar sobre-ajustadas o depender de ensambles complejos de modelos.
+* **Soluciones alcanzadas**: Muestra que los ganadores del reto del CVPR 2019 (como USTC-NELSLIP o pca lab) utilizaron ensambles masivos, mientras que el modelo de un solo paso propuesto por los autores (Faster R-CNN OBB + RT) alcanzó 76.43% de mAP en el OBB Task, convirtiéndose en el mejor modelo individual reportado.
 
-Comparación con métodos del estado del arte en DOTA-v1.0: Faster R-CNN OBB + RoI Transformer logra 73.76% OBB mAP, superando a la mayoría excepto a Li et al. Con aumentos de datos, se alcanza 79.82%, superando a Li et al. (+3.46 puntos) y especialmente en categorías densas como "large vehicle" (+12.18 puntos). S2A-Net, con características espacialmente invariantes en un detector de una etapa, logra 79.42% con ResNet-50.
-
-* **Problemas atacados**: Posicionamiento de los baselines respecto al estado del arte para validar la utilidad del dataset y la librería.
-* **Limitaciones de ese entonces**: Métodos previos del estado del arte usaban múltiples escalas y augmentación de rotación, lo que hacía difícil separar la contribución del método de la del augmentación.
-* **Soluciones alcanzadas**: Con las mismas configuraciones de augmentación, el método propuesto (RoI Transformer) supera al estado del arte previo en 3.46 puntos de OBB mAP.
-
-#### 6.3 DOAI 2019 Challenge Results
-
-DOTA-v1.5 fue usado para el desafío DOAI 2019 en CVPR (173 registros, 13 equipos en OBB, 22 en HBB). El método RoI Transformer con augmentación (modelo único) logró 77.60% y 78.88% en OBB y HBB respectivamente, siendo el mejor resultado reportado en la tarea OBB. Los equipos ganadores usaron ensambles de múltiples modelos, alcanzando hasta 78.34% en OBB.
-
-* **Problemas atacados**: Validación del dataset como benchmark competitivo a nivel mundial.
-* **Limitaciones de ese entonces**: Sin un desafío organizado, era difícil evaluar el estado real del arte en detección orientada.
-* **Soluciones alcanzadas**: Atracción de 173 equipos internacionales, estableciendo DOTA como el benchmark estándar de facto para ODAI.
-
-### 7. Conclusion
-
-El artículo concluye reafirmando las tres contribuciones principales: (1) DOTA-v2.0 como el dataset más grande para Earth vision con OBBs; (2) una librería de código unificada para detección orientada; (3) baselines comprehensivos de más de 70 configuraciones. Los autores plantean continuar extendiendo el dataset, organizar más desafíos e integrar más algoritmos de detección orientada en la librería. Se enfatiza que DOTA puede complementar datasets de imágenes naturales para promover detectores de objetos universales.
-
-* **Problemas atacados**: Síntesis de contribuciones y dirección futura para el campo de ODAI.
-* **Limitaciones de ese entonces**: El modelado geométrico con CNNs y la detección de objetos diminutos siguen siendo problemas abiertos.
-* **Soluciones alcanzadas**: Provisión de infraestructura completa (dataset, código, servidor de evaluación, desafíos) para catalizar el progreso en ODAI.
+### 7. Conclusión
+* **Problemas atacados**: Resumen de los logros y líneas futuras.
+* **Limitaciones de ese entonces**: Falta de herramientas estandarizadas y bases sólidas para el dominio de Earth vision.
+* **Soluciones alcanzadas**: Publicación de DOTA-v2.0 como benchmark crucial, demostrando que las reglas de diseño para imágenes naturales no se aplican directamente a imágenes aéreas, abriendo preguntas teóricas para la detección universal de objetos.

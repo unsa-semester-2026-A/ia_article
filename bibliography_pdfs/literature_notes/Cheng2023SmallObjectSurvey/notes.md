@@ -34,7 +34,7 @@ Define el alcance del survey: se enfoca exclusivamente en métodos SOD basados e
 Define formalmente qué es un objeto pequeño, siguiendo criterios de área o longitud: en COCO, un objeto con área ≤ 1024 píxeles se considera pequeño. Se aclara que el término "tiny" y "small" son usados intercambiablemente en la literatura original, y se indica que el paper define su propio criterio de "Small" para el benchmark SODA.
 * **Problemas atacados**: La falta de una definición estándar y unificada del término "objeto pequeño" en la literatura.
 * **Limitaciones de ese entonces**: Distintos trabajos usaban diferentes umbrales de área o longitud, haciendo difícil la comparación directa de resultados.
-* **Soluciones alcanzadas**: Se adopta una definición consistente con trabajos previos (COCO) y se propone una clasificación interna propia para el benchmark SODA.
+* **Soluciones alcanzadas**: Adopta una definición consistente con trabajos previos (COCO) y se propone una clasificación interna propia para el benchmark SODA.
 
 #### 2.2 Main Challenges
 Identifica y analiza los cuatro retos principales del SOD: (1) pérdida de información debida al subsampling en redes profundas que elimina señales de objetos pequeños; (2) representación de características ruidosa por la baja resolución y contaminación de fondo; (3) baja tolerancia a la perturbación de bounding box, donde una desviación de 6 píxeles reduce el IoU de 100% a 32.5% en objetos pequeños (versus 71.8% en objetos grandes); (4) muestras insuficientes para entrenamiento, pues los esquemas de asignación basados en solapamiento fallan con instancias pequeñas.
@@ -58,7 +58,7 @@ Aborda los métodos que atacan el problema de muestras insuficientes para entren
 Revisa los métodos que abordan la variación de escala mediante arquitecturas multi-rama o estrategias de entrenamiento a múltiples escalas. Se describen los detectores específicos por escala (FPN, MS-CNN, YOLOv3, TridentNet, SNIP, Sniper, AutoFocus) y los métodos de fusión de características jerárquicas (PANet, StairNet, IPG-Net, SSPNet). Se analiza la tensión entre la ventaja de asignar objetos a niveles óptimos de la pirámide y el problema de que la información de un solo nivel puede ser insuficiente.
 * **Problemas atacados**: La variación de escala severa en imágenes de tráfico y teledetección que causa dificultades dispares para detectores de escala única.
 * **Limitaciones de ese entonces**: Los detectores tempranos usaban solo características de alto nivel para reconocimiento, perdiendo información fina de escala necesaria para objetos pequeños.
-* **Soluciones alcanzadas**: Arquitecturas piramidales (FPN y variantes) y esquemas de fusión bidireccional que integran características de múltiples niveles para representaciones más ricas de objetos pequeños.
+* **Soluciones alcanzadas**: Arquitecturas piramidales (FPN y variantes) y esquemas de fusión de características que integran múltiples niveles para representaciones más ricas de objetos pequeños.
 
 ##### 2.3.3 Attention-based Methods
 Revisa métodos que aplican mecanismos de atención visual para destacar regiones de objetos pequeños y suprimir el fondo ruidoso. Ejemplos incluyen SCRDet (atención de píxeles y canales supervisada), FBR-Net (atención basada en nivel de pirámide), KB-RANN (redes de atención a largo y corto plazo) y MSCCA (bloques ECA ligeros). Se señala que los métodos de atención tienen diseños de inserción flexible, pero incurren en sobrecarga computacional por las operaciones de correlación y carecen de supervisión directa.
@@ -73,13 +73,13 @@ Revisa métodos que buscan enriquecer las representaciones de objetos pequeños 
 * **Soluciones alcanzadas**: Métodos que transfieren información de representación de objetos grandes a pequeños mediante restricciones de similaridad o reconstrucción super-resolución.
 
 ##### 2.3.5 Context-modeling Methods
-Revisa métodos que explotan información de contexto (relaciones espaciales y semánticas entre objetos y el entorno) para mejorar la detección de objetos pequeños. Ejemplos incluyen PyramidBox (contexto facial), SINet (RoI pooling consciente del contexto), IONet (IRNN de cuatro direcciones para contexto global), R2-CNN (bloque de atención global para teledetección). Se señala la limitación de que los mecanismos actuales determinan las regiones de contexto de manera heurística sin garantía de interpretabilidad.
+Revisa métodos que explotan la información de contexto para mejorar la detección de objetos pequeños. Ejemplos incluyen PyramidBox, SINet, IONet y R2-CNN. Se señala la limitación de que los mecanismos actuales determinan las regiones de contexto de manera heurística sin garantía de interpretabilidad.
 * **Problemas atacados**: El hecho de que los objetos pequeños tienen información visual insuficiente por sí mismos, siendo el contexto circundante crucial para su correcta identificación.
 * **Limitaciones de ese entonces**: Los detectores genéricos solo analizaban la región inmediata del objeto, ignorando el contexto circundante que puede ser más informativo que el propio objeto pequeño.
-* **Soluciones alcanzadas**: Módulos de modelado de contexto que integran información de regiones vecinas y globales para generar representaciones más discriminativas de objetos pequeños.
+* **Soluciones alcanzadas**: Módulos de modelado de contexto que integran información de regiones vecinas y globales para generar representaciones más de objetos pequeños.
 
 ##### 2.3.6 Focus-and-detect Methods
-Revisa métodos que primero localizan las regiones de interés en imágenes de alta resolución y luego aplican detección focalizada, evitando el procesamiento redundante de regiones vacías. Ejemplos: ClusDet (detección agrupada), DMNet (mapas de densidad), CRENet (clustering adaptativo), F&S (red de enfoque + detección). La limitación principal es la necesidad de anotaciones adicionales o arquitecturas auxiliares complejas para determinar "dónde enfocar".
+Revisa métodos que primero localizan las regiones de interés en imágenes de alta resolución y luego aplican detección focalizada, evitando el procesamiento redundante de regiones vacías. Ejemplos: ClusDet, DMNet, CRENet y F&S. La limitación principal es la necesidad de anotaciones adicionales o arquitecturas auxiliares complejas para determinar "dónde enfocar".
 * **Problemas atacados**: La ineficiencia del procesamiento de ventana deslizante uniforme en imágenes de alta resolución donde los objetos pequeños se distribuyen de forma no uniforme y dispersa.
 * **Limitaciones de ese entonces**: Los detectores genéricos desperdiciaban cómputo en parches vacíos y procesaban objetos pequeños a resoluciones subóptimas.
 * **Soluciones alcanzadas**: Pipelines de dos etapas que filtran regiones vacías y aplican zoom-in adaptativo a regiones de interés, procesando objetos pequeños a resoluciones más altas.
@@ -87,65 +87,65 @@ Revisa métodos que primero localizan las regiones de interés en imágenes de a
 ### 3. Review of Datasets for Small Object Detection
 
 #### 3.1 Datasets for Small Object Detection
-Revisión de datasets existentes que contienen objetos pequeños, abarcando detección de caras (WiderFace), peatones (TinyPerson, EuroCity Persons), señales de tráfico (TT100K), drones (VisDrone) y teledetección (DOTA, AI-TOD). Se destaca que la mayoría de estos datasets son de categoría única o no están diseñados específicamente para SOD multiclase. Se incluye una tabla comparativa exhaustiva de 17 datasets con características como número de imágenes, instancias, resolución promedio y año de publicación.
+Revisión de datasets existentes que contienen objetos pequeños, abarcando detección de caras (WiderFace), peatones (TinyPerson, EuroCity Persons), señales de tráfico (TT100K), drones (VisDrone) y teledetección (DOTA, AI-TOD). Se destaca que la mayoría de estos datasets son de categoría única o no están diseñados específicamente para SOD multiclase. Se incluye una tabla comparativa de datasets en el paper.
 * **Problemas atacados**: La carencia de un conjunto de datos a gran escala multiclase diseñado específicamente para benchmarking de SOD.
 * **Limitaciones de ese entonces**: Los datasets existentes eran de categoría única (detección de caras/peatones) o, cuando multiclase, tenían objetos pequeños concentrados en pocas categorías o carecían de escala suficiente.
-* **Soluciones alcanzadas**: Revisión comprehensiva del ecosistema de datos disponible, identificando las brechas que motivan la propuesta de SODA.
+* **Soluciones alcanzadas**: Enfoque en el diseño y justificación del conjunto de datos SODA para llenar este vacío en escenarios tanto terrestres como aéreos.
 
 #### 3.2 Evaluation Metrics
-Describe las métricas de evaluación estándar: Average Precision (AP) original de VOC2007 con un umbral fijo de IoU de 0.5, y la métrica COCO que promedia sobre 10 umbrales de IoU entre 0.5 y 0.95, incentivando mayor precisión de localización. Explica los conceptos de TP, FP, FN y cómo se calcula el AP variando el umbral de confianza.
+Describe las métricas de evaluación estándar: Average Precision (AP) y COCO AP. Explica los conceptos de TP, FP, FN y el AP de multi-IoU.
 * **Problemas atacados**: La necesidad de métricas de evaluación que capturen adecuadamente el rendimiento en objetos de diversas escalas.
-* **Limitaciones de ese entonces**: La métrica AP de umbral único (IoU=0.5) no incentivaba la localización precisa; para objetos pequeños, incluso pequeñas desviaciones causan caídas dramáticas de IoU.
-* **Soluciones alcanzadas**: Adopción del estándar COCO de multi-IoU como gold standard, con métricas adicionales APeS, APrS, APgS y APN para desglosar el rendimiento por tamaño en SODA.
+* **Limitaciones de ese entonces**: La métrica AP de umbral único (IoU=0.5) no incentivaba la localización precisa; para objetos pequeños, pequeñas desviaciones causan caídas dramáticas de IoU.
+* **Soluciones alcanzadas**: Adopción de métricas específicas como APeS, APrS, APgS y APN para cuantificar granularmente el rendimiento en objetos pequeños y normales.
 
 ### 4. Benchmarks (SODA)
 
 #### 4.1 Data Acquisition and Annotation
-Describe el proceso de construcción de SODA-D y SODA-A. Para SODA-D: imágenes de MVD, auto-capturadas y de internet de diversas ciudades chinas, con anotación de 278,433 instancias en 9 categorías usando cajas horizontales. Para SODA-A: 2,513 imágenes de alta resolución extraídas de Google Earth de cientos de ciudades mundiales, con 872,069 instancias anotadas con cajas orientadas en 9 clases. Define la frontera de objeto "valioso": S ≤ 1024 píxeles como "Small" (con sub-clases eS: ≤144, rS: 144-400, gS: 400-1024) y 1024-2000 como "Normal". Los demás se marcan como "ignore".
+Describe el proceso de construcción de SODA-D y SODA-A. SODA-D tiene 24,828 imágenes de conducción anotadas con 278,433 cajas horizontales. SODA-A tiene 2,513 imágenes aéreas de alta resolución anotadas con 872,069 cajas orientadas. Define el umbral para "Small" en S ≤ 1024 píxeles cuadrados.
 * **Problemas atacados**: La necesidad de criterios de anotación rigurosos y consistentes para construir benchmarks auténticamente dedicados a SOD.
 * **Limitaciones de ese entonces**: Los datasets existentes no tenían criterios explícitos para seleccionar y anotar objetos pequeños, resultando en una mezcla de instancias de diferentes tamaños.
 * **Soluciones alcanzadas**: Un protocolo de anotación detallado con definición cuantitativa de "objeto valioso", sub-clasificación de pequeñez y regiones de "ignore" para instancias ambiguas.
 
 #### 4.2 Statistical Analysis
-Análisis estadístico que demuestra que SODA-D y SODA-A superan ampliamente a datasets existentes en cantidad de instancias extremadamente pequeñas. Destaca características únicas: SODA-D tiene alta diversidad de escenas, resolución promedio de 3407×2470, y 153,976 regiones de ignore. SODA-A tiene variación de densidad extrema (1 a 11,134 instancias por imagen, promedio 347), orientaciones arbitrarias y diversidad global de locaciones. El tamaño promedio absoluto de objetos en SODA-D es 20.31 píxeles y en SODA-A 14.75 píxeles.
+Análisis estadístico que demuestra que SODA-D y SODA-A superan ampliamente a datasets existentes en cantidad de instancias extremadamente pequeñas y densidad de objetos por imagen.
 * **Problemas atacados**: Demostrar cuantitativamente que SODA representa un avance significativo sobre benchmarks previos en términos de escala, densidad y especificidad para SOD.
 * **Limitaciones de ese entonces**: Los datasets previos tenían pocas instancias extremadamente pequeñas o las concentraban en pocas categorías, no representando bien la diversidad real del SOD.
 * **Soluciones alcanzadas**: SODA proporciona cientos de miles de instancias extremadamente pequeñas distribuidas en 9 categorías balanceadas, cubriendo tanto escenarios de conducción como aéreos.
 
 #### 4.3 Comparisons with Previous Benchmarks
-Compara SODA-D con MVD y SODA-A con AI-TOD y DOTA. SODA-D extiende MVD hacia el SOD de detección frente al foco de MVD en segmentación semántica. SODA-A supera a AI-TOD en balance de clases (AI-TOD tiene >88% instancias en categoría vehículo), resolución (4761×2777 vs 800×800), anotaciones orientadas y volumen de instancias pequeñas. Frente a DOTA (que se enfoca en variación de escala), SODA-A se especializa en instancias de escala limitada con distribución más balanceada entre categorías.
+Compara SODA-D con MVD y SODA-A con AI-TOD y DOTA, justificando los avances en resolución, densidad, balance de clases e inclusión de anotaciones rotadas.
 * **Problemas atacados**: Posicionar SODA como complemento necesario al ecosistema de datasets existente para SOD.
-* **Limitaciones de ese entonces**: AI-TOD tenía severo desbalance de clases y resolución fija baja; DOTA tenía objetos pequeños concentrados en pocas categorías; ninguno proveía orientaciones arbitrarias con alta densidad y balance de clases simultáneamente.
+* **Limitaciones de ese entonces**: AI-TOD tenía desbalance de clases y resolución baja; DOTA tenía objetos pequeños concentrados en pocas categorías; ninguno proveía orientaciones arbitrarias con alta densidad y balance de clases simultáneamente.
 * **Soluciones alcanzadas**: SODA-A combina alta resolución, orientaciones libres, balance de clases y volumen masivo de instancias pequeñas en un único benchmark.
 
 ### 5. Experiments
 
 #### 5.1 Evaluation Protocol
-Adopta el protocolo COCO de AP promediada sobre 10 umbrales de IoU (0.5 a 0.95). Define métricas específicas por tamaño: APeS, APrS, APgS y APN, calculadas solo sobre la subconjunto "Small" de instancias. Los experimentos se ejecutan sobre SODA-D con mmdetection y sobre SODA-A con mmrotate, usando imágenes cortadas en parches de 800×800 con stride 650 y redimensionadas a 1200×1200.
+Adopta el protocolo COCO de AP promediada sobre 10 umbrales de IoU (0.5 a 0.95). Define métricas específicas por tamaño: APeS, APrS, APgS y APN.
 * **Problemas atacados**: Asegurar una evaluación justa y representativa del rendimiento real en objetos pequeños de diversas sub-escalas.
 * **Limitaciones de ese entonces**: Las métricas genéricas de AP no desglosaban el rendimiento por sub-rangos de tamaño dentro de la categoría "small", ocultando diferencias importantes.
 * **Soluciones alcanzadas**: Protocolo de evaluación multi-IoU con desglose por sub-categorías de tamaño, permitiendo análisis más granular del rendimiento en SOD.
 
 #### 5.2 Implementation Details
-Detalla la configuración experimental: backbone ResNet-50 por defecto, 4 GPUs NVIDIA RTX 3090, batch size de 8 (SODA-D) y 4 (SODA-A). Se usan 12 métodos representativos para SODA-D y 9 para SODA-A. La única augmentación durante entrenamiento es flip aleatorio.
+Detalla la configuración experimental: backbone ResNet-50 por defecto, 4 GPUs NVIDIA RTX 3090, batch size de 8 (SODA-D) y 4 (SODA-A). Se usan 12 métodos representativos para SODA-D y 9 para SODA-A.
 * **Problemas atacados**: Garantizar reproducibilidad y comparación justa entre todos los métodos evaluados.
 * **Limitaciones de ese entonces**: Los benchmarks previos usaban configuraciones experimentales heterogéneas que dificultaban la comparación directa.
 * **Soluciones alcanzadas**: Marco experimental unificado sobre mmdetection/mmrotate con configuración estándar para todos los métodos.
 
 #### 5.3 Results Analysis on SODA-D
-Cascade RCNN logra el mejor rendimiento general (31.2% AP, 27.8% AP75). Los detectores anchor-free tienen peor rendimiento en objetos extremadamente pequeños (FCOS: 6.9% APeS). Los detectores basados en keypoints (CenterNet, CornerNet) son claramente inferiores con anclas, especialmente en objetos muy pequeños. YOLOX es competitivo para métodos anchor-free (26.7% AP, 13.6% APeS). Deformable DETR entrega solo 19.2% AP, revelando que el paradigma de consulta dispersa no cubre bien los objetos pequeños. Los experimentos con distintos backbones muestran que Swin-T y ConvNext-T mejoran el rendimiento, destacando el valor de transformers para SOD.
-* **Problemas atacados**: Entender el rendimiento real de los detectores de última generación en un benchmark auténticamente orientado a SOD.
+Analiza el desempeño de detectores como Cascade RCNN, FCOS, CenterNet, CornerNet, YOLOX y Deformable DETR en SODA-D, encontrando brechas importantes especialmente en objetos extremadamente pequeños.
+* **Problemas atacados**: Entender el rendimiento real de los detectores de última generación en un benchmark auténticamente orientado a SOD en conducción.
 * **Limitaciones de ese entonces**: No existía un benchmark dedicado multiclase para SOD en conducción que permitiera identificar las fortalezas y debilidades de cada paradigma detector.
 * **Soluciones alcanzadas**: SODA-D revela brechas específicas: los detectores de dos etapas superan a los de una etapa en objetos extremadamente pequeños, y los backbones de tipo transformer son prometedores para SOD.
 
 #### 5.4 Results Analysis on SODA-A
-RoI Transformer logra el mejor AP (36.0%) gracias a su generador de propuestas de alta calidad. Oriented RCNN obtiene 34.4% AP con overhead mínimo. Los detectores de una etapa quedan muy por detrás en objetos extremadamente pequeños. Oriented RepPoints falla especialmente en objetos de alta relación de aspecto. ConvNext-T como backbone mejora generalmente los detectores de dos etapas, pero puede degradar los de una etapa en SODA-A debido a problemas de desalineación. Resultados cualitativos muestran que incluso los mejores detectores fallan en instancias muy diminutas y bajo contraste.
+Analiza el rendimiento en SODA-A de detectores de OBB como RoI Transformer, Oriented RCNN y Oriented RepPoints.
 * **Problemas atacados**: Entender el rendimiento de métodos de detección orientada (OBB) en el contexto específico de objetos pequeños aéreos.
 * **Limitaciones de ese entonces**: Los benchmarks OBB existentes (DOTA) no estaban optimizados para SOD, mezclando objetos de múltiples escalas y sesgando el análisis.
 * **Soluciones alcanzadas**: SODA-A permite identificar que propuestas de alta calidad son fundamentales para SOD aéreo y que la representación puntual es desventajosa para objetos pequeños de alta relación de aspecto.
 
 ### 6. Conclusion and Outlook
-Resume las contribuciones del trabajo y propone cuatro direcciones futuras de investigación: (1) extractor de características efectivo para objetos pequeños que evite pérdida de información sin alto costo computacional; (2) representación jerárquica de alta calidad que mejore FPN para SOD; (3) estrategia de asignación de etiquetas optimizada para instancias de tamaño extremadamente limitado; (4) métrica de evaluación adecuada para SOD que no sea demasiado estricta para objetos extremadamente pequeños donde la localización aproximada ya es valiosa.
+Resume las contribuciones del trabajo y propone cuatro direcciones futuras de investigación (extractores eficientes de características, FPNs optimizadas para SOD, asignación óptima de etiquetas para objetos pequeños, y métricas de evaluación más flexibles).
 * **Problemas atacados**: Identificar las limitaciones actuales de los métodos SOD estado del arte y señalar las brechas más urgentes a resolver.
 * **Limitaciones de ese entonces**: Los detectores más potentes aún tienen un rendimiento muy bajo en objetos extremadamente pequeños, y las métricas estándar pueden no capturar bien el progreso real en SOD.
 * **Soluciones alcanzadas**: Se provee una agenda de investigación concreta con cuatro líneas de trabajo que el campo necesita abordar para impulsar el SOD hacia niveles de rendimiento comparables con la detección de objetos normales.

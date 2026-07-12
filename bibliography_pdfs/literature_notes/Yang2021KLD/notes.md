@@ -1,133 +1,110 @@
 # Learning High-Precision Bounding Box for Rotated Object Detection via Kullback-Leibler Divergence
 
 - **Key**: Yang2021KLD
-- **Year**: 2021 (arXiv v1: junio 2021, publicado NeurIPS 2021)
-- **Venue**: NeurIPS 2021 (Advances in Neural Information Processing Systems)
+- **Year**: 2021
+- **Venue**: NeurIPS
 
 ## Resumen
-
-Este artículo aborda el problema de la pérdida de regresión para la detección de objetos rotados de alta precisión. Los detectores rotados existentes heredan el paradigma de detección horizontal añadiendo simplemente el parámetro de ángulo θ a la pérdida Smooth L1, lo que optimiza cada parámetro de forma independiente y resulta en detección imprecisa, especialmente para objetos con grandes ratios de aspecto. El artículo propone un cambio de paradigma: en lugar de partir de la detección horizontal (caso especial) hacia la rotada (caso general), plantea diseñar la pérdida de regresión directamente para el caso general rotado, de modo que la detección horizontal sea su caso degenerado. La solución consiste en convertir la caja rotada B(x, y, w, h, θ) en una distribución Gaussiana 2D N(μ, Σ) y usar la Kullback-Leibler Divergence (KLD) entre la distribución predicha y la ground truth como pérdida de regresión. El análisis del gradiente demuestra que KLD ajusta dinámicamente la importancia de cada parámetro según las características del objeto (aspect ratio, escala, ángulo), implementando un mecanismo de auto-modulación. Además, se demuestra que KLD es scale-invariant y se degenera en la pérdida ln-norm para el caso horizontal. Los experimentos en siete datasets (DOTA-v1.0/v1.5/v2.0, UCAS-AOD, HRSC2016, ICDAR2015, MLT, MSRA-TD500) con múltiples detectores confirman la superioridad de KLD, alcanzando 80.63% mAP en DOTA-v1.0.
-
----
+Este artículo presenta un enfoque novedoso y matemáticamente riguroso para la regresión de cuadros delimitadores orientados mediante el uso de la **Divergencia de Kullback-Leibler (KLD)**. En lugar de tratar los parámetros geométricos del cuadro delimitador rotado $B(x, y, w, h, \theta)$ de forma independiente (como en las pérdidas tradicionales de norma $L_n$), los autores convierten el cuadro en una **distribución gaussiana bidimensional $\mathcal{N}(\mu, \Sigma)$** y calculan la KLD entre la distribución predicha y la del ground-truth. A través de un detallado análisis de gradientes, se demuestra que la KLD introduce un **mecanismo de optimización auto-modulado y acoplado**. Esto significa que la importancia (peso del gradiente) del parámetro del ángulo se ajusta de manera dinámica según la relación de aspecto del objeto (aspect ratio), y la optimización del centro se ve influenciada por la escala. Asimismo, se demuestra teóricamente que la KLD posee **invarianza de escala**, a diferencia de otras pérdidas basadas en gaussianas como la Distancia de Wasserstein Gaussiana (GWD). Evaluado en siete datasets públicos (incluidos DOTA-v1.0/v1.5/v2.0, HRSC2016 y datasets de texto en escenas), KLD muestra una superioridad constante y muy significativa en métricas de alta precisión (como AP75 y AP50:95), posicionándose como una de las mejores funciones de pérdida de regresión para objetos rotados.
 
 ## Secciones y Subsecciones
 
 ### 1. Introduction
-
-La introducción motiva el diseño desde primeros principios de una pérdida de regresión para detección rotada. Se observa que la mayoría de detectores rotados heredan el paradigma inductivo de la detección horizontal: adaptan la pérdida Smooth L1 añadiendo un parámetro de ángulo extra. Este enfoque optimiza los cinco parámetros (x, y, w, h, θ) de forma independiente, lo que resulta problemático pues el under-fitting de cualquier parámetro afecta severamente la precisión final. El ejemplo concreto es el objeto con gran aspect ratio: un pequeño error en θ causa una caída drástica en IoU, pero la pérdida Smooth L1 no pondera el ángulo más pesadamente en esos casos. El artículo propone un enfoque deductivo: diseñar una pérdida para el caso general rotado que se degenegre coherentemente al caso horizontal especial.
-
-* **Problemas atacados**: La optimización independiente de parámetros en la pérdida de regresión de detectores rotados impide la detección de alta precisión, especialmente en objetos con grandes ratios de aspecto.
-* **Limitaciones de ese entonces**: Smooth L1 y GWD (Gaussian Wasserstein Distance) no acoplan completamente todos los parámetros; GWD no es scale-invariant y optimiza el centro independientemente.
-* **Soluciones alcanzadas**: KLD como pérdida de regresión implementa acoplamiento de cadena entre todos los parámetros, auto-modulación adaptativa de gradientes, scale-invariance, y coherencia con el caso horizontal como degeneración.
-
----
+Introduce los retos de la detección de objetos rotados y plantea la necesidad de cambiar el paradigma tradicional de diseño de pérdidas de regresión, transitando de la inducción heurística a la deducción rigurosa.
+* **Problemas atacados**: El bajo desempeño de los detectores de objetos rotados en tareas de alta precisión debido a las limitaciones de las pérdidas de regresión heredadas del paradigma horizontal (como Smooth L1).
+* **Limitaciones de ese entonces**: Las funciones de regresión comunes optimizan cada parámetro geométrico por separado, lo que ignora el acoplamiento entre variables (por ejemplo, el hecho de que el ángulo $\theta$ es crítico para objetos alargados, mientras que la posición central es clave para objetos pequeños). Esto resulta en una alta sensibilidad a errores angulares y desplazamientos en objetos con gran relación de aspecto.
+* **Soluciones alcanzadas**: Se propone una pérdida basada en KLD entre gaussianas 2D que unifica la regresión de todos los parámetros de la caja rotada en un solo término, logrando un acoplamiento dinámico donde los gradientes de cada variable se adaptan según la escala y aspect ratio del objeto bajo análisis.
 
 ### 2. Background
-
-Esta sección revisa los trabajos relacionados y caracteriza los dos paradigmas de diseño de pérdidas de regresión para detección rotada.
-
-#### 2.1. Related Works
-
-Se revisa la detección horizontal (Faster R-CNN, RetinaNet, FCOS, etc.) que usa cajas horizontales con pérdidas ln-norm o IoU-based. Se presenta la detección rotada como extensión de estos detectores con cajas orientadas (OBB), y se clasifica la literatura según dos metodologías: inductiva (de horizontal especial a rotado general) y deductiva (de rotado general a horizontal especial).
-
-* **Problemas atacados**: Ubicar la propuesta en el contexto de la literatura existente, distinguiendo entre los dos paradigmas de diseño.
-* **Limitaciones de ese entonces**: La mayoría de detectores rotados seguían el paradigma inductivo, sin plantear si la pérdida de regresión es coherente con el caso horizontal.
-* **Soluciones alcanzadas**: La clasificación inductivo/deductivo proporciona un marco conceptual claro para comparar métodos y justificar el enfoque del artículo.
-
-#### 2.2. Inductive Thinking of Loss Design: from Special Horizon to General Rotation Detection
-
-Se describe formalmente la pérdida de regresión inductiva estándar: se predicen los offsets (tx, ty, tw, th) y se añade el offset angular tθ = f(θp - θa), optimizando todos con Smooth L1 de forma independiente. La crítica central es que los cinco parámetros tienen diferentes escalas y unidades, y su importancia varía según el tipo de objeto, pero la pérdida no lo refleja. Además, el under-fitting de cualquier parámetro degrada directamente la métrica IoU final.
-
-* **Problemas atacados**: Formalizar la limitación fundamental de la pérdida ln-norm independiente para objetos rotados.
-* **Limitaciones de ese entonces**: La extensión directa del caso horizontal al rotado mediante Smooth L1 ignora las interacciones entre parámetros y su importancia diferencial según el tipo de objeto.
-* **Soluciones alcanzadas**: La formalización matemática permite comparar cuantitativamente con KLD y motivar el nuevo diseño.
-
-#### 2.3. Deductive Thinking of Loss Design: from General Rotation to Special Horizon Detection
-
-Se introduce el enfoque deductivo: convertir la caja rotada B(x, y, w, h, θ) en una distribución Gaussiana 2D N(μ, Σ) mediante la transformación Σ = RΛR⊤. Se revisa la Gaussian Wasserstein Distance (GWD) como trabajo previo que sigue este paradigma: GWD descompone en distancia del centro (independiente) y términos de acoplamiento de h, w, θ, siendo una pérdida "semi-acoplada". Se identifica que GWD no acopla completamente el centro con el resto y no es scale-invariant, lo que limita su rendimiento en detección de alta precisión.
-
-* **Problemas atacados**: Explorar el paradigma deductivo como alternativa a la pérdida inductiva, y identificar las limitaciones de la propuesta previa GWD.
-* **Limitaciones de ese entonces**: GWD no es completamente acoplada (el centro se optimiza independientemente) y carece de scale-invariance, propiedad crucial para detección.
-* **Soluciones alcanzadas**: El análisis de GWD motiva el uso de KLD, que sí posee acoplamiento completo y scale-invariance.
-
----
+Revisa los trabajos previos en detección horizontal y orientada, contrastando el pensamiento inductivo tradicional con la metodología deductiva propuesta.
+* **Problemas atacados**: La falta de coherencia matemática al adaptar detectores horizontales para realizar predicciones orientadas y la inestabilidad de las pérdidas de regresión angular.
+* **Limitaciones de ese entonces**:
+  * **2.1. Related Works**: Los detectores tradicionales utilizan cajas horizontales (HBB) que no capturan la orientación precisa. Las adaptaciones orientadas extienden de manera ad-hoc la norma $L_n$ sin considerar la interacción física entre parámetros.
+  * **2.2. Inductive Thinking of Loss Design**: Añadir directamente la diferencia del ángulo $\Delta\theta$ a la pérdida de regresión introduce problemas de discontinuidad en los límites (boundary problem) y requiere ajustar manualmente los pesos de cada variable para cada objeto.
+  * **2.3. Deductive Thinking of Loss Design**: Diseños como la distancia GWD representan un avance deductivo al convertir cajas a gaussianas 2D, pero desacoplan la optimización del centro y no poseen invarianza de escala, lo que causa desalineaciones espaciales finas.
+* **Soluciones alcanzadas**: Proponer un framework unificado mediante KLD que modela la caja rotada como una gaussiana, pero asegurando el acoplamiento de todos los parámetros (incluidos los de posición central) e incorporando invarianza de escala nativa.
 
 ### 3. Proposed Approach
+Se detalla la formulación matemática de KLD para gaussianas 2D, el análisis detallado de gradientes, la demostración de invarianza de escala, y su degeneración en el caso horizontal clásico.
+* **Problemas atacados**: La necesidad de una métrica de distancia continua, diferenciable y físicamente consistente para evaluar la discrepancia entre cuadros orientados.
+* **Limitaciones de ese entonces**: Las pérdidas estándar de regresión geométrica no se correlacionan directamente con la métrica de evaluación final (IoU rotado), la cual no es diferenciable directamente mediante métodos analíticos sencillos.
+* **Soluciones alcanzadas**: Representar el cuadro rotado $B(x, y, w, h, \theta)$ como una distribución gaussiana multivariante 2D y calcular la KLD como regresión.
 
-Esta sección es el núcleo técnico del artículo y presenta la pérdida KLD para detección rotada de alta precisión.
+#### 3.1. Kullback-Leibler Divergence (KLD)
+Presenta las ecuaciones para calcular la divergencia directa $D_{kl}(N_p || N_t)$ e inversa $D_{kl}(N_t || N_p)$ entre las distribuciones gaussianas.
+* **Problemas atacados**: La formulación de una pérdida que acople todos los parámetros de posición, forma y ángulo en una sola expresión.
+* **Limitaciones de ese entonces**: Formulaciones anteriores dividen la pérdida en términos sumados que no se comunican matemáticamente durante la optimización.
+* **Soluciones alcanzadas**: Mostrar que los componentes de la covarianza y el vector de medias en la fórmula de KLD generan un acoplamiento en cadena donde la posición se pondera por las dimensiones del objeto y el ángulo interactúa directamente con el ancho y alto.
 
-**Kullback-Leibler Divergence.** Se calcula la KLD entre dos distribuciones Gaussianas 2D Np(μp, Σp) y Nt(μt, Σt) como pérdida de regresión. La KLD se descompone analíticamente en términos que revelan el acoplamiento de parámetros: Dkl(Nt||Np) tiene acoplamiento de cadena entre todos los parámetros (x, y acoplados con θ a través de la matriz de covarianza; h, w acoplados con ∆θ; θ afectado por el aspect ratio hp/wp). En contraste, Dkl(Np||Nt) y GWD son semi-acopladas.
+#### 3.2. Analysis of high-precision detection
+Realiza un estudio minucioso de la influencia de los gradientes de KLD.
+* **Problemas atacados**: La optimización deficiente del centro y del ángulo cuando el objeto posee dimensiones extremas.
+* **Limitaciones de ese entonces**: La pérdida L2 tradicional aplica los mismos gradientes al centro de un objeto grande y de uno pequeño, ignorando que un desajuste espacial es mucho más severo para este último.
+* **Soluciones alcanzadas**: El análisis matemático demuestra que la KLD pondera automáticamente los gradientes del centro con respecto a la escala del objeto ($1/w_t^2$ y $1/h_t^2$). Además, ante relaciones de aspecto elevadas ($h_p \gg w_p$), la sensibilidad del gradiente respecto al ángulo $\theta$ se magnifica de forma exponencial, guiando a la red a predecir la orientación con extrema exactitud.
 
-**Análisis de alta precisión.** Se deriva el gradiente de KLD respecto a cada parámetro para analizar el mecanismo de auto-modulación. Para el centro (x, y): los pesos 1/wt² y 1/ht² hacen que el modelo ponga más atención al desplazamiento en la dirección más estrecha del objeto. Para h, w: la penalización es mayor cuando la dimensión predicha difiere más de la target, y está acoplada con ∆θ. Para θ: el gradiente es mayor cuando el aspect ratio del objeto es mayor (hp²-wp²), lo cual es la propiedad clave para detección de alta precisión en objetos elongados. Este mecanismo de auto-modulación es fundamentalmente diferente a Smooth L1 (gradientes independientes) y GWD (solo semi-acoplado).
+#### 3.3. Scale invariance
+Prueba que la KLD es invariante ante transformaciones de escala.
+* **Problemas atacados**: Sensibilidad al tamaño del objeto en pérdidas anteriores (como GWD o Smooth L1), lo que perjudica la detección de objetos en escalas muy variadas.
+* **Limitaciones de ese entonces**: Smooth L1 y GWD varían su escala de magnitud ante cambios proporcionales de tamaño, penalizando de forma desigual a objetos grandes y pequeños.
+* **Soluciones alcanzadas**: Demostración formal de que la KLD entre dos gaussianas sometidas a una transformación afín $M$ (incluyendo escalamiento $M = kI$) se mantiene constante, lo que garantiza coherencia con la métrica de evaluación IoU.
 
-**Scale invariance.** Se demuestra formalmente que para cualquier transformación afín M de rango completo, Dkl(Np'||Nt') = Dkl(Np||Nt). En particular, con M = kI, se prueba la scale-invariance. Esta propiedad es crucial para detección, donde los objetos pueden aparecer a múltiples escalas, y la pérdida no debe ser sensible a ella. Ni Smooth L1 ni GWD poseen esta propiedad.
+#### 3.4. Horizontal special case
+Analiza el comportamiento de la pérdida KLD cuando la orientación del objeto es nula ($\theta = 0$).
+* **Problemas atacados**: Consistencia e interoperabilidad del detector en tareas de detección horizontal estándar.
+* **Limitaciones de ese entonces**: Las pérdidas diseñadas para rotación a menudo son incompatibles con los pipelines de detección horizontal tradicionales.
+* **Soluciones alcanzadas**: Se demuestra algebraicamente que cuando $\theta = 0$, la KLD degenera en una combinación matemática equivalente a una suma de pérdidas L1 y L2 sobre los desplazamientos horizontales tradicionales, demostrando que la detección horizontal es un subconjunto directo de la formulación propuesta.
 
-**Caso especial horizontal.** Se demuestra algebraicamente que cuando θ = 0°, la KLD se degenera en una combinación de normas L1 y L2 sobre los desplazamientos normalizados (∆tx, ∆ty, ∆tw, ∆th), que es coherente con la pérdida estándar de detección horizontal (excepto por el factor de normalización wt vs. wa).
+#### 3.5. Variants of KLD
+Estudia variantes de KLD para medir el impacto de la asimetría de la métrica.
+* **Problemas atacados**: La posible inestabilidad durante el entrenamiento debido al carácter asimétrico de la Divergencia de Kullback-Leibler.
+* **Limitaciones de ese entonces**: La asimetría matemática de la KLD clásica puede provocar diferencias teóricas de comportamiento según cuál sea la distribución de referencia.
+* **Soluciones alcanzadas**: Se evalúan variantes simétricas como Jensen-Shannon (JSD), la distancia de Jeffreys y combinaciones de valores mínimos/máximos de KLD.
 
-**Variantes de KLD.** Se introducen variantes simétricas: Dkl_min, Dkl_max, Jensen-Shannon divergence (Djs) y Jeffrey's divergence (Djef). Los experimentos muestran que la asimetría de KLD tiene impacto mínimo en el rendimiento.
-
-**Pérdida de regresión final.** La pérdida de regresión se define como Lreg = 1 - 1/(τ + f(D)), con f(D) = log(D+1) y τ = 1 como configuración óptima. Esta normalización suaviza el crecimiento de KLD y hace la pérdida más expresiva. La pérdida multi-tarea combina Lreg y focal loss para clasificación.
-
-* **Problemas atacados**: Diseñar una pérdida de regresión que acopla todos los parámetros, es auto-modulada, scale-invariant, y coherente con el caso horizontal.
-* **Limitaciones de ese entonces**: No existía una pérdida de regresión rotada que reuniera simultáneamente acoplamiento completo, scale-invariance y degeneración coherente al caso horizontal.
-* **Soluciones alcanzadas**: KLD logra un mecanismo de auto-modulación que ajusta adaptativamente la importancia del gradiente de θ según el aspect ratio, de h, w según ∆θ, y del centro según la escala, todo en una pérdida unificada y matemáticamente fundamentada.
-
----
+#### 3.6. Rotation regression loss
+Presenta la normalización no lineal aplicada a KLD para estabilizar su uso en el entrenamiento práctico de detectores como RetinaNet.
+* **Problemas atacados**: La magnitud explosiva de la KLD pura en las fases iniciales del entrenamiento cuando las distribuciones están muy alejadas.
+* **Limitaciones de ese entonces**: Gradientes inestables o explosivos si se aplica la KLD cruda directamente como pérdida.
+* **Soluciones alcanzadas**: Se aplica una transformación de normalización no lineal suave usando funciones logarítmicas $\ln(D_{kl} + 1)$ o raíces cuadradas $\sqrt{D_{kl}}$, acotando y modulando la pérdida mediante un hiperparámetro de escala $\tau$.
 
 ### 4. Experiment
+Presenta el entorno experimental, hiperparámetros de entrenamiento y comparaciones empíricas exhaustivas.
+* **Problemas atacados**: Validación de la generalidad de la pérdida KLD en múltiples tipos de detectores y tipologías de objetos.
+* **Limitaciones de ese entonces**: Evaluaciones previas limitadas a un solo tipo de dataset o solo a imágenes aéreas.
+* **Soluciones alcanzadas**: Se evalúa el método en 7 datasets y con detectores populares de una sola etapa (RetinaNet) y de refinamiento de características (R3Det).
 
 #### 4.1. Datasets and Implementation Details
-
-Los experimentos se realizan en siete datasets: DOTA-v1.0/v1.5/v2.0 (detección aérea, 15-18 categorías), UCAS-AOD (2 categorías, 1510 imágenes), HRSC2016 (barcos), ICDAR2015, MLT y MSRA-TD500 (texto en escenas). La implementación usa TensorFlow con ResNet50, SGD sobre 8 GPUs, 8 imágenes por minibatch. Se entrena por 20 épocas con lr inicial 5e-4 (reducida ×10 en épocas 12 y 16). Se usaron dos detectores base: RetinaNet y R3Det.
-
-* **Problemas atacados**: Validar la generalidad y consistencia de KLD en múltiples datasets y detectores.
-* **Limitaciones de ese entonces**: Las pérdidas de regresión previas se evaluaban en uno o dos datasets; la validación en siete datasets con dos detectores proporciona evidencia más robusta.
-* **Soluciones alcanzadas**: El protocolo experimental extensivo demuestra que KLD supera consistentemente a Smooth L1 y GWD en todos los datasets y detectores evaluados.
+Detalla las bases de datos de prueba y la configuración de hardware/software.
+* **Problemas atacados**: Medición del desempeño en detección a aérea (DOTA v1.0/v1.5/v2.0, UCAS-AOD, HRSC2016) y texto en escena (ICDAR2015, MLT, MSRA-TD500).
+* **Limitaciones de ese entonces**: Dificultades de escala en DOTA-v1.5 y v2.0 que incorporan instancias diminutas de menos de 10 px.
+* **Soluciones alcanzadas**: Implementación en Tensorflow usando GPUs Tesla V100, entrenamiento por 20 épocas con optimizador SGD y decaimiento programado del learning rate.
 
 #### 4.2. Ablation Study and Further Comparison
-
-Se realizan ablaciones sobre la forma de la pérdida (Dkl crudo, f(Dkl), Lreg con τ), variantes de KLD (Dkl_min, Dkl_max, Djs, Djef), y normalización. Resultados clave: (a) la normalización con f(D) = log(D+1) y τ = 1 es óptima (85.25% en HRSC2016); (b) las variantes simétricas no mejoran significativamente, confirmando que la asimetría de KLD no es un problema; (c) la normalización Eq. 18 es genuinamente útil y no es la responsable de la mejora (demostrado por el drop al normalizar Smooth L1).
-
-El experimento de detección de alta precisión es central: en HRSC2016 (barcos con gran aspect ratio), KLD mejora AP75 en +23.97% sobre Smooth L1 con RetinaNet y +33.96% con R3Det. En métricas de alta precisión (AP75, AP85, AP50:95), KLD supera consistentemente a GWD y Smooth L1 en todos los datasets, con las mayores ventajas en escenarios de alta precisión y objetos de gran aspect ratio.
-
-* **Problemas atacados**: Demostrar cuantitativamente el mecanismo de auto-modulación de KLD y su ventaja específica en alta precisión.
-* **Limitaciones de ese entonces**: Las métricas estándar (AP50) no evidencian completamente las ventajas de precisión; el análisis con AP75 y AP50:95 es necesario para revelar el comportamiento en alta precisión.
-* **Soluciones alcanzadas**: Las ablaciones confirman que la ventaja de KLD proviene del mecanismo de acoplamiento, no de la normalización, y que las mejoras en alta precisión son consistentes y robustas.
+Presenta las pruebas controladas de los hiperparámetros y la comparación de precisión fina.
+* **Problemas atacados**: Identificación de la variante y configuración óptima de KLD.
+* **Limitaciones de ese entonces**: Falta de justificación empírica sobre si el beneficio de KLD provenía de su formulación probabilística o simplemente del proceso de normalización aplicado.
+* **Soluciones alcanzadas**: 
+  * Se demuestra que la normalización por sí sola no ayuda a Smooth L1 (empeora el resultado), confirmando la validez del modelado probabilístico de KLD.
+  * La configuración $\tau=1$ con logaritmo obtiene la mayor precisión (85.25% mAP en HRSC2016).
+  * KLD supera ampliamente a GWD y Smooth L1 en indicadores de alta precisión (por ejemplo, ganancias masivas de +23.97% AP75 en RetinaNet y +33.96% AP75 en R3Det sobre HRSC2016).
+  * Se demuestra que la asimetría de la KLD no afecta negativamente, ya que la variante directa e inversa logran resultados similares.
 
 #### 4.3. Comparisons with the State-of-the-Art Methods
+Benchmarking comparativo frente a los detectores punteros de la literatura científica.
+* **Problemas atacados**: Demostrar que una pérdida matemática mejorada puede elevar la precisión del modelo sin alterar el costo de inferencia.
+* **Limitaciones de ese entonces**: Muchos métodos consiguen mejoras en mAP solo a través de módulos de red muy pesados y lentos.
+* **Soluciones alcanzadas**: Al sustituir la pérdida de regresión estándar por KLD en R3Det y RetinaNet, se superan los resultados de 19 métodos del estado del arte, alcanzando hasta 80.63% mAP en DOTA-v1.0 sin añadir ningún costo a la fase de inferencia.
 
-La combinación RetinaNet-KLD-R50 (single-scale) alcanza 75.28% mAP en DOTA-v1.0, superando modelos multi-scale previos. R3Det-KLD-R50 logra 77.36%. Con backbone más grande y multi-scale testing, KLD alcanza 80.63% mAP. En los datasets de texto escena (ICDAR2015, MSRA-TD500, MLT), KLD muestra mejoras consistentes de 3-10% sobre Smooth L1 y 2-6% sobre GWD. En detección horizontal (MS COCO), KLD es competitivo o ligeramente superior a Smooth L1 y GIoU, con mejora de +0.6% en RetinaNet-AP.
+### 5. Discussions / Conclusions
+Presenta las limitaciones identificadas del modelo y el cierre del estudio.
+* **Problemas atacados**: Identificación de los límites operacionales de la KLD.
+* **Limitaciones de ese entonces**: El método no se puede aplicar de forma directa en detectores basados en coordenadas poligonales de cuadriláteros libres (que no puedan ser descritos mediante el formalismo de 5 parámetros de una bounding box rotada estándar).
+* **Soluciones alcanzadas**: El modelado probabilístico mediante KLD demuestra ser una herramienta sumamente potente, teórica y práctica para la detección de objetos con orientaciones arbitrarias en entornos industriales, aéreos y de texto en escenas.
 
-* **Problemas atacados**: Validar que KLD no solo mejora en ablaciones sino que establece nuevo estado del arte en benchmarks competitivos.
-* **Limitaciones de ese entonces**: Los métodos previos (GWD, CSL, DCL, etc.) no alcanzaban el rendimiento de detección de alta precisión logrado por KLD.
-* **Soluciones alcanzadas**: KLD establece nuevo estado del arte en DOTA-v1.0 (80.63% con multi-scale) y mejora todos los métodos base evaluados.
-
----
-
-### Discussions
-
-Se identifican las limitaciones del método: KLD no puede aplicarse directamente a detección de cuadriláteros arbitrarios (no paramétricos como rotated boxes). También se señalan posibles impactos negativos: la mejora en detección precisa de objetos orientados puede facilitar aplicaciones en sensado remoto, aviación o drones con fines cuestionables. Se concluye que KLD provee una pérdida de regresión unificada, con base matemática sólida, auto-modulada y scale-invariant para detección rotada, coherente con la detección horizontal como caso especial.
-
-* **Problemas atacados**: Contextualizar las limitaciones y posibles impactos del trabajo para una comunicación científica responsable.
-* **Limitaciones de ese entonces**: La representación en caja rotada paramétrica (x, y, w, h, θ) limita la aplicabilidad directa de KLD a representaciones alternativas como cuadriláteros.
-* **Soluciones alcanzadas**: El artículo establece un marco teórico y práctico sólido para pérdidas de regresión en detección rotada, con la posibilidad de extender KLD a otras representaciones como trabajo futuro.
-
----
-
-### A. Appendix
-
-#### A.1. Proof of Scale Invariance of KLD
-
-Se demuestra formalmente que para cualquier transformación lineal M de rango completo, Dkl(MNp||MNt) = Dkl(Np||Nt) usando propiedades algebraicas de matrices (tr, det, inversa). La demostración cubre el caso general de invarianza afín, del cual la scale-invariance es un caso particular con M = kI.
-
-* **Problemas atacados**: Proporcionar la prueba matemática rigurosa de scale-invariance de KLD, que la diferencia de GWD y Smooth L1.
-* **Limitaciones de ese entonces**: No existía una prueba formal de scale-invariance para pérdidas de regresión de detección rotada.
-* **Soluciones alcanzadas**: La prueba formal establece que KLD es afín-invariante, propiedad que garantiza comportamiento consistente independientemente de la escala de los objetos.
-
-#### A.2. Analysis of Dkl(Nt||Np)'s High-Precision Detection
-
-Se extiende el análisis de gradientes a la forma simétrica Dkl(Nt||Np) y se demuestra que posee propiedades similares de auto-modulación, aunque con mecanismos ligeramente diferentes en el acoplamiento del centro. Se incluyen figuras que muestran cómo L2-norm, GWD y KLD se comportan frente a variaciones de escala y de parámetros del objeto target (ht).
-
-* **Problemas atacados**: Demostrar que las propiedades de auto-modulación de KLD son robustas a la elección de la forma (Np||Nt vs. Nt||Np).
-* **Limitaciones de ese entonces**: La asimetría de KLD podía ser vista como una limitación; el análisis de la forma inversa demuestra que ambas formas tienen propiedades similares.
-* **Soluciones alcanzadas**: El análisis completo de gradientes para ambas formas confirma que la auto-modulación adaptativa es una propiedad fundamental de KLD y no un artefacto de la dirección de la divergencia.
+### Appendix
+Contiene las demostraciones analíticas detalladas y visualizaciones de soporte.
+* **Problemas atacados**: Falta de rigurosidad en las demostraciones de invarianza y sensibilidad.
+* **Limitaciones de ese entonces**: Análisis cualitativo insuficiente sobre el comportamiento de KLD ante variaciones de aspect ratio.
+* **Soluciones alcanzadas**:
+  * **A.1. Proof of Scale Invariance**: Demuestra que para cualquier matriz de rango completo $M$, $D_{kl}(N'_p || N'_t) = D_{kl}(N_p || N_t)$.
+  * **A.2. Analysis of Dkl(Nt||Np)**: Prueba que la KLD inversa mantiene las mismas deseables propiedades de auto-modulación y sensibilidad angular.
+  * **A.3. Visualization of KLD's Advantages**: Visualiza mediante gráficas cómo KLD reacciona con mayor sensibilidad a cambios en x, w y $\theta$ a medida que el aspect ratio aumenta, a diferencia de GWD y L2-norm.

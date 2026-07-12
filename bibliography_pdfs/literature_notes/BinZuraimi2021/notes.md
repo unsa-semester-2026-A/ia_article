@@ -2,105 +2,99 @@
 
 - **Key**: BinZuraimi2021
 - **Year**: 2021
-- **Venue**: ISCAIE (IEEE Symposium on Computer Applications & Industrial Electronics)
+- **Venue**: ISCAIE
 
 ## Resumen
-Este artículo presenta el desarrollo y la evaluación de un sistema inteligente de monitoreo de tráfico para la detección, clasificación y conteo automático de vehículos en carreteras de Malasia. Debido al incremento constante del volumen de vehículos y la congestión vehicular asociada, se requiere una gestión de tráfico más inteligente. El sistema propuesto utiliza el algoritmo de detección de una sola etapa YOLOv4 integrado con el algoritmo de seguimiento multi-objeto DeepSORT en la plataforma TensorFlow. El sistema es capaz de detectar y clasificar vehículos en cuatro categorías principales (automóvil, motocicleta, autobús y camión) y realizar un conteo automatizado cuando cruzan una línea de interés virtual en el video. YOLOv4 logró el mejor rendimiento con un 82.08% de mAP@0.5 en un dataset personalizado de 7319 imágenes, a una velocidad de inferencia de 14.12 FPS en una GPU local GTX 1660ti, mientras que su versión ligera YOLOv4-tiny alcanzó 40.11 FPS con 76.14% de mAP@0.5, presentándose como una alternativa viable para hardware limitado.
+Este artículo presenta el diseño y desarrollo de un sistema de visión por computadora para la detección, clasificación y seguimiento de vehículos en tiempo real, orientado a la gestión inteligente del tráfico y la mitigación de la congestión en carreteras de Malasia. El sistema combina el detector de objetos **YOLOv4** (y su versión ligera **YOLOv4-tiny**) con el algoritmo de seguimiento multiobjetivo **DeepSORT** sobre la plataforma TensorFlow. Los autores entrenaron modelos personalizados utilizando un dataset de 7,319 imágenes recopiladas de forma automatizada mediante el toolkit de Open Images v4 (OIDv4), clasificando los vehículos en cuatro clases: automóvil, motocicleta, autobús y camión. En las evaluaciones experimentales utilizando una GPU de gama media (GTX 1660ti), el modelo YOLOv4 personalizado alcanzó una precisión sobresaliente de **82.08% AP50** a una velocidad de procesamiento en tiempo real de **14.12 FPS**. Por otro lado, YOLOv4-tiny demostró ser la mejor opción para hardware de recursos limitados (como Raspberry Pi), alcanzando **76.14% AP50** a una velocidad fluida de **40.11 FPS**. El conteo de vehículos se realiza eficazmente mediante una línea virtual de control integrada en el flujo de tracking.
 
 ## Secciones y Subsecciones
 
 ### I. Introduction
-Establece la importancia del monitoreo de tráfico debido al crecimiento acelerado del parque automotor en Malasia (con 31.2 millones de vehículos registrados en 2019) y las consecuencias negativas de la congestión.
-* **Problemas atacados**: La ineficiencia en la gestión y análisis del tráfico vehicular y el riesgo de accidentes y congestión en las autopistas.
-* **Limitaciones de ese entonces**: Contar y clasificar vehículos de forma manual requiere operadores humanos que deben vigilar múltiples pantallas constantemente. Esto genera fatiga rápida, baja precisión y la imposibilidad de procesar flujos masivos de video en tiempo real.
-* **Soluciones alcanzadas**: Implementación de un sistema automatizado de visión computacional y aprendizaje profundo (Deep Learning) que detecta, clasifica y realiza el conteo de vehículos de manera continua e interactiva.
+Introduce el crecimiento del parque automotor en Malasia y la necesidad de automatizar el monitoreo de tráfico mediante Deep Learning para evitar atascos y sus consecuencias negativas.
+* **Problemas atacados**: La creciente congestión del tráfico vial en Malasia (31.2 millones de vehículos en 2019) que genera pérdidas de tiempo, contaminación y accidentes. Asimismo, la ineficiencia y fatiga que sufren los operadores humanos al contar y clasificar vehículos manualmente en pantallas de videovigilancia.
+* **Limitaciones de ese entonces**: Los métodos de control tradicionales se basan en observaciones manuales subjetivas o bucles magnéticos físicos costosos de instalar y mantener. Los primeros detectores de objetos de visión artificial no lograban equilibrar velocidad y precisión para flujos de video en tiempo real.
+* **Soluciones alcanzadas**: Se propone un sistema inteligente de monitoreo que clasifica los vehículos en cuatro categorías y los cuenta al cruzar una línea virtual, usando YOLOv4 para una rápida detección y DeepSORT para un seguimiento estable.
 
 ### II. Related Work
-Revisa los métodos de visión computacional tradicionales y los avances recientes en redes neuronales convolucionales.
-* **Problemas atacados**: La baja precisión y el alto costo computacional asociados a los algoritmos de detección vehicular antiguos.
-* **Limitaciones de ese entonces**: Los métodos tradicionales basados en características hechas a mano como HOG (Histogram of Oriented Gradients) y Haar-like features dependían de sustraer el fondo en movimiento y daban una tasa muy alta de falsos positivos en condiciones cambiantes. Por su parte, los detectores de aprendizaje profundo de dos etapas (ej. R-CNN o Faster R-CNN) eran precisos pero demasiado lentos para aplicaciones viales de tiempo real.
-* **Soluciones alcanzadas**: Se introdujeron los detectores de una sola etapa de la familia YOLO (You Only Look Once), que transforman la localización de cajas en un problema de regresión directa a nivel de red neuronal convolucional (CNN), optimizando drásticamente la velocidad.
+Analiza la evolución de los métodos de visión artificial aplicados al tráfico, contrastando técnicas tradicionales con arquitecturas de Deep Learning.
+* **Problemas atacados**: La inestabilidad y baja precisión de los primeros clasificadores de vehículos.
+* **Limitaciones de ese entonces**:
+  * Los métodos tradicionales de visión artificial (como HOG o Haar-like features) no aprenden de forma continua a lo largo del tiempo y registran tasas muy elevadas de falsos positivos.
+  * Los detectores de Deep Learning de dos etapas (como Faster R-CNN) generan propuestas de región antes de clasificar, lo que es computacionalmente lento e inviable para inferencia en tiempo real en flujos continuos de autopistas.
+* **Soluciones alcanzadas**: Adoptar detectores de una sola etapa (YOLO), los cuales tratan la localización de la caja delimitadora directamente como un problema de regresión de extremo a extremo sobre una cuadrícula de la imagen.
 
 ### III. Methodology
-Describe el pipeline completo del sistema inteligente de tráfico, desde la descarga de datos hasta la inferencia final.
-* **Problemas atacados**: La dificultad de integrar pipelines de entrenamiento complejos basados en GPU con sistemas locales de inferencia y despliegue en sistemas de cámaras viales.
-* **Limitaciones de ese entonces**: Configurar el entorno de Darknet nativo en C/CUDA puede ser inestable y complejo en computadoras personales basadas en Windows.
-* **Soluciones alcanzadas**: Se estructuró un flujo de trabajo que recopila imágenes viales automáticamente, las etiqueta en formato de anotación YOLO, entrena el modelo en la nube y lo despliega localmente en TensorFlow sobre Python.
+Detalla el flujo de trabajo del proyecto, desde la instalación del software hasta la obtención del video de salida procesado.
+* **Problemas atacados**: El extenso tiempo requerido para recopilar, etiquetar y entrenar modelos de Deep Learning desde cero en computadores de bajo rendimiento.
+* **Limitaciones de ese entonces**: Carencia de flujos de trabajo simplificados para portar modelos entrenados en C (Darknet) hacia entornos de ejecución en Python bajo Windows.
+* **Soluciones alcanzadas**: Se propone un flujo estructurado utilizando Git Bash en Windows, descarga automatizada de imágenes de internet, entrenamiento en la nube y conversión a TensorFlow.
 
 #### A. Installation
-Instalación de las dependencias de software del proyecto.
-* **Problemas atacados**: La incompatibilidad de sistemas y scripts diseñados originalmente para entornos de tipo Unix.
-* **Limitaciones de ese entonces**: La mayoría del código y las utilidades del repositorio de YOLOv4 se basan en Linux/macOS, dificultando su ejecución directa en Windows 10.
-* **Soluciones alcanzadas**: Instalación de GitBash para proveer una terminal Linux en Windows, y el uso del gestor de paquetes Conda para configurar ambientes de GPU aislados (con TensorFlow-GPU, OpenCV, pillow, etc.).
+* **Problemas atacados**: Configuración del entorno de desarrollo Unix en sistemas Windows 10.
+* **Limitaciones de ese entonces**: La mayoría de códigos y herramientas de Deep Learning están optimizados para ejecutarse en consolas de Linux o macOS, dificultando su uso nativo en Windows.
+* **Soluciones alcanzadas**: Instalación de Git Bash para simular la consola de Linux en Windows y uso de Python como lenguaje central para programar el tracker DeepSORT y la visualización.
 
 #### B. Collection of the images
-El proceso de descarga y recolección de los conjuntos de datos.
-* **Problemas atacados**: La escasez y el costo en tiempo de recopilar manualmente imágenes de entrenamiento de múltiples tipos de vehículos en diferentes poses.
-* **Limitaciones de ese entonces**: Descargar imágenes de forma individual en internet consume semanas y carece de uniformidad y metadatos de anotación.
-* **Soluciones alcanzadas**: Uso del kit de herramientas OIDv4 para descargar automáticamente miles de imágenes categorizadas de vehículos directamente del repositorio de imágenes abiertas de Google.
+* **Problemas atacados**: Recopilación rápida de un dataset de imágenes representativo con oclusiones y variedad de ángulos.
+* **Limitaciones de ese entonces**: Descargar imágenes de forma manual es ineficiente y no garantiza la variedad necesaria de tipos de vehículos.
+* **Soluciones alcanzadas**: Uso de OIDv4 Toolkit para descargar de manera masiva y automatizada imágenes específicas de las clases de interés desde el dataset Google Open Images v4.
 
 #### C. Labelling and classifying
-El proceso de anotación y asignación de etiquetas de las cajas delimitadoras.
-* **Problemas atacados**: La alta inversión de tiempo necesaria para etiquetar manualmente coordenadas de cajas en formato de texto.
-* **Limitaciones de ese entonces**: Escribir de forma manual los archivos `.txt` en el formato estructurado de YOLOv4 (`<object-class> <x> <y> <width> <height>`) es propenso a errores humanos de escala o posición.
-* **Soluciones alcanzadas**: OIDv4 Toolkit automatiza este proceso generando directamente los archivos de anotaciones en el formato y la carpeta correspondientes al descargar los datos.
+* **Problemas atacados**: Generación de anotaciones de ground truth compatibles con el formato de Darknet/YOLOv4.
+* **Limitaciones de ese entonces**: El etiquetado manual consume demasiado tiempo y requiere que los archivos de texto `.txt` sigan un orden estricto de coordenadas normalizadas: `<object-class> <x> <y> <width> <height>`.
+* **Soluciones alcanzadas**: OIDv4 Toolkit genera de manera automática los archivos de anotaciones en el formato y estructura requeridos por YOLOv4, acelerando la preparación de datos.
 
 #### D. Training YOLO model
-El entrenamiento de los pesos de la red profunda en la nube.
-* **Problemas atacados**: La limitación computacional de entrenar modelos pesados en computadoras personales estándar.
-* **Limitaciones de ese entonces**: Entrenar un modelo YOLOv4 en una GPU de escritorio de rango medio (como una GTX 1660ti) requiere más de 8 horas de cómputo para lograr la convergencia de 6000 iteraciones.
-* **Soluciones alcanzadas**: Uso de Google Colab para ejecutar el entrenamiento sobre GPUs de alto rendimiento (Tesla T4 de 16GB) de forma gratuita en la nube, reduciendo el tiempo de entrenamiento a la mitad (4 horas).
+* **Problemas atacados**: Reducción del tiempo de entrenamiento del modelo de detección.
+* **Limitaciones de ese entonces**: Entrenar modelos complejos en computadores locales con tarjetas gráficas de consumo (como la GTX 1660ti) toma más de 8 horas para 6,000 iteraciones.
+* **Soluciones alcanzadas**: Uso de la plataforma Google Colaboratory (Colab) para entrenar los modelos utilizando GPUs de alto rendimiento (Tesla T4 o P100) en la nube, reduciendo el tiempo de entrenamiento a 4 horas.
 
 #### E. Run code in GitBash
-La conversión del formato de pesos para el despliegue local.
-* **Problemas atacados**: La incompatibilidad de la infraestructura de desarrollo en C de Darknet con el framework de inferencia en Python en Windows.
-* **Limitaciones de ese entonces**: La biblioteca original Darknet requiere compiladores de C complejos y es poco amigable para integrarse con librerías de tracking en Python.
-* **Soluciones alcanzadas**: Se convirtieron los pesos `.weights` de Darknet a archivos de modelo nativos de TensorFlow (utilizando utilidades de DarkFlow), lo que facilita su inferencia ágil a través del script de Python local.
+* **Problemas atacados**: Ejecución eficiente del modelo de detección en entornos locales Windows.
+* **Limitaciones de ese entonces**: El framework original de Darknet está escrito en C, lo que dificulta su integración directa con librerías de tracking escritas en Python.
+* **Soluciones alcanzadas**: Uso de entornos virtuales de Anaconda (Conda) y conversión de los pesos del modelo Darknet (`.weights`) a formato TensorFlow (proceso conocido como DarkFlow) para una inferencia nativa en Python.
 
 #### F. Python program development
-Implementación del script de Python que integra la inferencia y el seguimiento temporal.
-* **Problemas atacados**: La imposibilidad de contar y rastrear de forma persistente vehículos individuales a lo largo del tiempo.
-* **Limitaciones de ese entonces**: Los detectores como YOLO solo detectan objetos en cuadros estáticos aislados, careciendo de memoria temporal. Esto causa duplicaciones en el conteo cuando los vehículos se ocluyen parcialmente por otros autos o infraestructura.
-* **Soluciones alcanzadas**: Integración de DeepSORT, que extiende el algoritmo SORT mediante un Filtro de Kalman (para predicción de trayectoria), el algoritmo Húngaro (para emparejar la distancia IoU de cajas) y un descriptor de características visuales profundo para evitar que el ID del vehículo cambie tras una oclusión.
+* **Problemas atacados**: Asociación temporal de objetos detectados en frames sucesivos y conteo automático.
+* **Limitaciones de ese entonces**: YOLO por sí mismo no mantiene la identidad de los vehículos entre frames, por lo que si un vehículo se oculta temporalmente detrás de otro, el sistema pierde su rastro y duplica el conteo.
+* **Soluciones alcanzadas**: Integración de **DeepSORT**, que extiende el algoritmo de seguimiento SORT (basado en filtro de Kalman para predicción y algoritmo Húngaro para asociación de IoU) al incorporar un extractor de características de apariencia (deep learning). Esto permite que el sistema recuerde la apariencia de un vehículo y mantenga su ID incluso tras oclusiones temporales. Se añade un script de cruce de línea para contar los vehículos en tránsito.
 
 #### G. Output video
-Generación y renderizado del flujo de video final procesado.
-* **Problemas atacados**: Proporcionar una visualización intuitiva y auditable de los resultados del conteo e identificación de tráfico.
-* **Limitaciones de ese entonces**: Los reportes viales numéricos planos carecen de soporte visual para verificar si los autos fueron contados correctamente o si hubo falsos positivos.
-* **Soluciones alcanzadas**: Renderizado de un video final que superpone cajas delimitadoras de vehículos con su ID asignado, el contador de FPS en la esquina y una línea de cruce virtual que suma dinámicamente cada unidad que la atraviesa.
+* **Problemas atacados**: Visualización e integración de las estadísticas procesadas.
+* **Limitaciones de ese entonces**: Mostrar datos en bruto sin formato visual dificulta la verificación por parte de los operadores.
+* **Soluciones alcanzadas**: Generación de un video de salida que renderiza bounding boxes con el nombre de clase y el ID único del vehículo, un contador de FPS y la línea virtual de interés que cambia de color al registrar un cruce.
 
 ### IV. Results and Discussion
-Presentación y análisis del desempeño comparativo de los modelos YOLO evaluados.
-* **Problemas atacados**: La toma de decisiones técnicas sobre qué variante de detector de una etapa es la más adecuada para el despliegue práctico.
-* **Limitaciones de ese entonces**: No existía una comparación controlada bajo el mismo hardware y dataset custom para el flujo vial de Malasia.
-* **Soluciones alcanzadas**: Se evaluaron y documentaron los pesos, el mAP y la velocidad (FPS) de YOLOv3, YOLOv3-tiny, YOLOv4 y YOLOv4-tiny.
+Muestra las evaluaciones comparativas de los modelos entrenados.
+* **Problemas atacados**: Comparación justa del mAP y velocidad de procesamiento de múltiples modelos YOLO.
+* **Limitaciones de ese entonces**: Comparar mAP usando diferentes datasets (como el dataset oficial de COCO vs. datasets personalizados pequeños) introduce sesgos debido a la diferencia en la cantidad y resolución de las imágenes.
+* **Soluciones alcanzadas**: Se comparan los modelos entrenados bajo el mismo dataset personalizado de vehículos en autopistas de Malasia.
 
 #### A. Datasets
-Detalles del tamaño y división del dataset personalizado.
-* **Problemas atacados**: El entrenamiento y validación de las 4 clases de vehículos elegidas.
-* **Limitaciones de ese entonces**: Mezclar datos de prueba y entrenamiento genera evaluaciones sesgadas (data leakage).
-* **Soluciones alcanzadas**: Recolección de 7319 imágenes de entrenamiento y un conjunto de validación separado con una relación del 30% (750 imágenes por clase para calcular mAP).
+* **Problemas atacados**: Preparación de datos de validación balanceados.
+* **Limitaciones de ese entonces**: datasets muy pequeños reducen la capacidad de generalización del modelo.
+* **Soluciones alcanzadas**: Construcción de un dataset de entrenamiento de 7,319 imágenes y un conjunto de validación de 750 imágenes por clase (30% de ratio de validación).
 
 #### B. Weight
-El tamaño físico de los modelos resultantes del entrenamiento.
-* **Problemas atacados**: La restricción de almacenamiento físico en hardware embebido compacto.
-* **Limitaciones de ese entonces**: Los modelos YOLOv4 y YOLOv3 completos pesan alrededor de 250MB, tamaño excesivo para chips de almacenamiento reducidos (como placas Raspberry Pi o móviles).
-* **Soluciones alcanzadas**: Se demostró que las versiones "tiny" de YOLOv4 y YOLOv3 pesan solo 22MB y 33MB respectivamente, requiriendo 10 veces menos almacenamiento.
+* **Problemas atacados**: Selección del modelo según limitaciones de almacenamiento.
+* **Limitaciones de ese entonces**: Dispositivos embebidos como Raspberry Pi tienen almacenamiento y RAM limitados para cargar modelos de gran tamaño.
+* **Soluciones alcanzadas**: Comparación de tamaño de archivos. YOLOv4 e YOLOv3 pesan 250 MB, mientras que sus variantes Tiny pesan apenas 22 MB y 33 MB respectivamente, haciéndolas idóneas para dispositivos embebidos.
 
 #### C. Mean Average Precision
-Evaluación cuantitativa de la precisión de detección de los modelos.
-* **Problemas atacados**: La medición exacta del error de localización y clasificación.
-* **Limitaciones de ese entonces**: Calcular el mAP en conjuntos de datos oficiales masivos (COCO de 1GB) no refleja la precisión de un modelo ajustado localmente con un dataset más pequeño de 250MB.
-* **Soluciones alcanzadas**: Se evaluaron los modelos con un umbral de IoU de 0.5 (Pascal VOC). YOLOv4 custom logró el mAP más alto con 82.08%, seguido por YOLOv3 (80.32%), YOLOv4-tiny (76.14%) y YOLOv3-tiny (66.03%).
+* **Problemas atacados**: Evaluación de la precisión de localización y clasificación.
+* **Limitaciones de ese entonces**: Los modelos estándar preentrenados en COCO (80 clases) tienen menor precisión en tareas específicas de tráfico local de autopistas que modelos entrenados con datos locales (4 clases).
+* **Soluciones alcanzadas**: YOLOv4 personalizado alcanza 82.08% AP50, superando en 2% a YOLOv3 (80.32%) y por más de 14% a los modelos preentrenados genéricos de AlexAB y Pjreddie en la tarea local de Malasia.
 
 #### D. Performance of model
-Evaluación de la velocidad de procesamiento de video en tiempo real.
-* **Problemas atacados**: La ralentización de la detección al procesar videos continuos en hardware local.
-* **Limitaciones de ese entonces**: Los modelos pesados muy precisos (YOLOv4) degradan la velocidad por debajo de los 15 FPS, limitando su uso en sistemas interactivos de tráfico rápido.
-* **Soluciones alcanzadas**: En una GPU GTX 1660ti, YOLOv3-tiny alcanzó 52.77 FPS y YOLOv4-tiny llegó a 40.11 FPS, mientras que YOLOv4 se redujo a 14.12 FPS. Se concluyó que YOLOv4-tiny ofrece el mejor equilibrio velocidad/precisión para su uso práctico.
+* **Problemas atacados**: Medición de la velocidad de inferencia en tiempo real en hardware GTX 1660ti.
+* **Limitaciones de ese entonces**: Los modelos más precisos suelen ser demasiado lentos para inferencia en tiempo real fluida.
+* **Soluciones alcanzadas**: 
+  * YOLOv4 alcanza 14.12 FPS (velocidad aceptable para tiempo real y máxima precisión).
+  * YOLOv4-tiny alcanza 40.11 FPS (velocidad excelente para hardware ligero a costa de una reducción de precisión de ~6% en mAP).
+  * Se comprueba que a mayor complejidad de la red, menor velocidad pero mayor precisión en las predicciones.
 
 ### V. Conclusions
-Resumen de hallazgos y sugerencias de arquitectura futura.
-* **Problemas atacados**: La escalabilidad y descentralización del sistema inteligente de tráfico propuesto.
-* **Limitaciones de ese entonces**: Alojar una computadora de escritorio con GPU GTX en cada poste de cámara vial en autopistas es costoso e inviable físicamente.
-* **Soluciones alcanzadas**: Se recomendó el despliegue del software en dispositivos embebidos Raspberry Pi en postes locales y el uso de computación en la nube para procesar de forma centralizada y escalable los videos viales, enviando solo datos comprimidos para alertar de la congestión.
+Resume las conclusiones y propone recomendaciones para mejorar la arquitectura física del sistema.
+* **Problemas atacados**: Despliegue práctico en producción del sistema de monitoreo en carreteras.
+* **Limitaciones de ese entonces**: La instalación de computadoras con GPUs pesadas cerca de las cámaras de autopistas es costosa y propensa a daños viales.
+* **Soluciones alcanzadas**: Se concluye que YOLOv4 + DeepSORT es una combinación altamente efectiva. Se recomienda desplegar **YOLOv4-tiny** en minicomputadoras **Raspberry Pi** instaladas junto a las cámaras para procesar localmente, o bien transmitir flujos a servidores centrales con GPUs potentes en la nube para procesar con el modelo YOLOv4 completo de mayor precisión.

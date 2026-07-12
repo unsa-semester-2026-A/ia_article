@@ -1,0 +1,1761 @@
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+IEEE TRANSACTIONS ON INTELLIGENT TRANSPORTATION SYSTEMS
+
+1
+
+Detection of Motorcycles in Urban Traffic Using
+Video Analysis: A Review
+Jorge E. Espinosa , Sergio A. Velastín , Senior Member, IEEE, and John W. Branch
+Abstract— Motorcycles are Vulnerable Road Users (VRU) and
+as such, in addition to bicycles and pedestrians, they are the traffic actors most affected by accidents in urban areas. Automatic
+video processing for urban surveillance cameras has the potential
+to effectively detect and track these road users. The present
+review focuses on algorithms used for detection and tracking
+of motorcycles, using the surveillance infrastructure provided by
+CCTV cameras. Given the importance of results achieved by
+Deep Learning theory in the field of computer vision, the use
+of such techniques for detection and tracking of motorcycles is
+also reviewed. The paper ends by describing the performance
+measures generally used, publicly available datasets (introducing
+the Urban Motorbike Dataset (UMD) with quantitative evaluation
+results for different detectors), discussing the challenges ahead
+and presenting a set of conclusions with proposed future work
+in this evolving area.
+Index Terms— Vulnerable road users (VRU), motorcycle detection, vehicle detection, tracking, convolutional neural networks
+(CNNs), deep learning, computer vision.
+
+I. I NTRODUCTION
+
+T
+
+HE concentration of the world’s population in cities is
+increasing year by year. It is calculated that 53% of the
+population currently lives in urban areas and by 2050 this
+number will grow to 67%. Nowadays, 64% of people travel
+within urban environments and is expected that by 2050 the
+amount of kilometers traveled will increase by 300% [1].
+Emerging countries face the additional challenge of highly
+populated urban areas with inadequate and insufficient urban
+
+Manuscript received January 26, 2018; revised September 25, 2018, February 26, 2019, July 29, 2019, and October 4, 2019; accepted May 8, 2020.
+This work was supported in part by the Departamento Administrativo de
+Ciencia, Tecnología e Innovación (COLCIENCIAS) Project: Reduccion de
+Emisiones Vehiculares Mediante el Modelado y Gestion Optima de Trafico
+en Areas Metropolitanas, Caso Medellín, Area Metropolitana del Valle de
+Aburra, under Grant 111874558167 and Grant CT 049-2017, in part by
+the Universidad Nacional de Colombia under Project HERMES 25374, and
+in part by NVIDIA Corporation for the donation of GPUs. The work of
+Sergio A. Velastín was supported in part by the Universidad Carlos III
+de Madrid, in part by the European Union’s Seventh Framework Programme for Research, Technological Development and Demonstration under
+Grant 600371, in part by the El Ministerio de Economía y Competitividad
+under Grant COFUND2013-51509, and in part by the Banco Santander.
+The Associate Editor for this article was C. Guo. (Corresponding author:
+Sergio A. Velastín.)
+Jorge E. Espinosa is with Politécnico Colombiano Jaime Isaza
+Cadavid, Facultad de Ingeniería, Medellín 050022, Colombia (e-mail:
+jeespinosa@elpoli.edu.co).
+Sergio A. Velastín is with Zebra Technologies Corporation, London SE1
+9LQ, U.K., also with the School of Electronic Engineering and Computer
+Science, Queen Mary University of London, London E1 4NS, U.K., and also
+with the Department of Computer Science and Engineering, University Carlos
+III de Madrid, 28270 Madrid, Spain (e-mail: sergio.velastin@ieee.org).
+John W. Branch is with the Facultad de Minas, Universidad Nacional
+de Colombia at Sede Medellín, Medellín 050034, Colombia (e-mail:
+jwbranch@unal.edu.co).
+Digital Object Identifier 10.1109/TITS.2020.2997084
+
+Fig. 1.
+
+Motorcycles as part of traffic jams. Photograph taken from [4].
+
+infrastructure. For this reason, their mobility strategies include
+efforts to stimulate eco-friendlier modes such as public transport, walking, cycling, etc. However, people’s limited financial
+resources and the relative ease to obtain driving licenses,
+e.g. for motorcycles smaller than 200 c.c., have resulted
+in a significant increase in this kind of vehicle (Figure 1).
+Furthermore, there have been adverse consequences in public
+health, particularly in Latin-America, where fatal casualties
+involving motorcycles account for 45% of (all) traffic accidents [2] and a significant impact on the environment due to
+the particle emission of this type of vehicle (P.M. 2.5). There
+are reports [3] for other emerging regions in the world, such
+as the Middle East, where they indicate that 63% of traffic
+accidents involve VRUs, of which 32% corresponds just to
+motorcyclists.
+According to the World Health Organization (WHO),
+in 2018 the proportion of VRUs involved in fatalities in traffic
+accidents represented more than 54% [5] of all road users.
+“Vulnerable road user” is a term coined to refer to traffic actors
+more exposed to risk. Pedestrians, cyclists and motorcyclists
+are accordingly considered “vulnerable since they benefit from
+little or no external protective devices that would absorb
+energy in a collision” [6].
+Therefore, it is important to investigate and evaluate techniques or strategies that allow detecting and tracking pedestrians, bicyclists and motorcycles to reduce accidents, optimizing
+and improving urban traffic management. “Of all the entities
+in the class of vulnerable road users (VRUs), pedestrians,
+bicyclists and motorcyclists are the most likely to suffer severe
+injuries and death if they are involved in a collision with an
+automobile” [7]. The use of Intelligent Transportation Systems
+(ITS), and video analysis in particular, could be one way of
+
+1524-9050 © 2020 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+See https://www.ieee.org/publications/rights/index.html for more information.
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+2
+
+IEEE TRANSACTIONS ON INTELLIGENT TRANSPORTATION SYSTEMS
+
+classification and tracking are more critical for traffic control
+centers. Thus, when comparing algorithms, where possible we
+comment on whether they account for clutter.
+Finally, in recent years there have been new approaches
+based on what are called deep learning methods that therefore deserve a special attention. The most applied technique
+for detection is known as Convolutional Neural Networks
+(CNN), so detection of motorcycles using CNNs is especially
+considered. The final section considers the main challenges
+that motorcyclist detection faces, listing some of the public
+datasets available for this type of research and the performance
+measures used to evaluate algorithms. A new dataset focusing
+on motorcycles is introduced, presenting baseline results. The
+paper ends by pointing out some topics that are still open for
+further research in this field.
+II. H YPOTHESIS G ENERATION
+
+Fig. 2.
+tracking.
+
+Traditional sequence of activities used for VRU detection and
+
+dealing with the issues affecting motorcycles in the urban
+context, specially in emerging countries, where motorcycles
+constitute an important means of transport.
+This review is specially oriented to the detection and
+tracking of motorcycles since vision-based pedestrian detection has been extensively investigated during recent years,
+e.g. [8] for ADAS (Advanced Driver Assistance Systems) and
+[9], [10]. There is also a complete benchmark for vision-based
+cyclist detection developed by Li et al. in [11]. On the other
+hand, very limited work has been undertaken on motorcycles,
+even though approaches might share similar techniques as for
+pedestrians and cyclists.
+Because most researchers working on VRUs tend to follow
+a somewhat well-established pipeline of processes common in
+object detection, classification and tracking, this review will
+consider relevant work in the main sub-areas of such pipeline
+(Figure 2).:
+• Detection:
+referred
+here
+to
+as
+Hypothesis Generation (HG),
+encompassing
+three
+main aspects:
+– Feature extraction
+– Segmentation
+– Localization.
+• Classification or hypothesis verification (HV).
+• Tracking.
+It is also important to evaluate the performance of the studied algorithms especially under occlusion conditions frequent
+in congested urban traffic conditions and where detection,
+
+Hypothesis Generation (HG) for motorcycle detections
+approaches can be divided into two categories:
+appearance-based (e.g. using shape, color and texture
+methods) and motion-based that use dynamic, spatio-temporal
+characteristics methods. While appearance-based methods
+tend identify the object directly from single images,
+motion-based methods requires a sequence of images (video)
+to extract the dynamic and static characteristics and to
+determine the possible objects present in the scene. In the
+context of vehicle detection, both methods try to separate
+road users from the background. As described later, deep
+learning methods can overcome the dependency on manually
+choosing what particular image features to use.
+A. Methods Based on Appearance
+Appearance-based approaches detect motorcycles directly
+from the image, detecting parts of the object to be classified and used to identify an object. Appearance features
+are obtained from visual information extracted from objects
+including color, texture or shape. Using these features it is
+possible to detect vehicles even if remain static as in a traffic
+jam.
+1) Explicit Shape Approaches: As a first approximation
+based on shape features, the spatial relationships between parts
+of objects detected is modelled by explicit shape approaches.
+For instance, the Circular Hough Transform (CHT) is used so
+that the edge points of the potential objects (tires, helmets)
+are grouped into object candidates by a voting procedure over
+a set of parameterized image objects. This technique is used
+by Silva et al. [12], [12] for helmet detection in motorcycles,
+useful for ROI (Region of Interest) localization. This strategy
+is also used for helmet and headlight detection by Mukhtar
+and Tang [13]. Nevertheless the method is prone to errors
+since it generates many false positives in congested scenarios
+and detection fails for affine or projective transformations.
+2) Texture Features: Feature extraction and description
+advances go from basic image features (e.g. edge and
+symmetry) to more general and most robust features that are
+invariant to illumination, object size, rotation and affine transformations changes. Scale-invariant feature transform (SIFT)
+is a feature descriptor that produces local features which are
+invariant to image scaling, rotation and translation and that
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+ESPINOSA et al.: DETECTION OF MOTORCYCLES IN URBAN TRAFFIC USING VIDEO ANALYSIS
+
+are partially invariant to affine projections and illumination
+changes [14]. These features identify the presence of salient
+points, which are robust to many geometrical transformations
+and even to illumination changes. In some approaches, SIFT
+is modified as in DSIFT (Dense Scale Invariant Feature
+Transform) [15], whose main property is that the features
+are generated in a uniform way based on a dense mesh of
+places where scale and orientation are fixed. The speeded up
+robust features (SURF), is also inspired on the SIFT descriptor
+but it focuses more on computational speed, using box filters
+instead of Gaussian filters. Its feature descriptor is constructed
+with the sum of the Haar wavelet response around the interest
+point. However, none of these three feature extractors incorporate spatial relationships between key points. For this reason
+Thai et al. [16] adopt a technique of pyramidal space kernel
+for feature extraction [17], exploiting the spatial localization of
+motorcycles in their training images. The method relies heavily
+on images captured from a top view angle which constrains
+the field of view of a typical surveillance camera.
+The Histogram of Oriented Gradients (HOG) extracts features
+based on a combination of color and texture, which are
+extracted by first applying edge operators over the image
+and then discretizing and bucketing the orientations of the
+edge intensities into a histogram achieving some spatial
+and illumination invariance. Due to the high vulnerability of motorcyclists, many motorcycle detection approaches
+also analyze the presence of helmets. The use of HOG
+is quite common for this. A feature comparative analysis
+is reported by Dahiya et al. [18] and Singh et al. [19],
+comparing the performances of three different appearance
+features obtained after foreground detection: HOG, SIFT and
+LBP. HOG shows the best discrimination properties when
+used both for motorcycling and helmet detection. The same
+strategy is proposed by [20], but without reporting results.
+Since such methods rely on foreground object detection, it is
+no clear how they could deal with occluded or stationary
+objects. The HOG descriptor combined with the Circular
+Hough Transform (CHT) is also used for helmet detection
+in [12], since geometric information obtained only from CHT
+may be ambiguous w.r.t heads shapes. Recently, exploiting
+the arc circularity detected in ROI areas with a combination
+with HOG features, Talaulikar et al. [21] detect helmets
+on motorcycle riders, applying Principal Component Analysis (PCA) for performance and accuracy improvements, but
+they provide very little details on the statistical significance
+of their results and the applicability to surveillance cameras given their reliance on background removal. Meanwhile
+Bariş and Baştanlar [22] combine an omnidirectional and a
+Pan-Tilt-Zoom (PTZ) camera in a hybrid camera system to
+detect and track traffic scene objects including pedestrians,
+motorcycles, cars and vans. Initial classification is done using
+an omni-directional camera using shape-based features of
+moving objects extracted by Adaptive Background Learning
+(ABL) (see section II-B). This classification is improved
+once the moving objects are detected and tracked using a
+Kalman filter. Then, from PTZ camera images the object
+HOG features are extracted and used to increase classification accuracy. The method is very sensitive to occlusions or
+
+3
+
+Fig. 3. Side view: The luminance of the region inside the wheels of a
+bicycle is more similar to the background, with respect to the same region of
+a motorcycle. Based on the parameters extracted, the two wheels are used as
+criteria for classification (reprinted from [26], by permission from Elsevier).
+
+overlapping objects, where the background subtraction method
+may fail.
+Computing the difference of the sum of pixels within
+rectangles in a given image patch, Haar-like features allow
+real-time performance and are used for motorcycle detection
+to improve vehicle driving safety in [23] using it for helmet
+detection in [24], [25]. Nevertheless, Haar-like features do not
+correlate under different view angles, restricting their use in
+surveillance scenarios.
+3) Geometric Features & 3-D Models: Computer-generated
+3-D models of motorcycles can be used for detection by
+appearance matching. Messelodi et al. [26] extend detection
+and classification of vehicles in urban intersections [27],
+achieving discrimination between bicycles and motorcycles.
+An object descriptor stores features to decide which view
+is selected to analyze the image. Two different contexts are
+identified based on the movement direction of the vehicle
+with respect to the axis orthogonal to the ground plane. Small
+angles describe front or rear view of the vehicle appearing in
+the image. Otherwise, the image represents a lateral view of
+the vehicle (Figure 3). In a front view, the wheel section will
+determine a comparative criterion between the whole of the
+object with respect to the thickness of the rim, distinguishing
+between a bicycle and a motorcycle. Unfortunately, the algorithm is not evaluated under congested scenarios were occlusions could affect the feature extraction process. Meanwhile,
+Buch et al. [28] use a 3-D wire model to discriminate urban
+road users between bus/lorry, van, car/taxi, motorcycle/bicycle
+and pedestrian. The approach does not take into account the
+movement of the vehicles and does not deal with occlusions as
+each computed silhouette is associated with a single vehicle.
+4) Multiple Features: Due to the complexity of motorcycle
+detection, some authors combine multiple features to solve
+problems such as occlusion, background clutter and variations
+in orientation and illumination. Silva et al. [12], [12] proposed a methodology for helmet use detection on highways
+scenarios by determining which objects appear to be moving
+using a calibration stage, extracting their features by SURF,
+HAAR, HOG, Fourier and K-means description. Even with the
+improved results reported by the authors, the use of multiple
+integrated features demands a complex task of parameter
+selection and tuning and applicability for urban scenarios is
+not clear.
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+4
+
+IEEE TRANSACTIONS ON INTELLIGENT TRANSPORTATION SYSTEMS
+
+5) Other Descriptors: There are other approaches to extract
+motorcycle features described in the literature. Le and
+Huynh [29] propose an integrated method for counting and
+detecting motorcycles, extracting features with Gabor filters
+and using random forest to generate a density map via an indirect counting method. Using interest point descriptors, Muzammel et al. [30] do hypothesis generation for a motorcycle
+vision-based rear-end collision detection system using Harris
+corners which are points uniformly sampled in a salience
+detector. However, this procedure could be sensitive to what is
+known as the “aperture problem”. Illumination variances can
+be removed by edge detection and binary edges can provide
+normalized input for feature descriptors. So, the Sobel operator
+has been used [31] to design collision avoidance systems,
+detecting the rear view of motorcycles, by defining initial
+hypotheses of possible objects from shadows, wheels and vertical edges [32] and using template matching [33]. However,
+these approaches are not suitable for CCTV surveillance cameras due to a restricted distance and view angle (motorcycle
+rear view). Duan et al. [32] monitored the back of vehicles
+and motorcycles supported by a Lane Change Assistant (LCA).
+A multi-resolution technique is presented to achieve real-time
+performance, using an Integrated Memory Array Processor
+(IMAP). For HG, the method involves obstacle detection
+using optical flow and prior knowledge using data from the
+detection of previous vehicles during the day that includes
+symmetry, color, shadows, geometric characteristics (corners,
+horizontal and vertical edges) and texture. It is not clear how
+prior data can be sufficiently representative for all possible
+detections. Initial hypotheses of possible objects are obtained
+from shadows, wheels and vertical edges. As shadows are
+usually affected by illumination, the ROI position is adjusted
+based on grayscale symmetry. The main issue with the method
+is related to dealing with congested scenes with three or more
+objects overlapping, or reduced light conditions.
+B. Methods Based on Motion
+Using spatio-temporal information for detection is popular, because vehicle motion can be used for traffic counts,
+infringements, etc. Motion detection aims to separate moving
+foreground objects from the static background. Generally
+when the background is modeled with information of the
+scene, then moving objects are detected by comparing the
+current frame with the background model. Due to dynamics,
+speed and maneuverability of motorcycles, most of the works
+rely on methods based on motion features using background
+subtraction, nevertheless further analysis is required to discriminate precisely this vehicle type. Furthermore, working
+under congestion and semi-static traffic makes it difficult to
+obtain good background models.
+1) Simple Background Subtraction: The Background model
+is initially defined (or learned) with no movement objects (traffic) as a reference scene. Each frame is subtracted from
+the background model applying a threshold for the resulting
+difference, generating a foreground mask. Such threshold
+can be dynamic or constant, global or local. This approach
+is used by Kanhere et al. [34] for motorcycle detection,
+starting with a manual “six clicks” camera calibration, defining
+
+three lines parallel to the image projection, then applying
+background subtraction to identify blobs of moving objects.
+Finally, features are identified using the estimated height
+and the local slope (in real world coordinates) projected
+from foreground blobs and grouped by region growth. These
+features correspond to typical vehicle dimensions that depend
+on camera calibration. It is not clear if these features can be
+identified robustly under heavy traffic congestion. Meanwhile,
+the work of Chiu et al. [35] is extended by Ku et al. [36],
+where hypothesis generation of motorcycle detections starts
+from background subtraction, dealing with possible overlaps
+with other vehicles and proposing an additional segmentation
+method to detect and separate motorcycles in the scene. The
+methods rely on helmet detection to drive search methods.
+Nevertheless, when people do not wear helmets it makes them
+more vulnerable, so it is even more important to detect them.
+To deal with this situation, Chiverton [37] shows a method
+for detecting motorcycle riders who do not wear helmets. The
+method is based on background subtraction and component
+labeling, along with operations to reduce noise and to add
+pixels to detected regions. Once a motorcycle is detected,
+a search process is employed to find the rider’s head. However,
+it is not clear if they can deal with overlapping objects (traffic
+congestion) and not detected as a single blob. Background
+subtraction is also used by Sekar et al. [38] for motorcycle
+features extraction later used for helmet detection.
+2) Gaussian Mixture Models (GMM): [39] is the most used
+technique for foreground extraction. It consists on temporally
+modelling each pixel of the image as a mixture of two or
+more Gaussians, updating the distributions according to the
+temporal pixel changes. This has a high computational cost,
+but it can deal up to some extent with illumination changes
+and frequent clutter. Waranusast et al. [40] detects moving
+objects using GMM models and morphological closing on the
+resulting binary images. To reduce computational burden, only
+one instance of the frame sequence is captured in front of
+the camera, this also allows determination of the direction
+of the moving object. This technique works for fluid traffic
+conditions, with no overlapping of vehicles where blob detection does not merge objects. Meanwhile, Dupuis et al. [41]
+subtract background using a combination of GMM and a
+shadow removal strategy. Then, the foreground blobs are
+refined through Laplacian densities, dealing with different
+types of shadows in the scene. Thereafter, simple features
+such as area, width and height are employed for discriminating
+motorcycles from other vehicles. Rashidan et al. [42] classify
+common moving objects in street scenes as motorcycles,
+pedestrians and cars. Moving objects are detected using GMM,
+extracting foreground object features in terms of spatial and
+temporal attributes. Spatial properties are based on a criterion
+of “compactness” (ratio between area and square perimeter)
+and height to width ratio. Temporal attributes are obtained
+also from optical flow, working only with the central point of
+the detected objects to reduce computational burden.
+Traditional GMM has been improved to deal with shadow
+detection and lighting changes. Chen et al. [43] propose a
+vehicle (including motorcycles) detection and tracking system
+from roadside CCTV in urban traffic. The Multi-Dimensional
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+ESPINOSA et al.: DETECTION OF MOTORCYCLES IN URBAN TRAFFIC USING VIDEO ANALYSIS
+
+Gaussian Kernel density Transform (MDGKT) has been used
+in an attempt to deal with unwanted motions as well as
+an extension of GMM called Self Adaptive GMM [44]
+to continuously update the parameters of a GMM. It can
+also detect object shadows based on the chromaticity value
+of a moving pixel detected as a foreground. Nevertheless,
+the method still has problems in detecting overlapping objects
+moving at similar speeds. Meanwhile, Dahiya et al. [18] and
+Singh et al. [19] report an approach for HG that relies on
+adaptive background modelling based on GMM to separate
+moving objects. The authors claim that a modified version
+deals with different lighting conditions, but it is not clear
+how to determine dynamic parameters such as the learning
+rate, the lighting threshold or the number of Gaussians. In the
+hybrid camera system of [22], the Adaptive Background
+Learning (ABL) is used by an omni-directional camera and an
+improved GMM (MOG) in a PTZ camera, to detect moving
+objects. However, methods based on motion generally assume
+that the videos are captured from a stationary camera and
+therefore have issues with slow-moving/stopped traffic (traffic
+jams), abrupt changes in illuminations, noise produced by
+windy conditions or urban furniture as waving trees and,
+of course, moving cameras.
+III. H YPOTHESIS V ERIFICATION
+Hypothesis verification (HV) is the process of classifying
+the detected objects (into pre-determined classes such as
+“pedestrian”, “bicycles”, “motorcycle”, etc.), normally using
+a supervised learning approach. Obviously, the use of supervised learning generally involves procurement and labelling of
+possibly large amounts of data.
+Sometimes the problem is considered as a binary classification exercise between the object to identify and the
+background. In other cases, the classes are defined explicitly
+and the discrimination task is to determine which class a
+detected object belongs to. Classifiers can be divided in two
+categories, discriminative and generative classifiers. Discriminative classifiers are the most reported in literature and
+they learn decision boundaries between classes (e.g. object
+vs background). Generative classifiers, learn the underlying
+class distribution detected and are less common for vehicle
+detection. In what follows, different techniques are reported
+applied to motorcycles.
+A. Discriminative Classifiers
+These include artificial neural networks (ANNs), support
+vector machines (SVMs), boosting and conditional random
+fields (CRFs) commonly treating motorcycle classification as a
+binary classification problem, vehicle or non-vehicle, because
+authors tend to focus on one of those vehicles.
+1) Support Vector Machines (SVM): SVM carries out classification using linear decision hyperplanes in the feature space.
+During training, the hyperplanes are calculated to maximize
+the separation of the training data with different labels [45].
+Vectors where the hyperplane lie are called support vectors.
+The process can be analyzed as a quadratic optimization,
+producing an absolute optimum. This technique has been
+used for motorcycle classification, where SVMs (with linear
+
+5
+
+an non-linear kernels) have proved popular. Mukhtar and
+Tang [13] use HOG features of motorcycles and background
+to train a linear SVM. No overlapping motorcycles were analyzed. Sekar et al. [38] identify helmet presence by using SVM
+as a classifier of the visual features extracted from the object.
+Meanwhile, Duan et al. [32] report a binary SVM classification
+by hierarchies, first between vehicles and not vehicles, then on
+vehicle category, it tries to differentiate between motorcycles
+and not motorcycles. The method has issues dealing with
+occlusion and under special weather conditions as rain, clouds
+and night time scenes. Using histograms obtained from head
+regions (identified by their brightness characteristics due to
+helmets) Chiverton [37] train a linear SVM. It is not clear
+how the method deals with the detection of two occupants
+in a single motorcycle, nor is it tested in congested scenarios.
+Chen et al. [43] do vehicle detection by training an SVM classifier with synthetic data, with a feature vector of 202 elements
+comprising measurement based features (MBF) and intensity
+pyramid-based HOG (IPHOG). The method classifies different types of vehicles, including motorcycles, under different
+illumination and weather conditions. Nevertheless the feature
+definition requires high computational resources, which are
+not evaluated on parallel or GPU architectures. An on-board
+camera is studied by Shuo and Choi [23], who use SVM
+as a classifier, but which fails to detect motorcycles due to
+their ambiguous appearance w.r.t. pedestrians, using Haar-like
+features as a feature extraction method. An SVM kernel
+comparison is done by Dahiya et al. [18] and Singh et al. [19]
+using sigmoid and radial basis function (RBF) and evaluating
+three types of features (HOG, SIFT and LBP) to arrive at
+the best hyper-plane results. This binary classification is performed for motorcycles and for helmet presence. Best results
+were obtained using HOG as a feature with a linear kernel.
+The main drawbacks are reliance on background subtraction
+and lack of robustness against occlusions in congested traffic
+scenes.
+SVMs are also used in conjunction with 3D-Models: Messelodi et al. [26] use models of vehicles compared against a set
+of 3-D definitions. They use 3-D classifiers which calculated
+best correspondence with each 3-D model performing direct
+comparisons. Otherwise, an SVM classifier models the difference between motorcycles and bicycles. Results are reported
+using their own dataset, not publicly available.
+SVMs are used used in the hybrid camera system of [22]
+using HOG features and two binary SVMs, one to discriminate
+car/van classes and another for motorcycles/pedestrian classes.
+Best results are obtained from the previous results of the
+omnidireccional camera classification, which are refined by the
+SVM classifiers. Final results obtain an accuracy of 98.59%,
+with only 71 motorcycles to classify.
+The potential drawbacks of using an SVM as a classifier
+are related to the ”curse of dimensionality” when there is a
+kernel projection to a higher order making the learning process
+slow.
+2) Decision Trees: Decision trees are useful to model the
+decision path which leads to vehicle classification. For motorcycle classification, in [41] all detected blobs are manually
+labeled and fed to a decision tree (pruned to reduce overfitting)
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+6
+
+IEEE TRANSACTIONS ON INTELLIGENT TRANSPORTATION SYSTEMS
+
+obtaining the classification rules. However, these rules are
+specific to a given camera resolution, lens focal length and
+camera position.
+3) Random Forest: is an ensemble learning method which
+combines multiple decision trees during training time and
+outputting the most frequently classified class of the individual trees. They are intended to correct the overfitting of
+individual decision trees. Le and Huynh [29] use Random
+Forest to generate a map of features, then an SVM is used to
+classify the different parts of the motorcycle. They report high
+accuracy mainly due to the use of a top-down camera view
+point, avoiding occlusion between vehicles. Meanwhile [46]
+uses a patch-based random forest of local experts, used to
+generate a different object configuration later assembled for
+final classification.
+4) K-Nearest Neighbors (k-NN): Is a classifier that assigns a
+label class to the input closest to the k training examples in the
+feature space. The membership class assignment is based on a
+simple voting mechanism. When k = 1, the class assignment
+corresponds to the single nearest neighbor. k-NN is used
+for motorcycles discrimination and helmet detection in [40].
+The method creates features from the geometrical relationship
+of motorcycles and helmets. The approach relies highly on
+the quality of the background subtraction for motorcycle and
+head detection which, as mentioned earlier, and it would have
+difficulties under clutter or for semi-static or stopped vehicles.
+k-NN is also used in the hybrid camera system of [22] for
+the omni-directional camera, using k = 5 and obtaining a
+100% of accuracy on a relatively small dataset with only
+71 motorcycles.
+5) Artificial Neural Networks (ANN’s): Inspired on the
+synapses connection of neurons in the human brain, the model
+consists on artificial neurons and signal connections. Each
+connection transmits a signal from neuron to neuron which
+inhibits or activates a possible response. The data transmitted
+through the network allows the ANN structure to learn the
+relationship or mapping between inputs and outputs, allowing
+it to find patterns in the input data. Their use has been
+reported for motorcycle classification even though their training features requires many parameters to tune and may not
+converge to a local optimum. On the other hand, results
+on Deep Learning architectures are raising the interest of
+the research community (see section V). Sutikno et al. [47]
+report a classification process of motorcyclists wearing or
+not helmets, from images captured on the highway using
+a backpropagation neural network. It is not clear how the
+network architecture is defined. The training process uses
+only 150 images previously segmented and it is unclear if
+this is enough for generalization. It then uses just 30 images
+restricted to the head area. No details are provided about the
+stopping criteria for learning, nor on their object detection
+process. Silva et al. [12], [12] report helmet detection, feeding
+a Multi-Layer Perceptron (MLP) using ROI definition and
+circular Hough transform in combination with HOG. Images
+where obtained from a highway scenario with no congestion
+nor occlusion and under good weather and light conditions.
+
+B. Other Approaches
+Fuzzy logic approaches are also used in motorcycle classification. Rashidan et al. [42] use an Adaptive Neuro-Fuzzy
+Inference System (ANFIS) classifier, based on the first-order
+Takagi-Sugeno-Kang (TSK) method, achieving improved
+comparative results for motorcycles and cars. However,
+the sequences used for comparative proposes contain at most
+only 1034 frames, having only three motorcycles for detection.
+Some work does not use classifiers e.g. [30] and [33] where
+a bounding box is used for classification, which is constructed
+based on width localization of the edge that corresponds to the
+lower part and upper part of the vehicle. The bounding box size
+and ratio corresponds to a constant parameter defined a priori.
+Although the authors report work with different resolutions,
+it is not clear why poor results are obtained with higher
+resolution images. No clear performance results are presented
+nor a description of the dataset used.
+Matching techniques are used in conjunction with tracking
+for motorcycle classification in cluttered scenarios in [34],
+where classification starts once an object is tracked for five
+consecutive frames. The foreground mask is compared by
+means of a transformation matrix against real world parameters. To identify the vehicles, a correspondence and coincidence (matching) process is applied. The data used corresponds to more than 2000 vehicles, filmed during a rally in two
+locations at Mertye Beach (South Carolina). It is not clear how
+the measurement strategy based on camera calibration allows
+distinguishing more than one or three vehicles detected as a
+single blob by background subtraction.
+IV. T RACKING
+In its simplest definition, tracking can be understood as
+estimating the trajectory of an object in the image plane as
+it moves around a scene [48], [52] and it involves locating the
+target in subsequent video frames after it has been recognized
+and classified by the HV step. It is used to predict vehicle positions in subsequent frames, match vehicles between
+adjacent frames and ultimately to obtain the trajectory and
+location of each vehicle for each frame. Some techniques are
+used to extract vehicles’ dynamic attributes, including velocity,
+direction of movement and vehicle trajectories. Most vehicle
+tracking algorithms follow one simple principle: vehicles in
+two adjacent frames are the same if the spatial distance is
+small.
+According to Yilmaz et al. [52], object tracking can be
+classified as point tracking, kernel based tracking and silhouette based tracking. Point trackers involve detection in
+every frame, while geometric area or kernel based tracking
+or contours-based tracking require detection only when the
+object first appears in the scene. What follows are some of
+the tracking techniques applied for motorcycles.
+A. Kalman Filter Tracking
+The Kalman Filter (KF) is a Point Tracker also known as
+linear quadratic estimation. This algorithm uses a series of
+measurements observed over time, containing noise and other
+inaccuracies and produces estimates of unknown variables
+that tend to be more precise than those based on a single
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+ESPINOSA et al.: DETECTION OF MOTORCYCLES IN URBAN TRAFFIC USING VIDEO ANALYSIS
+
+measurement alone. The KF can make full use of the historical
+information and reduce the search range of the image, to significantly improve system processing speed. Its accuracy and
+stability can suffer when vehicle motion and light conditions
+change suddenly, in occlusion conditions or when linearity and
+assumptions on target dynamics and noise are not satisfied.
+Motorcycle tracking in [37] combines a KF for movement
+estimation and a comparison of photometric data for correspondence analysis. To deal with occlusion and sporadic
+errors, a “track propagation” strategy is proposed, but it is
+not clear how this technique could manage multiple parallel
+tracks or tracks that cross each other, something that can often
+occur in cluttered scenes. In [43], tracking is done using a
+Kalman filter, based on centroid location and velocity. For
+each frame, a class label is computed and the final label for
+the track is assigned with a voting scheme, considering the
+entire track to make a decision. As it is only used for class
+labelling, no specific tracking results are given. A KF is also
+used in [41], for tracking detected blobs. Results are reported
+on highways under various traffic and lighting conditions, but
+these experiments use proprietary and unpublished data and
+may fail under denser urban traffic conditions.
+B. Kanade–Lucas–Tomasi (KLT) Feature Tracker
+KLT is used for two wheelers classification in [53], based
+on feature extraction from trajectories. Feature-based tracking
+avoids tracking the moving objects as single bodies, but instead
+traces distinct features (e.g. Harris corners [54]) of the moving
+object. Since no descriptive physical features are used for
+classification and tracking is based on speed, pedaling process
+and acceleration profiles, the tracker misclassifies e-bikes due
+to their higher speeds. Moreover, the method relies heavily on
+a previous camera calibration and there is no comparison with
+other classification or tracking methods.The tracking results
+are not quantified. KLT is also used for Motorcycle detection
+in [55] using a multi-level motion pattern learning (MLMP)
+framework for trajectory behavior analysis on video surveillance cameras. That work is based on an open source tool for
+video traffic analysis [56]. However, the number of trajectories
+used to represent a single object could fail under congested
+scenarios or when using different camera angles (not necessary
+orthogonal to the objects).
+C. Other Methods
+Other methods for tracking motorcycles are also worth mentioning. A tracking strategy is presented in [26] which combines frame differencing and tracking of edges and corners.
+The method, however, is not able to deal with overlapping or
+occluded objects often seen in urban traffic scenarios. In [35],
+[36] the helmet center of mass is used as a reference point
+plus velocity and displacement force for predicting the position
+of a motorcycle in the tracking process. In speed evaluation,
+results achieved a precision of +/−5 km/hr., comparable with
+LIDAR or laser speed detection systems. The system relies
+on a “multi-helmet detection method” when two motorcycles
+are overlapping. However, it is not clear how it may deal with
+passengers. Detection by tracking is a method that employs a
+tracking process to improve detection. In [32] for each object
+
+7
+
+detected, a tracker is initialized and it creates a monitoring
+window according to the size and position of the object. When
+a new frame is processed, the tracking mechanism is adapted
+to the size and position of the tracking window based on its
+movement estimation [57]. The tracking system can predict
+the position of an object, according to its speed and historical
+position, needing the use of a localization technique. Tracking
+performance is not evaluated with a specific metric, nor
+evaluated under occluded scenes. Finally, Shuo and Choi [23]
+perform tracking based on a list of target objects and the
+criteria for matching is based on histograms, which could
+fail if there are overlapping detections, specially when the
+proposed system is used on board of a vehicle.
+Table I identifies the main algorithms used for detection
+and tracking of motorcycles respectively. The third column
+corresponds to a cluttering (occlusion) factor defined based
+on the KITTI Vision Benchmark suite [58] as (values in
+brackets are Maximum Truncation): Low: Fully visible (15%).
+Medium: Partly occluded (30%). High: Difficult to see (50%).
+It is important to note the variability in metrics and datasets
+employed in each algorithm (columns 5 and 6), making it
+difficult to establish a standardized baseline for algorithm
+performance comparison.
+V. D EEP L EARNING
+Deep learning (DL) methods have produced a revolution
+in the field of computer vision. For pattern recognition the
+techniques have shown robustness in classifications tasks,
+being able to deal with different ranges of transformations or
+distortions as noise, scale, rotation, displacement, illuminance
+variance, etc. [59]. In object recognition, feature representation
+obtained from DL often outperforms popular features such as
+LBP, SURF and HOG [49], [50], [60].
+Recent advances on DL achieve object detection in an image
+through one of two main methods [61]. In the first case
+through a region proposal based detector, with has as a first
+stage a region proposal network (RPN) to generate regions of
+interest and then a second stage where the regions proposed
+by the RPN are used for bounding box regression and object
+classification.
+The other approach is regression/classification based on Single Stage Detectors (SSDs), which achieve object detection as
+a regression problem, analyzing the input image and learning
+the class probabilities and bounding box coordinates. These
+models can have issues with the detection of small objects or
+with objects that appear too close in the image, but such single
+shot architectures can produce real time detection results.
+A. Region Proposal Based Detectors
+Faster R-CNN [62] is one of the most popular architectures
+for vehicle detection (but this field moves rapidly). This
+architecture evolved from R-CNN [63] and Fast R-CNN [64],
+combining features of a fully convolutional network to perform
+both region proposals and object detection. R-CNN [63],
+combines a selective search [65] algorithm for region proposal (RPN) with CNN features to perform object detection.
+This model was used in [66] to classify motorcycles according to the USA’s Federal Highway Administration (FHWA)
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+8
+
+IEEE TRANSACTIONS ON INTELLIGENT TRANSPORTATION SYSTEMS
+
+TABLE I
+M OTORCYCLE D ETECTION AND T RACKING A LGORITHMS
+
+scheme, reporting 100% precision and 89% recall, but only
+with 16 motorcycles to detect recorded in a highway without
+any occlusion. R-CNN generates around 2000 proposal per
+image and for each proposal a convolutional operation is
+performed for later classification, making the detection procedure quite slow. Fast R-CNN [64], accelerates the detection
+process through a single convolution feature map which is
+generated from the entire image and using a Region of
+Interest (ROI) pooling layer such as different input sizes can
+be fed to the classification step.
+Methods based on Fast R-CNN approach region proposal
+use a selective search [65] which is a bottom-up method
+
+that iteratively groups small segments of the image based
+on similarity. This process is computationally expensive and
+becomes the model bottleneck.
+B. Regression/Classification Based Detectors
+Focusing on speed performance (number of frames analyzed per second) at the expense of accuracy, single stage
+methods achieve detection without proposals. A single convolutional architecture simultaneously predicts bounding boxes
+and associated class scores. The Single Shot MultiBox Detector (SSD) [67] model consists of a base classification network
+(in their case the VGG network [68]) for region proposal,
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+ESPINOSA et al.: DETECTION OF MOTORCYCLES IN URBAN TRAFFIC USING VIDEO ANALYSIS
+
+9
+
+TABLE II
+D EEP L EARNING A PPLIED TO M OTORCYCLE D ETECTION
+
+suitable for multiple scales, plus a set of convolutional filters
+used to produce class scores and to determine the bounding
+box positions. Finally, non-maximal suppression (NMS) [69]
+is used to eliminate redundant detections. Due to its speed,
+it is mostly used in autonomous vehicles and advanced driver
+assistance systems (ADAS). A single-stage detector reported
+in [70] uses a CNN for motorcycle detection using only
+5 convolutional layers. The last convolutional layer, with a
+depth of four, splits the negative class (background) into three
+different classes, claimed to ease learning, given that the
+negative class will encompass many different features difficult
+to group into one single class. Redundant detections are
+eliminated by non-maximal suppression. The model achieves
+an F1-score of 81% in a video dataset recorded from a top
+view, which significantly reduces the occlusion of objects.
+C. Other Approaches
+Some methods perform background subtraction for object
+individualization, then CNN is applied to extract features
+from the detected moving objects, these features are later
+used for classification. Such a method is reported for vehicle
+classification in [71], applying the same strategy for feature
+extraction in [72], using AlexNet [50] as a feature extractor for
+motorcycle classification in urban scenarios. Features extracted
+by the CNN model are then classified by a linear SVM,
+reaching an almost perfect accuracy on classification (albeit
+in a small dataset). The method fails when the background
+subtraction is not robust enough to individualize each vehicle.
+A model for detection of motorcyclists without helmet is
+proposed in [73]. The bounding box for object detection is
+provided by a GMM model. There is no special consideration
+for overlapping moving objects that move at similar speeds
+and could be mixed in the detection. The moving objects
+are resized to a fixed size to be passed on to the CNN
+model. No special strategy such as pyramids is used to deal
+with varying resolution. The CNN model discriminates the
+detected moving objects as either motorcycles or background,
+extracting discriminative features from the CNN model and
+used to perform classification. Finally, the recognition of
+
+motorcyclists without helmets is done by cropping the region
+of the motorcyclist head (which may be highly dependent on
+the perspective view) and fed to another CNN model which
+performs binary classification, according to the features trained
+from motorcyclist heads. Helmet detection is also investigated
+in [74]. The motorcycle detector uses a linear SVM for a
+feature vector classification based on histograms of oriented
+gradients (HOG). It is not clear how the method identifies the
+motorcycle nor the region expected to contain the rider’s head,
+which is passed to a CNN for helmet/no-helmet classification.
+Helmet violations are further processed for location of the
+license plate using a Haar cascade detector for number plate
+recognition. A deep learning-based helmet wearing analysis is
+also proposed in [75] combining GMM for foreground object
+segmentation and Faster R-CNN for motorcycle detection and
+helmet presence. The method also includes a license plate
+recognition to issue fines for traffic violations.
+Table II identifies the main deep learning algorithms used
+for detection of motorcycles.
+D. Deep Visual Tracking
+Deep learning strategies have been shown to improve the
+observation model that depicts the appearance of detected
+objects and are thus potentially useful for tracking purposes.
+Li et al. [76] provide a review with experimental comparisons
+of different deep learning trackers, with important conclusions
+including that the usage of CNN models can significantly
+improve tracking performance and that deep visual trackers
+using end-to-end networks usually perform better than trackers
+that merely using feature extraction networks. The recent
+work of Chen et al. [77] gives a review of deep learning
+Multiple Object Tracking (MOT), categorizing, analyzing and
+comparing deep learning MOT methods. The categories are:
+1- Multi-object tracking enhancement using deep network
+features, 2- Multi-object tracking with deep network embedding and 3- Multi-object tracking with end-to-end deep neural
+network learning. This categorization is useful to understand
+the following deep learning methods oriented to motorcycles
+tracking.
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+10
+
+IEEE TRANSACTIONS ON INTELLIGENT TRANSPORTATION SYSTEMS
+
+Methods which exploit the use of deep learning features for realizing MOT (category 1) include the work of
+Feichtenhofer et al. [78], that proposes a tracker based on
+R-FCN [79], an object detection framework which is fully
+convolutional up to region classification and regression and
+that is extended for multi-frame detection and tracking. The
+model is evaluated on ImageNet object detection from a
+video dataset [80] achieving an mAP (mean average precision)
+of 68.8% on bicycles and 79.8% on motorcycles. Meanwhile,
+Gunawan and Jatmiko [81] show an MOT with deep network
+embedding (category 2) proposing a Geometric Deep Particle
+Filter (GDPF) for motorcycle tracking, looking to improve the
+tracker’s transition model and including a stacked denoising
+autoenconder (SDAE) [82] as a deep learning observation
+model. In spite of the success of the tracker in other domains,
+it has poor performance for motorcycles in an ad-hoc video
+dataset, mainly due to the vehicles’ hard maneuvering. Overall,
+although deep learning methods show good promise, much
+remains to be done for tracking of motorcycles, especially in
+cluttered conditions.
+VI. DATASETS AND P ERFORMANCE M EASURES
+There is no clear consensus on the metrics or datasets to
+be used for research on motorcycle detection/tracking. This
+makes it difficult to compare results and to evaluate with
+fair criteria the different strategies used for detection and/or
+tracking.
+A. Datasets
+Realistic (manually annotated, long, varied traffic and
+weather conditions, etcds.) public datasets are still a necessity
+to assess and compare detection and tracking algorithms proposed by researchers. Generally, they have tended to develop
+their own private datasets making comparisons difficult, especially when people do not share algorithms. Clearly, public
+annotated data is very useful for training.
+Nevertheless, there have been some efforts to produce useful
+public datasets. Bileschi [83] describe the CBCL StreetScenes
+database which corresponds to more than 8,000 images
+of 1280 × 960 pixels. 3,547 of them were labeled and include
+categories such as car, pedestrian, bicycle, motorcycles, building, tree, road, sky, sidewalk and store. The Penn-Fudan
+dataset is introduced in [84] which includes pedestrian, bike,
+human riding bike, umbrella and car object classes, taken
+from scenes around campus and urban streets and has the
+segmented ground truth of the different classes. There is also
+the highly cited PASCAL 2 Visual Object Classes Challenge
+2012 (VOC2012) [85], recorded from a stationary vehicle and
+popular for bicycle detection. It includes 20 different classes,
+containing bicycles, cars and motorcycles. For 3-D detection
+algorithms, there is also 174 motorcycle instances with different poses (12-16). The train/val data has 11,530 images
+containing 27,450 ROI annotated objects and 6,929 segmentations. This dataset is generally used for training purposes,
+to train both for cars and bicycles. Some authors complement
+the set to reduce overfitting and to increase the generalization
+capabilities of the classifier as in [86]. Cho et al. [87] made
+available a public dataset for tracking purposes, consisting of 6
+video sequences, intending to capture the ego motion perceived
+
+by a vehicle. CityScapes Dataset [88] comprises a set of
+stereo video sequences captured in streets from 50 different
+cities (mostly in Germany). 5,000 of these images have high
+quality pixel-level annotations while 20,000 additional images
+have coarse annotations. The images were recorded during
+several months (spring, summer, fall) during daytime and
+under good and medium weather conditions. Specially oriented
+to motorcycles detection and classification and in some cases
+tracking, most authors present results working with their own
+datasets that are seldom made public as in [12], [12], [16],
+[18], [19], [23], [26], [32]–[35], [37], [40]–[43], [47] and [51].
+This is a significant problem to compare results.
+For deep learning strategies, mainly used in CNNs, there
+is the Caltech 256 [89] dataset that contains 30,608 images
+distributed in 256 different categories with at least 798 images
+of motorcycles 261 × 154 pixels but only in lateral views,
+which is a significant issue since the set explicitly avoids
+object rotation and different angles of view. Other datasets
+already described and used in DL are [58], [88], [90]–[92]
+and [93], which all share the property of having larger amounts
+of annotated data for training, but are not related to urban
+environments scenarios.
+Recent developments related to autonomous driving benchmarks that evaluate object detection, stereo vision and semantic/instance segmentation, include the large-scale 5D semantic
+benchmark (BLVD) [94], which defines three kind of “participants”: vehicles, pedestrians and riders (cyclists and motorbikes) due to its dynamic moving. This interesting benchmark
+is constructed by a self-driving platform and includes 249,129
+3D annotations. Because of the different nature of the views
+from vehicle-based cameras, it is not clear how useful this data
+could be for traditional CCTV views.
+B. Performance Measures
+For classification and tracking, there are different strategies to measure the performance obtained when evaluating
+algorithms. For this, it is important to differentiate between
+detection, classification and tracking measures.
+1) Detection Measures: For sliding windows, used to detect
+objects, researchers have used False Positives Per Window (FPPW) versus 1-Recall (FalseNeg/TruePos + FalseNeg)
+to generate the metric Detection Error Tradeoff (DET) [95].
+The x- and y-axes are non-linearly scaled (using standard
+normal deviates or just by logarithmic transformation), which
+generates curves that are more linear than ROC curves and
+exploit most of the image area to highlight the differences.
+Also for detection, Bileschi [83] use crop-wise detection
+measure, pixel-wise detection and box-wise detection measure,
+where an A object is considered to match with a baseline B
+object (ground truth) if area A ∩ B/A ∪ B > θ , θ being a
+parameter that evaluates how close A and B should match. The
+default value is θ = 1/2. This measure is also known as Intersection over Union (IoU) or Jaccard coefficient. Taking into
+account the above overlapping criteria, Everingham et al. [96]
+propose mAP (mean Average Precision) for the Pascal Visual
+Object Classes Challenge (VOC).
+
+m A P = |Q1R |
+
+
+
+q∈Q R A P(q)
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+(1)
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+ESPINOSA et al.: DETECTION OF MOTORCYCLES IN URBAN TRAFFIC USING VIDEO ANALYSIS
+
+where Q R is the set of image queries and q is the specific
+query. It is computed by averaging the precision values on
+the precision-recall curve where the recall is in the range
+[0, 0.1, . . . , 1] (e.g. average of 11 precision values). To be
+more precise, they consider a slightly corrected P R curve,
+where for each curve point ( p, r ), if there is a different curve
+point ( p , r  ) such that p > p and r  >= r , it replaces p with
+maximum p of those points.
+For object counting, the Grid Average Mean absolute Error
+(GAME) [91] simultaneously considers the object count and
+the location estimated for the objects. It subdivides the image
+into 4 non-overlapping regions and computes the M AE in
+each of these sub regions.
+N
+4
+1  l
+·
+(
+|en − gtnl |)
+(2)
+G AM E(L) =
+N
+n=1 l=1
+
+2) Classification Measures: Classification algorithms are
+typically evaluated through a confusion matrix [97] where,
+for unbalanced classes, it is better to use the F1 score, that
+could be extended as explained by Chen et al. [43] to deal
+with multiples classes. Metrics normally used for classification evaluation are normalized: recall (REC), precision (PRE)
+and (F1):
+TP
+(3)
+P RE =
+T P + FP
+TP
+R EC =
+(4)
+T P + FN
+2 · R EC · P R E
+(5)
+F1 =
+R EC + P R E
+3) Tracking Measures: For single tracking algorithms
+Wu et al. [98], propose OPE (One-time Pass Evaluation),
+which is initialized from the ground truth position of the first
+frame and the average precision or success rate is evaluated.
+Since the algorithm could be sensitive to initialization in the
+first frame and most algorithms do not have re-initialization
+mechanisms, the authors propose two other metrics: Temporary robustness evaluation (TRE), where the evaluation starts
+from different initialization frame and Spatial Robustness
+Evaluation (SRE), where different objects states with different
+shift or scaling of the ground truth are generated.
+Dealing with Multiple Objects Tracking (MOT) Bernardin
+and Stiefelhagen [99] propose the CLEAR MOT metrics:
+The multiple object tracking precision (MOTP):
+
+i, tdti
+(6)
+M OT P = 
+t, Ct
+corresponds to the total error in matched object-hypothesis
+pairs over all frames, averaged over the total number of
+matches found.
+The multiple object tracking accuracy (MOTA):
+
+(m t + f pt + mmet )
+
+(7)
+M OT A = 1 − t
+t gt
+where m t , f pt and mmet are the number of misses, false
+positives and mismatches, respectively, for time t.
+Later, Wen et al. [93] explain the importance of considering
+object detection and tracking jointly in MOT evaluation. For
+
+11
+
+Fig. 4. UMD dataset - Note the significant level of occlusion between
+annotated motorcycles.
+
+instance, they propose PR-MOTA which is a three-dimensional
+curve characterizing the relation between object detection
+performance (precision and recall) and object tracking performance (MOTA).
+
+1
+( p, r )ds
+(8)
+∗ =
+2 c
+where c is the PR curve and ( p, r ) is the MOTA value
+corresponding to precision p and recall r on the PR curve. It is
+noted that although (or because) there is a rich set of metrics,
+different researchers use different sets, making it complicated
+to compare works.
+VII. A BASELINE FOR F UTURE R ESEARCHERS
+A. The Urban Motorbike Dataset
+Due to the lack of a urban motorcycle dataset, to serve
+as a common base for research in detection and tracking,
+we have created the public Urban Motorbike Dataset (UMD)1
+that contains images taken with a Phantom 4® drone, with
+an HD camera under windy conditions, which affected the
+image stabilizer. Images were resized to 640 × 364 pixels,
+containing 318 motorcycle tracks and 56,975 ROI annotated
+objects. 60% of the annotated data correspond to occluded
+motorcycles. Objects with heights less than 25 pixels were
+not annotated (See figure 4).
+B. Preliminary Evaluation
+1) Detection: An improved version of the model proposed
+in [100] called EspiNet, is compared with some of the most
+representative models of deep learning single-stage detectors (Yolo V.3 [101]) and Region based detectors (Faster
+R-CNN [102]–(VGG16 based)). All these models were trained
+from scratch using the UMD dataset. According to recommended practice in deep learning, all three models use 90%
+of the data for training and 10% for validation. Training and
+test sets were taken randomly, to avoid bias.
+Results shows that the EspiNet model achieves an Average
+Precision (AP) of 88.8% and an F1-score of 91.8%, outperforming results for YOLO and Faster R-CNN. Table III shows
+the evaluation results.
+1 http://videodatasets.org/UrbanMotorbike
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+12
+
+IEEE TRANSACTIONS ON INTELLIGENT TRANSPORTATION SYSTEMS
+
+TABLE III
+
+TABLE V
+
+C OMPARATIVE D ETECTION R ESULTS FOR E SPI N ET, FASTER -RCNN
+(BASED ON VGG16) [102] AND YOLO V3 [101]
+
+C OMPARATIVE R ESULTS FOR D EEP S ORT T RACKER ON UMD D ATASET,
+U SING D ETECTORS E SPI N ET [100], FASTER -RCNN (BASED ON
+VGG16) [62] AND YOLO [101]
+
+TABLE IV
+C OMPARATIVE R ESULTS FOR MDP T RACKING ON UMD D ATASET, U SING
+D ETECTORS E SPI N ET [100], FASTER -RCNN (BASED ON VGG16) [62]
+AND YOLO [101]
+
+(see table V), illustrating that the good detection results
+obtained with EspiNet yield improved tracking results on
+an MOT tracker that uses tracking by detection as its main
+strategy.
+VIII. D ISCUSSION
+A. Challenges
+
+2) Tracking: Two Multiple Object tracking methods are
+evaluated on the UMD dataset. In the first instance, an MOT
+framework based on Markov decision process (MDP) [103]
+is implemented. The tracker modeled the life time of the
+tracked object using four sub-space states (Active, Tracked,
+Lost and Inactive). The original algorithm has been evaluating
+with EspiNet, Yolo and Faster R-CNN (VGG16 based) as
+detectors. Additionally to Multiple Object Tracking Precision (MOTP) and Multiple Object Tracking Accuracy (MOTA)
+(see section VI-B), another set of metrics are used [104]
+that allow understanding tracking behaviour using different
+detectors:
+• Mostly Track targets (MT), percentage of ground truth
+tracks covered by the tracking mechanism for at least
+80%.
+• Mostly Lost targets (ML, percentage of ground truth
+tracks covered by the tracking mechanism less than 20%.
+• False Positives (FP)
+• False Negatives (FN)
+• ID Switches (IDS) ID of the tracks that are erroneously
+changed by the algorithm.
+• Fragmentations (Frag) the total number of times a trajectory is Fragmented.
+Comparative results of MDP tracker applied to UMD dataset
+can be compared in table IV. The second MOT tracker
+used is a deep learning based tracker: DeepSort [105]. This
+tracker relies on motion and appearance information of the
+detected object to build the different tracks associated with an
+object. The tracking evaluation on the UMD dataset shows
+very close results to the obtained by using MDP tracker
+
+The research topic of motorcycles detection and tracking,
+especially in urban environments, is still quite open due to different aspects that need to be considered to perform such tasks.
+Deep learning (DL) feature representation provides a powerful
+alternative over traditional features such as LBP, SURF, HOG
+and has shown good results in the standard object recognition
+challenges [49], [50], [60]. For motorcycles detection, important advances are found in the literature on feature-classifierbased detection. However, many of the articles discussed here
+are not yet suitable for real-time video surveillance scenarios,
+given the sliding windows strategy, which is time-consuming.
+In some implementations, GPU-based techniques are used to
+accelerate the computation, nevertheless it is necessary to find
+strategies that take advantage of the perspective of the scene
+(e.g. camera calibration), allowing to establish ROIs, reducing
+the analyzed region which increases the performance of the
+proposed algorithms. Meanwhile DL for vehicle detection,
+exploits parallel architectures and, in successful implementations, it performs both region proposals and object detection [62], [64], [106]–[108], with near real-time operation.
+Motorcycle hypothesis generation faces the challenge of
+having to deal with strong changes in appearance depending on
+camera viewpoints. Detectors based on deep learning architectures have shown to be the best option to store complex feature
+descriptors as the convolutional layers aggregates complexity
+in deeper layers. These DL detectors are successful mainly
+for on-board autonomous systems but are yet to be found in
+CCTV-based urban surveillance.
+The literature reports few studies regarding motorcycle
+detection, given the complexity of the analyzed objects. Some
+of this complexity has to deal with phenomena such as shadows [32], [109], but there are also the problems of night time,
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+ESPINOSA et al.: DETECTION OF MOTORCYCLES IN URBAN TRAFFIC USING VIDEO ANALYSIS
+
+poor illumination conditions and bad weather. Even though
+appearance features have been successfully applied to other
+types of vehicles, for motorcyclists the problem increases due
+to the small size area to detect, making it difficult to measure
+symmetry properties and to establish an adequate ROI. The
+same happens with color, corner, edges and texture features,
+which are affected by illuminations conditions and distance to
+the camera. Some of the algorithms use features extracted from
+the rider’s helmet establishing relationships between vehicle
+and rider [37], but failing to consider real-world situations,
+for instance when the vehicle carries more than one passenger
+or when riders do not wear helmet protection (but see the work
+of Silva et al. [12], [12])
+There is still very limited literature dealing with all ranges of
+weather and illuminations conditions. Generally, the research
+is framed to specific regulations and geographical regions.
+The main technical challenge in motorcycles detection
+is related to real-world scenarios of traffic under congestion where occlusions could be frequent and using established CCTV infrastructure. In motorcycle detection only
+10% of the analyzed algorithms work with some level of
+occlusion. Besides the strategies described above, there are
+some uses of 3-D models in scenarios where it is necessary to perform classification of vehicles in urban areas,
+which demands a previous camera calibration step for better
+results [26]–[28], [110]. There is some research [111] that
+uses DL working with 3-D models for vehicle detection,
+improving the results of previous point cloud based detection approaches. Some of the DL algorithms for motorcycle
+detection reviewed here are able to work in partly occluded
+scenarios, outperforming traditional methods. There are strategies that fuse RGB images and LiDAR points clouds as inputs
+for vehicle detection with high accuracy [112]. Building this
+type of datasets and using results derived from them requires
+access to LiDAR devices that might not be widely available,
+specially when considering existing CCTV infrastructure.
+Comparing the different algorithms proposed in the literature is also a very difficult challenge, mainly due to the
+lack of universal ground truths to perform a fair benchmark.
+Most of the training sets of the algorithms described so far
+are not representative enough for the different urban contexts,
+unlike efforts for other type of road users such as the KITTI
+dataset [58] and Tsinghua-Daimler Cyclist Benchmark [11]
+for bicycles, Cars dataset [90], VeRi-776 dataset [113], TRANCOS [91], CompCars dataset [92] and CityScapes Dataset [88]
+for other vehicles. To palliate this we have introduced the
+UMD dataset (VII-A) specifically aimed for detection and
+tracking of motorcycles in urban environments and made
+available publicly to the research to advance the state-of-theart in part of this field.
+IX. C ONCLUSIONS AND F UTURE W ORK
+One interesting finding is that there exists relatively little
+literature on motorbikes detection and tracking. The different
+works are done in relatively simple environments and the
+algorithms reported are notoriously difficult to apply for data
+different from their original reports and in particular to be
+deployed for existing CCTV infrastructure.
+
+13
+
+Future research in motorcycle detection, would look to
+deal with the wide variability of real world images, including
+changes in illumination, drastic object scale changes and view
+point, deformations of parts, noisy images, blur resolution,
+poor weather conditions, day/night operation, etc. This will
+require time-intensive procurement of representative datasets
+and their corresponding ground truths.
+Motorcycling detection needs to consider that in many
+places helmets are not worn, making drivers even more vulnerable. So their study it is also matter of public health and
+safety conditions.
+The different works cited in this paper point to the need
+to improve motorcycles tracking strategies in realistic congested scenarios. Although motion-based methods are useful
+for tracking moving objects, they demand important computational resources and involve analysis of various previous
+frames for an object can be detected. They may fail to detect
+objects with slow relative motion and are also sensitive to
+camera movement. It is also worth to mention than despite
+the latest developments in Multiple Object Tracking (MOT)
+extensively reviewed in [77], to date there are virtually no
+studies of such methods for tracking motorcycles.
+Deep Learning theory has demonstrated to be useful in the
+field of vehicle detection, but there is yet little work on DL
+applied to the detection of motorcycles. The principal advantage of this approach (applied to object detection) lies in the
+ability to learn richer invariant features via multiple nonlinear
+transformations. Nevertheless, an important drawback of CNN
+appears in the convolutional layer at each trainable stage,
+the kernels/weights employed in the convolution are trained
+by back propagation algorithm, which is time- and dataconsuming. Several strategies as pretraining have been proposed to overcome this issue, which becomes a pre-requisite
+to implement real-time applications based on CNN.
+Region based detectors are popular, covering region proposals and detection modules, that have evolved from
+R-CNN, Fast R-CNN and Faster R-CNN reaching even pixel
+level segmentation in Mask R-CNN [114]. However, these
+architectures demand large amounts of examples to be able
+to achieve acceptable results as in all DL models. Most
+promising results in real time DL are being obtained by single
+stage detectors such as SSD [67], YOLO [115] and specially
+RRC [116], which is a state of the art detector, even though
+object detection may fail where objects are really small or may
+appears quite close each other in the scene.
+One interesting topic for deep learning detectors is to
+incorporate context reasoning. Despite that before the irruption
+of DL, contextual information was already regarded as useful
+for improving detection and recognition algorithms, it has
+not been extensively studied in the context of deep learning.
+This topic offer many possibilities for research, more in the
+context-rich urban environments.
+An important aspect in motorcycle detection is the need to
+have realistic public datasets to allow researchers to benchmark different algorithms in many scenarios, validating the
+results in a structured and common way.
+Most of the promising employed motorcycle detectors rely
+on fully supervised learning schemes. This requires annotated
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+14
+
+IEEE TRANSACTIONS ON INTELLIGENT TRANSPORTATION SYSTEMS
+
+data (ground truth), something that is expensive specially for
+DL approaches. It would be interesting to start studying semi
+supervised or unsupervised models for motorcycle and bicycle
+detectors.
+R EFERENCES
+[1] S. Zhang, C. Zhu, J. K. O. Sin, and P. K. T. Mok, “A novel ultrathin
+elevated channel low-temperature poly-Si TFT,” IEEE Electron Device
+Lett., vol. 20, no. 11, pp. 569–571, Nov. 1999.
+[2] Motociclistas, un Grave Problema Vial en Colombia. Apr. 30, 2020.
+[Online]. Available: http://www.dicyt.com/noticias/motociclistas-ungrave-problema-vial-en-colombia
+[3] H. S. Bazargani, R. G. Vahidi, and A. A. Abhari, “Predictors
+of survival in motor vehicle accidents among motorcyclists, bicyclists and pedestrians,” Trauma Monthly, vol. 22, no. 2, 2017,
+Art. no. e26019, Accessed: Apr. 30, 2020. [Online]. Available:
+http://www.traumamon.com/article_100051.html
+[4] N. Budi. Patience. Accessed: May 15, 2020. [Online]. Available:
+https://www.flickr.com/photos/bukrie/14561469378
+[5] WHO
+Global
+Status
+Report
+on
+Road
+Safety
+2018.
+Accessed:
+Apr.
+30,
+2020.
+[Online].
+Available:
+http://www.who.int/violence_injury_prevention/road_safety_ystatus/
+2018/en/
+[6] A. Constant and E. Lagarde, “Protecting vulnerable road users from
+injury,” PLoS Med., vol. 7, no. 3, Mar. 2010, Art. no. e1000228.
+[7] H. Cho, P. E. Rybski, and W. Zhang, “Vision-based bicycle detection and tracking using a deformable part model and an EKF algorithm,” in Proc. 13th Int. IEEE Conf. Intell. Transp. Syst., Sep. 2010,
+pp. 1875–1880.
+[8] D. Gerónimo, A. M. López, A. D. Sappa, and T. Graf, “Survey of
+pedestrian detection for advanced driver assistance systems,” IEEE
+Trans. Pattern Anal. Mach. Intell., vol. 32, no. 7, pp. 1239–1258,
+Jul. 2010.
+[9] M. Enzweiler and D. M. Gavrila, “Monocular pedestrian detection:
+Survey and experiments,” IEEE Trans. Pattern Anal. Mach. Intell.,
+vol. 31, no. 12, pp. 2179–2195, Dec. 2009.
+[10] R. Benenson, M. Omran, J. Hosang, and B. Schiele, “Ten years of
+pedestrian detection, what have we learned?” 2014, arXiv:1411.4304.
+[Online]. Available: http://arxiv.org/abs/1411.4304
+[11] X. Li et al., “A new benchmark for vision-based cyclist detection,” in
+Proc. IEEE Intell. Vehicles Symp. (IV), Jun. 2016, pp. 1028–1033.
+[12] R. R. V. E. Silva, K. R. T. Aires, and R. D. M. S. Veras, “Detection
+of helmets on motorcyclists,” Multimedia Tools Appl., vol. 77, no. 5,
+pp. 5659–5683, Mar. 2018.
+[13] A. Mukhtar and T. B. Tang, “Vision based motorcycle detection using
+HOG features,” in Proc. IEEE Int. Conf. Signal Image Process. Appl.
+(ICSIPA), Oct. 2015, pp. 452–456.
+[14] D. G. Lowe, “Distinctive image features from scale-invariant keypoints,” Int. J. Comput. Vis., vol. 60, no. 2, pp. 91–110, Nov. 2004.
+[15] A. Vedaldi and B. Fulkerson, “VLFeat: An open and portable library of
+computer vision algorithms,” in Proc. 18th ACM Int. Conf. Multimedia,
+2010, pp. 1469–1472, Accessed: Apr. 30. 2020. [Online]. Available:
+http://dl.acm.org/citation.cfm?id=1874249
+[16] N. D. Thai, T. S. Le, N. Thoai, and K. Hamamoto, “Learning bag of
+visual words for motorbike detection,” in Proc. 13th Int. Conf. Control
+Autom. Robot. Vis. (ICARCV), Dec. 2014, pp. 1045–1050.
+[17] A. Bosch, A. Zisserman, and X. Munoz, “Representing shape with a
+spatial pyramid kernel,” in Proc. 6th ACM Int. Conf. Image Video Retr.,
+vol. 2007, pp. 401–408, Accessed: Apr. 30, 2020. [Online]. Available:
+http://dl.acm.org/citation.cfm?id=1282340
+[18] K. Dahiya, D. Singh, and C. K. Mohan, “Automatic detection of bikeriders without helmet using surveillance videos in real-time,” in Proc.
+Int. Joint Conf. Neural Netw. (IJCNN), Jul. 2016, pp. 3046–3051.
+[19] D. Singh, C. Vishnu, and C. K. Mohan, “Visual big data analytics for
+traffic monitoring in smart city,” in Proc. 15th IEEE Int. Conf. Mach.
+Learn. Appl. (ICMLA), Dec. 2016, pp. 886–891.
+[20] S. A. Ghonge and J. B. Sanghavi, “Smart surveillance system for
+automatic detection of license plate number of motorcyclists without helmet,” Int. J. Comput. Sci. Eng., vol. 6, no. 1, pp. 86–89,
+Jan. 2018. [Online]. Available: https://www.ijcseonline.org/full paper
+view.php?paper_id=1637, doi: 10.26438/ijcse/v6i1.8689.
+[21] A. S. Talaulikar, S. Sanathanan, and C. N. Modi, “An enhanced
+approach for detecting helmet on motorcyclists using image processing
+and machine learning techniques,” in Advanced Computing and Communication Technologies. Singapore: Springer, 2019, pp. 109–119.
+
+[22] I. Bariş, Y. Baştanlar, Classification and Tracking of Traffic Scene
+Objects With Hybrid Camera Systems. Piscataway, NJ, USA: Institute
+of Electrical and Electronics Engineers, 2018.
+[23] Y. Shuo and E.-J. Choi, “A driving support system base on traffic environment analysis,” Indian J. Sci. Technol., vol. 9, no. 47, pp. 286–290,
+Dec. 2016, doi: 10.17485/ijst/2016/v9i47/108374.
+[24] P. Wonghabut, J. Kumphong, T. Satiennam, R. Ung-arunyawee, and
+W. Leelapatra, “Automatic helmet-wearing detection for law enforcement using CCTV cameras,” in Proc. IOP Conf., Earth Environ. Sci.,
+vol. 143, 2018, Art. no. 012063.
+[25] R. J. Gavadi and S. S. Patil, “Automatic detection of motorcyclist
+without helmet using haar cascade classifier,” J. Integr. Sci. Technol.,
+vol. 6, no. 2, pp. 33–36, 2018.
+[26] S. Messelodi, C. M. Modena, and G. Cattoni, “Vision-based bicycle/motorcycle classification,” Pattern Recognit. Lett., vol. 28, no. 13,
+pp. 1719–1726, Oct. 2007.
+[27] S. Messelodi, C. M. Modena, and M. Zanin, “A computer vision
+system for the detection and classification of vehicles at urban
+road intersections,” Pattern Anal. Appl., vol. 8, nos. 1–2, pp. 17–31,
+Sep. 2005.
+[28] N. Buch, J. Orwell, and S. A. Velastin, “Urban road user detection and
+classification using 3D wire frame models,” IET Comput. Vis., vol. 4,
+no. 2, pp. 105–116, Jun. 2010.
+[29] T.-S. Le and C.-K. Huynh, “An unified framework for motorbike
+counting and detecting in traffic videos,” in Proc. Int. Conf. Adv.
+Comput. Appl. (ACOMP), Nov. 2015, pp. 162–168.
+[30] M. Muzammel, M. Z. Yusoff, and F. Meriaudeau, “Rear-end visionbased collision detection system for motorcyclists,” J. Electron. Imag.,
+vol. 26, no. 3, May 2017, Art. no. 033002.
+[31] I. Sobel and G. Feldman, “A 3×3 isotropic gradient operator for image
+processing, presented at a talk at the Stanford Artificial Project,” in
+Pattern Classification and Scene Analysis. Hoboken, NJ, USA: Wiley,
+1968, pp. 271–272.
+[32] B. Duan, W. Liu, P. Fu, C. Yang, X. Wen, and H. Yuan, “Real-time onroad vehicle and motorcycle detection using a single camera,” in Proc.
+IEEE Int. Conf. Ind. Technol., Feb. 2009, pp. 1–6. [Online]. Available:
+http://ieeexplore.ieee.org/xpls/abs_all.jsp?arnumber=4939585
+[33] M. A. M. Nong, R. Osman, J. M. Yusof, and R. M. Sidek, “Motorcycle image tracking and edge detections based on simulink software,” in Proc. 6th Int. Conf. Intell. Adv. Syst. (ICIAS), Aug. 2016,
+pp. 1–4.
+[34] N. K. Kanhere, S. T. Birchfield, W. A. Sarasua, and S. Khoeini, “Traffic
+monitoring of motorcycles during special events using video detection,”
+Transp. Res. Rec., J. Transp. Res. Board, vol. 2160, no. 1, pp. 69–76,
+Jan. 2010.
+[35] C.-C. Chiu, M.-Y. Ku, and H.-T. Chen, “Motorcycle detection and tracking system with occlusion segmentation,” in Proc.
+8th Int. Workshop Image Anal. Multimedia Interact. Services
+(WIAMIS), 2007, p. 32, Accessed: Apr. 30, 2020. [Online]. Available:
+http://ieeexplore.ieee.org/xpls/abs_all.jsp?arnumber=4279140
+[36] M.-Y. Ku, C.-C. Chiu, H.-T. Chen, and S.-H. Hong, “Visual motorcycle
+detection and tracking algorithms,” WSEAS Trans. Electron., vol. 5,
+no. 4, pp. 121–131, 2008.
+[37] J. Chiverton, “Helmet presence classification with motorcycle detection
+and tracking,” IET Intell. Transp. Syst., vol. 6, no. 3, pp. 259–269, Sep.
+2012.
+[38] S. Sekar, S. Kulam, S. Selvaraj, and P. Saravanan, “An automatic
+helmet detection and penalty system using image descriptors and
+classifiers,” J. Comput. Theor. Nanosci., vol. 15, no. 6, pp. 2245–2250,
+Jun. 2018.
+[39] C. Stauffer and W. E. L. Grimson, “Adaptive background mixture
+models for real-time tracking,” in Proc. IEEE Comput. Soc. Conf.
+Comput. Vis. Pattern Recognit., Jun. 1999, pp. 246–252.
+[40] R. Waranusast, N. Bundon, V. Timtong, C. Tangnoi, and P. Pattanathaburt, “Machine vision techniques for motorcycle safety helmet detection,” in Proc. 28th Int. Conf. Image Vis. Comput.
+New Zealand (IVCNZ), Nov. 2013, pp. 35–40. [Online]. Available:
+http://ieeexplore.ieee.org/xpls/abs_all.jsp?arnumber=6726989
+[41] Y. Dupuis, P. Subirats, and P. Vasseur, “Robust image segmentation for
+overhead real time motorbike counting,” in Proc. 17th Int. IEEE Conf.
+Intell. Transp. Syst. (ITSC), Oct. 2014, pp. 3070–3075.
+[42] M. A. Rashidan, Y. M. Mustafah, A. A. Shafie, N. A. Zainuddin,
+N. N. A. Aziz, and A. W. Azman, “Moving object detection and classification using neuro-fuzzy approach,” Int. J. Multimedia Ubiquitous
+Eng., vol. 11, no. 4, pp. 253–266, Apr. 2016.
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+ESPINOSA et al.: DETECTION OF MOTORCYCLES IN URBAN TRAFFIC USING VIDEO ANALYSIS
+
+[43] Z. Chen, T. Ellis, and S. A. Velastin, “Vehicle detection, tracking and
+classification in urban traffic,” in Proc. 15th Int. IEEE Conf. Intell.
+Transp. Syst., Sep. 2012, pp. 951–956.
+[44] Z. Chen and T. Ellis, “Self-adaptive Gaussian mixture model for urban
+traffic monitoring system,” in Proc. IEEE Int. Conf. Comput. Vis.
+Workshops (ICCV Workshops), Nov. 2011, pp. 1769–1776.
+[45] B. E. Boser, I. M. Guyon, and V. N. Vapnik, “A training algorithm
+for optimal margin classifiers,” in Proc. 5th Annu. Workshop Comput.
+Learn. Theory, 1992, pp. 144–152, Accessed: Mar. 21, 2018. [Online].
+Available: http://dl.acm.org/citation.cfm?id=130401
+[46] A. González, D. Vázquez, A. M. López, and J. Amores, “On-board
+object detection: Multicue, multimodal, and multiview random forest
+of local experts,” IEEE Trans. Cybern., vol. 47, no. 11, pp. 3980–3990,
+Nov. 2017.
+[47] S. Sutikno, I. Waspada, N. Bahtiar, and P. S. Sasongko, “Classification
+of motorcyclists not wear helmet on digital image with backpropagation neural network,” TELKOMNIKA (Telecommun. Comput. Electron.
+Control), vol. 14, no. 3, Sep. 2016, Art. no. 11281133.
+[48] S. Ojha and S. Sakhare, “Image processing techniques for object
+tracking in video surveillance- a survey,” in Proc. Int. Conf. Pervas.
+Comput. (ICPC), Jan. 2015, pp. 1–6.
+[49] M. D. Zeiler and R. Fergus, Visualizing and Understanding Convolutional Networks. Springer, vol. 2014, pp. 818–833,
+Accessed: Mar. 30, 2020. [Online]. Available: http://link.springer.
+com/chapter/10.1007/978-3-319-10590-1_53
+[50] A. Krizhevsky, I. Sutskever, and G. E. Hinton, “Imagenet classification
+with deep convolutional neural networks,” in Proc. Adv. Neural Inf.
+Process. Syst., NV, USA, 2012, pp. 1097–1105.
+[51] Z. Chen and T. Ellis, “Multi-shape descriptor vehicle classification for
+urban traffic,” in Proc. Int. Conf. Digit. Image Comput. Techn. Appl.
+(DICTA), Dec. 2011, pp. 456–461.
+[52] A. Yilmaz, O. Javed, and M. Shah, “Object tracking: A survey,” ACM Comput. Surv., vol. 38, no. 4, p. 13, Dec. 2006,
+Accessed: Apr. 30, 2020. [Online]. Available: http://doi.acm.
+org/10.1145/1177352.1177355
+[53] M. H. Zaki, T. Sayed, and X. Wang, “Computer vision approach for
+the classification of bike type (motorized versus non-motorized) during
+busy traffic in the city of shanghai,” J. Adv. Transp., vol. 50, no. 3,
+pp. 348–362, Apr. 2016.
+[54] C. G. Harris et al., “A combined corner and edge detector,” in Proc.
+Alvey Vis. Conf., 1988, vol. 15, no. 50, pp. 10–5244.
+[55] M. G. M. Mohamed and N. Saunier, “Applications of multi-level
+pattern learning to traffic scene interpretation and anomaly detection,”
+Centre Interuniversitaire Recherche sur les Réseaux d’Entreprise, CIRRELT, Montreal, QC, Canada, Tech. Rep., 2017.
+[56] S. Jackson, L. F. Miranda-Moreno, P. St-Aubin, and N. Saunier,
+“Flexible, mobile video camera system and open source video analysis
+software for road safety and behavioral analysis,” Transp. Res. Rec., J.
+Transp. Res. Board, vol. 2365, no. 1, pp. 90–98, Jan. 2013.
+[57] W. Liu, X. Wen, B. Duan, H. Yuan, and N. Wang, “Rear vehicle
+detection and tracking for lane change assist,” in Proc. IEEE Intell.
+Vehicles Symp., Jun. 2007, pp. 252–257.
+[58] A. Geiger, P. Lenz, and R. Urtasun, “Are we ready for
+autonomous driving? The KITTI vision benchmark suite,” in
+Proc. IEEE Conf. Comput. Vis. Pattern Recognit., Jun. 2012,
+pp. 3354–3361, Accessed: Apr. 20, 2020. [Online]. Available:
+http://ieeexplore.ieee.org/xpls/abs_all.jsp?arnumber=6248074
+[59] I. Arel, D. C. Rose, and T. P. Karnowski, “Deep machine Learning–
+A new frontier in artificial intelligence research [Research Frontier],”
+IEEE Comput. Intell. Mag., vol. 5, no. 4, pp. 13–18, Nov. 2010.
+[60] J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. Fei-Fei,
+“ImageNet: A large-scale hierarchical image database,” in Proc. IEEE
+Conf. Comput. Vis. Pattern Recognit., Jun. 2009, pp. 248–255.
+[61] P. Soviany and R. Tudor Ionescu, “Optimizing the trade-off
+between single-stage and two-stage object detectors using image
+difficulty prediction,” 2018, arXiv:1803.08707. [Online]. Available:
+http://arxiv.org/abs/1803.08707
+[62] S. Ren, K. He, R. Girshick, and J. Sun, “Faster R-CNN: Towards realtime object detection with region proposal networks,” in Proc. Adv.
+Neural Inf. Process. Syst., 2015, pp. 91–99.
+[63] R. Girshick, J. Donahue, T. Darrell, and J. Malik, “Rich feature
+hierarchies for accurate object detection and semantic segmentation,”
+in Proc. IEEE Conf. Comput. Vis. Pattern Recognit., Jun. 2014,
+pp. 580–587.
+[64] R. Girshick, “Fast R-CNN,” in Proc. IEEE Int. Conf. Comput.
+Vis., Dec. 2015, pp. 1440–1448. [Online]. Available: http://www.cvfoundation.org/openaccess/content_iccv_2015/html/Girshick _Fast_RCNN_ICCV_2015_paper.html
+
+15
+
+[65] J. R. R. Uijlings, K. E. A. van de Sande, T. Gevers, and
+A. W. M. Smeulders, “Selective search for object recognition,” Int.
+J. Comput. Vis., vol. 104, no. 2, pp. 154–171, Sep. 2013.
+[66] Y. O. Adu-Gyamfi, S. K. Asare, A. Sharma, and T. Titus, “Automated
+vehicle recognition with deep convolutional neural networks,” Transp.
+Res. Rec., J. Transp. Res. Board, vol. 2645, no. 1, pp. 113–122, 2017.
+[67] W. Liu et al., “SSD: Single shot MultiBox detector,” 2015,
+arXiv:1512.02325. [Online]. Available: http://arxiv.org/abs/1512.02325
+[68] K. Simonyan and A. Zisserman, “Very deep convolutional networks
+for large-scale image recognition,” 2014, arXiv:1409.1556. [Online].
+Available: http://arxiv.org/abs/1409.1556
+[69] P. F. Felzenszwalb, R. B. Girshick, D. McAllester, and D. Ramanan,
+“Object detection with discriminatively trained part-based models,”
+IEEE Trans. Pattern Anal. Mach. Intell., vol. 32, no. 9, pp. 1627–1645,
+Sep. 2010.
+[70] C.-K. Huynh, T.-S. Le, and K. Hamamoto, “Convolutional neural
+network for motorbike detection in dense traffic,” in Proc. IEEE 6th
+Int. Conf. Commun. Electron. (ICCE), Jul. 2016, pp. 369–374.
+[71] J. E. Espinosa, S. A. Velastin, and J. W. Branch, “Vehicle detection
+using alex net and faster R-CNN deep learning models: A comparative
+study,” in Advances in Visual Informatics, H. B. Zaman et al., Eds.
+Cham, Switzerland: Springer, 2017, pp. 3–15.
+[72] J. E. Espinosa, S. A. Velastin, and J. W. Branch, “Motorcycle classification in urban scenarios using convolutional neural networks for feature
+extraction,” in Proc. 8th Int. Conf. Pattern Recognit. Syst. (ICPRS),
+2017, pp. 1–6.
+[73] C. Vishnu, D. Singh, C. K. Mohan, and S. Babu, “Detection of
+motorcyclists without helmet in videos using convolutional neural
+network,” in Proc. Int. Joint Conf. Neural Netw. (IJCNN), May 2017,
+pp. 3036–3041.
+[74] K. C. D. Raj, A. Chairat, V. Timtong, M. N. Dailey, and M. Ekpanyapong, “Helmet violation processing using deep learning,” in Proc.
+Int. Workshop Adv. Image Technol. (IWAIT), Jan. 2018, pp. 1–4.
+[75] B. Yogameena, K. Menaka, and S. Saravana Perumaal, “Deep learningbased helmet wear analysis of a motorcycle rider for intelligent surveillance system,” IET Intell. Transp. Syst., vol. 13, no. 7, pp. 1190–1198,
+Jul. 2019.
+[76] P. Li, D. Wang, L. Wang, and H. Lu, “Deep visual tracking: Review
+and experimental comparison,” Pattern Recognit., vol. 76, pp. 323–338,
+Apr. 2018.
+[77] S. Chen, Y. Xu, X. Zhou, and F. Li, “Deep learning for multiple object tracking: A survey,” IET Computer Vision, vol. 13,
+no. 4, pp. 355–368, Jan. 2019. [Online]. Available: https://digitallibrary.theiet.org/content/journals/10.1049/iet-cvi.2018.5598
+[78] C. Feichtenhofer, A. Pinz, and A. Zisserman, “Detect to track and track
+to detect,” 2017, arXiv:1710.03958. Accessed: Feb. 28, 2019. [Online].
+Available: http://arxiv.org/abs/1710.03958
+[79] J. Dai, Y. Li, K. He, and J. Sun, “R-FCN: Object detection via regionbased fully convolutional networks,” in Proc. Adv. Neural Inf. Process.
+Syst., 2016, pp. 379–387.
+[80] O. Russakovsky et al., “ImageNet large scale visual recognition challenge,” Int. J. Comput. Vis., vol. 115, no. 3, pp. 211–252, Dec. 2015.
+[81] A. A S Gunawan and W. Jatmiko, “Geometric deep particle filter
+for motorcycle tracking: Development of intelligent traffic system in
+Jakarta,” Int. J. Smart Sens. Intell. Syst., vol. 8, no. 1, pp. 429–463,
+2015.
+[82] N. Wang and D.-Y. Yeung, “Learning a deep compact image representation for visual tracking,” in Proc. Adv. Neural Inf. Process. Syst.,
+2013, pp. 809–817.
+[83] S. M. Bileschi, “StreetScenes: Towards scene understanding in still
+images,” Ph.D. dissertation, Dept. Elect. Eng. Comput. Sci., Massachusetts Inst. Technol., Cambridge, MA, USA, 2006.
+[84] L. Wang, J. Shi, G. Song, and I.-F. Shen, Object Detection Combining Recognition and Segmentation. Berlin, Germany: Springer,
+2007, pp. 189–199, Accessed: Nov. 9, 2019. [Online]. Available:
+http://link.springer.com/chapter/10.1007/978-3-540-76386-4_17
+[85] M. Everingham, S. M. A. Eslami, L. Van Gool, C. K. I. Williams,
+J. Winn, and A. Zisserman, “The pascal visual object classes challenge:
+A retrospective,” Int. J. Comput. Vis., vol. 111, no. 1, pp. 98–136,
+Jan. 2015.
+[86] A. Chayeb, N. Ouadah, Z. Tobal, M. Lakrouf, and O. Azouaoui,
+“HOG based multi-object detection for urban navigation,” in Proc.
+17th Int. IEEE Conf. Intell. Transp. Syst. (ITSC), Oct. 2014,
+pp. 2962–2967.
+[87] H. Cho, P. E. Rybski, and W. Zhang, “Vision-based 3D bicycle tracking
+using deformable part model and interacting multiple model filter,” in
+Proc. IEEE Int. Conf. Robot. Autom., May 2011, pp. 4391–4398.
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+16
+
+IEEE TRANSACTIONS ON INTELLIGENT TRANSPORTATION SYSTEMS
+
+[88] M. Cordts et al., “The cityscapes dataset for semantic urban scene
+understanding,” in Proc. IEEE Conf. Comput. Vis. Pattern Recognit.
+(CVPR), Jun. 2016, pp. 3213–3223.
+[89] Caltech256. Accessed: Jan. 11, 2019. [Online]. Available:
+http://vision.caltech.edu/Image_Datasets/Caltech256
+[90] J. Krause, M. Stark, J. Deng, and L. Fei-Fei, “3D object representations
+for fine-grained categorization,” in Proc. IEEE Int. Conf. Comput.
+Vis. Workshops, Dec. 2013, pp. 554–561. [Online]. Available: http://
+www.cv-foundation.org/openaccess/content_iccv_workshops_2013/
+W19 /html/Krause_3D_Object_Representations_2013_ICCV_paper.
+html
+[91] R. Guerrero-Gómez-Olmedo, B. Torre-Jiménez, R. López-Sastre,
+S. Maldonado-Bascón, and D. Onoro-Rubio, Extremely Overlapping
+Vehicle Counting. Springer, 2015, pp. 423–431. [Online]. Available:
+http://link.springer.com/chapter/10.1007/978-3-319-19390-8_48
+[92] L. Yang, P. Luo, C. C. Loy, and X. Tang, “A large-scale
+car dataset for fine-grained categorization and verification,” in
+Proc. IEEE Conf. Comput. Vis. Pattern Recognit., Boston, MA,
+USA, 2015, pp. 3973–3981. [Online]. Available: http://www.cvfoundation.org/openaccess/content_cvpr_2015/html/Yang_A_LargeScale_Car_2015_CVPR_paper.html
+[93] L. Wen et al., “UA-DETRAC: A new benchmark and protocol
+for multi-object detection and tracking,” 2015, arXiv:1511.04136.
+[Online]. Available: http://arxiv.org/abs/1511.04136
+[94] J. Xue et al., “BLVD: Building a large-scale 5D semantics benchmark
+for autonomous driving,” 2019, arXiv:1903.06405. [Online]. Available:
+http://arxiv.org/abs/1903.06405
+[95] A. Martin, G. Doddington, T. Kamm, M. Ordowski, and
+M. Przybocki, “The DET curve in assessment of detection task
+performance,” Nat. Inst. Standards Technol., Gaithersburg MD, USA,
+Tech. Rep., 1997.
+[96] M. Everingham, L. Van Gool, C. K. I. Williams, J. Winn, and
+A. Zisserman, “The Pascal visual object classes (VOC) challenge,” Int.
+J. Comput. Vis., vol. 88, no. 2, pp. 303–338, Jun. 2010.
+[97] S. V. Stehman, “Selecting and interpreting measures of thematic classification accuracy,” Remote Sens. Environ., vol. 62, no. 1, pp. 77–89,
+Oct. 1997.
+[98] Y. Wu, J. Lim, and M.-H. Yang, “Online object tracking: A benchmark,” in Proc. IEEE Conf. Comput. Vis. Pattern Recognit., Jun. 2013,
+pp. 2411–2418.
+[99] K. Bernardin and R. Stiefelhagen, “Evaluating multiple object tracking
+performance: The CLEAR MOT metrics,” EURASIP J. Image Video
+Process., vol. 2008, pp. 1–10, Dec. 2008.
+[100] J. E. Espinosa, S. A. Velastin, and J. W. Branch, “Motorcycle
+detection and classification in urban scenarios using a model based
+on faster R-CNN,” 2018, arXiv:1808.02299. [Online]. Available:
+http://arxiv.org/abs/1808.02299
+[101] J. Redmon and A. Farhadi, “YOLOv3: An incremental
+improvement,” 2018, arXiv:1804.02767. [Online]. Available:
+http://arxiv.org/abs/1804.02767
+[102] J. Huang et al., “Speed/accuracy trade-offs for modern convolutional object detectors,” 2016, arXiv:1611.10012. [Online]. Available:
+http://arxiv.org/abs/1611.10012
+[103] Y. Xiang, A. Alahi, and S. Savarese, “Learning to track: Online multiobject tracking by decision making,” in Proc. IEEE Int. Conf. Comput.
+Vis. (ICCV), Dec. 2015, pp. 4705–4713.
+[104] F. Yin, D. Makris, and S. A. Velastin, “Performance
+evaluation of object tracking algorithms,” in Proc. IEEE
+Int. Workshop Perform. Eval. Tracking Surveill. Rio de
+Janeiro, Brazil: Citeseer, 2007, p. 25. [Online]. Available:
+https://pdfs.semanticscholar.org/ad76/bdc7d06a7ec496ac788d667c6ad5
+fcc0fe41.pdf
+[105] N. Wojke, A. Bewley, and D. Paulus, “Simple online and realtime
+tracking with a deep association metric,” 2017, arXiv:1703.07402.
+[Online]. Available: http://arxiv.org/abs/1703.07402
+[106] Q. Fan, L. Brown, and J. Smith, “A closer look at faster R-CNN for
+vehicle detection,” in Proc. IEEE Intell. Vehicles Symp. (IV), Jun. 2016,
+pp. 124–129.
+[107] S. Wang, F. Liu, Z. Gan, and Z. Cui, “Vehicle type classification
+via adaptive feature clustering for traffic surveillance video,” in Proc.
+8th Int. Conf. Wireless Commun. Signal Process. (WCSP), Oct. 2016,
+pp. 1–5.
+[108] F. Chabot, M. Chaouch, J. Rabarisoa, C. Teulière, and T. Chateau,
+“Deep MANTA: A Coarse-to-fine many-task network for joint 2D and
+3D vehicle analysis from monocular image,” 2017, arXiv:1703.07570.
+[Online]. Available: http://arxiv.org/abs/1703.07570
+
+[109] X. Wen, H. Yuan, C. Song, W. Liu, and H. Zhao, “An algorithm based on SVM ensembles for motorcycle recognition,” in
+Proc. IEEE Int. Conf. Veh. Electron. Saf., Dec. 2007, pp. 1–5,
+Accessed: Jan. 20, 2019. [Online]. Available: http://yadda.icm.
+edu.pl/yadda/element/bwmeta1.element.ieee-000004456371
+[110] K. Schindler, A. Ess, B. Leibe, and L. Van Gool, “Automatic detection
+and tracking of pedestrians from a moving stereo rig,” ISPRS J. Photogramm. Remote Sens., vol. 65, no. 6, pp. 523–537, Nov. 2010.
+[111] B. Li, “3D fully convolutional network for vehicle detection in point
+cloud,” 2016, arXiv:1611.08069. Accessed: Feb. 14, 2019. [Online].
+Available: http://arxiv.org/abs/1611.08069
+[112] J. Dou, J. Xue, and J. Fang, “SEG-VoxelNet for 3D vehicle detection
+from RGB and LiDAR data,” in Proc. Int. Conf. Robot. Autom. (ICRA),
+May 2019, pp. 4362–4368.
+[113] X. Liu, W. Liu, H. Ma, and H. Fu, “Large-scale vehicle reidentification in urban surveillance videos,” in Proc. IEEE Int. Conf.
+Multimedia Expo (ICME), Jul. 2016, pp. 1–6. [Online]. Available:
+http://ieeexplore.ieee.org/abstract/document/7553002/
+[114] K. He, G. Gkioxari, P. Dollár, and R. Girshick, “Mask R-CNN,” 2017,
+arXiv:1703.06870. [Online]. Available: http://arxiv.org/abs/1703.06870
+[115] J. Redmon, S. Divvala, R. Girshick, and A. Farhadi, “You only look
+once: Unified, real-time object detection,” in Proc. IEEE Conf. Comput.
+Vis. Pattern Recognit., 2016, pp. 779–788.
+[116] J. Ren et al., “Accurate single stage detector using recurrent
+rolling convolution,” 2017, arXiv:1704.05776. [Online]. Available:
+http://arxiv.org/abs/1704.05776
+Jorge E. Espinosa was born in Bogotá, Colombia,
+in 1973. He received the B.S. degree in system
+engineering from University Foundation Los Libertadores, Colombia, in 2001, and the M.Sc. degree
+in artificial intelligence from Katholieke Universiteit
+Leuven, Belgium, in 2003. Since 2010, he has been
+a full time Professor with Politécnico Colombiano
+Jaime Isaza Cadavid, Medellín, Colombia. He is
+teaching in the areas of programming and artificial
+intelligence. In the last ten years as a Professor,
+he has scientific publications in national and international journals and congresses, mostly related to optimization, artificial
+intelligence, and related areas. In 2019, he received the Meritorious Doctorate
+Thesis Award from the Universidad Nacional de Colombia.
+Sergio A. Velastín (Senior Member, IEEE) received
+the B.Sc. and M.Sc. (Research) degrees in electronics and the Ph.D. degree from The University of Manchester, Manchester, U.K., in 1978,
+1979, and 1982, respectively, for research on vision
+systems for pedestrian tracking and road-traffic
+analysis. He worked in industrial research and development before joining King’s College London, U.K.,
+in 1991, and Kingston University London, where he
+became the Director of the Digital Imaging Research
+Centre and a Full Professor of Applied Computer
+Vision. In 2015, he moved to the University Carlos III of Madrid, Spain,
+where he was a Marie Curie Professor. He is currently a Senior Research
+Scientist with Zebra Technologies Corporation and a Visiting Professor with
+the Universidad Carlos III de Madrid and the Queen Mary University of
+London, U.K. He is a fellow of IET.
+John W. Branch received the B.S. and M.S. degrees
+in mines and metallurgic engineering and the Ph.D.
+degree in systems engineering from the Universidad
+Nacional de Colombia, Medellín, in 1995, 1997,
+and 2007, respectively. Since 2000, he has been a
+full time Professor with the Universidad Nacional
+de Colombia. In the last 15 years as a Professor,
+he has made 160 scientific publications in national
+and international journals and congresses, mostly
+related to his research theme computer vision and
+related areas. He has directed 30 master’s theses and
+three Ph.D. theses and currently directs 10 Ph.D. theses and five master’s
+theses. He has received the following prizes and distinctions: Thesis of
+Meritorious degree, Postgraduate in systems engineering from the Universidad
+Nacional de Colombia in 1997, the Meritorious degree Work on mining and
+metallurgy engineering from the Universidad Nacional de Colombia in 1995,
+the Fourth Place Best Grade Contest VI version from the Universidad Nacional
+de Colombia in 1996, and the Meritorious Doctorate Thesis from Universidad
+Nacional de Colombia in 2007.
+
+Authorized licensed use limited to: University of Exeter. Downloaded on June 16,2020 at 13:29:19 UTC from IEEE Xplore. Restrictions apply.
+
+

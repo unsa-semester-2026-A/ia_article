@@ -1,0 +1,1619 @@
+Received 21 February 2026, accepted 13 March 2026, date of publication 19 March 2026, date of current version 31 March 2026.
+Digital Object Identifier 10.1109/ACCESS.2026.3675896
+
+A Scalable Real-Time Multi-Camera Vehicle
+Tracking System for Urban Environments
+ORIOL ALÁS , RICARD CERVERA , AND ROBERT SANFELIU
+Eurecat, Centre Tecnológic de Catalunya, Unit of Applied Artificial Intelligence, 08005 Barcelona, Spain
+
+Corresponding author: Oriol Alás (oriol.alas@eurecat.org)
+This work has received funding from the European Union’s Horizon Europe research and innovation programme
+under grant agreement No. 101070516 (NebulOuS).
+
+ABSTRACT Real-time Multi-Camera Vehicle Tracking (MCVT) systems are challenging to design and
+deploy due to the need for real-time processing at the edge, as well as issues such as high noise, low
+image resolution, and reidentification. With the significant advances of computer vision techniques and
+transformer-based models for image classification, new opportunities have emerged for MCVT. Moreover,
+the growth of urban populations and the increasing demand for sustainable mobility have intensified
+the need for scalable traffic monitoring solutions. Despite recent progress, several critical challenges
+remain unresolved, including unreliable re-identification under severe occlusions and viewpoint changes,
+limited temporal synchronisation between heterogeneous cameras, and the lack of architectures that operate
+efficiently on fog and edge infrastructures. In this paper, we propose a scalable, low-latency MCVT
+pipeline designed for heterogeneous CCTV networks deployed across the edge–fog continuum. The
+system integrates lightweight vehicle detection, transformer-based appearance embeddings, and topologyand travel-time-constrained cross-camera association within a modular deployment-aware architecture.
+Experimental validation on both public benchmarks and a real-world logistics hub demonstrates stable
+identity preservation, correctly identifying more than 80% of vehicle matches under deployment conditions
+while maintaining strict computational constraints. The system sustains real-time performance (20–29 FPS
+per stream) under CPU-based detection across 27 CCTV cameras and seven edge nodes, demonstrating
+scalable multi-camera tracking under production-level constraints.
+INDEX TERMS Fog computing, multi-camera tracking, traffic monitoring, vehicle reidentification.
+I. INTRODUCTION
+
+Real-time multi-camera vehicle tracking (MCVT) in urban
+environments is a priority capability for smart city traffic
+management and large logistics hubs. It involves continuously detecting and following vehicles across a network
+of street camera feeds to understand traffic flow, monitor
+congestion, and improve safety. Unlike single-camera tracking, the multi-camera setting poses additional challenges:
+each camera may have a different viewpoint and resolution,
+video streams often suffer from noise (e.g., low light or
+weather effects), frequent occlusions occur in dense traffic,
+and associating vehicle identities across non-overlapping
+cameras is notoriously tricky. In a city-scale deployment,
+The associate editor coordinating the review of this manuscript and
+approving it for publication was Tarcisio Ferreira Maciel
+47224
+
+.
+
+a vehicle might leave the field of view of one camera and
+reappear minutes later on another camera, at a different
+angle and with a different background. The system must
+reliably determine if it is the exact vehicle despite changes in
+appearance and environment. This identity matching across
+disjoint cameras traditionally relies on visual reidentification
+cues or external markers; however, both can be unreliable
+under real-world conditions, such as varied angles, motion
+blur, and partial occlusion. As a result, robust MCVT remains
+an open problem, especially under real-time requirements.
+The ability to scale up vehicle tracking to city-scale or large
+campus-scale is increasingly important. Modern smart city
+initiatives and large logistics hubs (e.g. distribution centres,
+ports, or wholesale markets) employ hundreds of cameras
+to monitor transportation activity. Traditional monolithic or
+cloud approaches (e.g. sending all video feeds to a central
+
+2026 The Authors. This work is licensed under a Creative Commons Attribution 4.0 License.
+For more information, see https://creativecommons.org/licenses/by/4.0/
+
+VOLUME 14, 2026
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+cloud server for processing) can face bandwidth bottlenecks
+and single points of failure. Instead, fog and edge computing
+paradigms are emerging, wherein computation is distributed
+across edge nodes closer to the cameras (e.g. on-site servers or
+smart camera hubs). Although it reduces latency and network
+load, it means the tracking algorithms must operate under
+resource-constrained conditions (limited GPU/CPU per node,
+limited memory). High-end deep learning models that excel
+in research settings may struggle in edge environments due to
+their demanding computational and memory requirements.
+Recent advances in deep learning have indeed dramatically
+improved visual tracking accuracy. In single-camera MultiObject Tracking (MOT), methods such as DeepSORT [1]
+combine a fast Kalman filter tracker with deep neural
+network appearance embedding to associate detections over
+time. Transformer-based trackers have taken this further:
+for instance, TrackFormer [2], TransTrack [3], and AttentionTrack [4] introduce transformer attention to detect and
+track multiple objects in video frames jointly. End-to-end
+transformer models, such as the Multiple-Object Tracking
+Transformer (MOTR) [5], treat object tracking as a direct
+set prediction problem, propagating learned track queries
+frame by frame. However, they come at a cost: the networks
+are large and require GPU acceleration to run in realtime. Deploying a MOTR-style model on dozens of camera
+feeds would likely overwhelm typical edge computing nodes.
+There is a growing interest in lightweight computer vision
+techniques that trade some accuracy for efficiency. For
+example, in static-camera scenarios, background subtraction
+and motion segmentation can serve as simpler vehicle
+detectors. BYTETrack [6] has demonstrated that improved
+data association strategies can substantially improve accuracy
+without altering the underlying detector, using low-score
+detection boxes to link previous ones. These approaches
+achieve strong results on academic benchmarks, particularly
+in handling occlusions and maintaining identities over
+extended video sequences.
+In the domain of multi-camera tracking, most existing
+solutions follow a decoupled two-step approach: first,
+perform independent tracking on each camera, then link
+the tracklets belonging to the same object across cameras
+using appearance features or spatio-temporal reasoning. For
+example, the widely used CityFlow benchmark [7] defines
+a city-scale multi-camera vehicle tracking task where there
+is a detection and single-camera tracking system for each
+video, and a separate association algorithm matches vehicles
+between cameras. Appearance-based vehicle reidentification
+(ReID) is a key component in many methods. Deep learning
+ReID models are trained on datasets like VeRi-776 [8] or
+VRIC [9] to encode each vehicle’s visual features into an
+embedding vector, ensuring that the exact vehicle produces
+similar embeddings across different cameras. License plate
+recognition and spatio-temporal constraints are often incorporated to improve robustness. For instance, if an OCR
+module can read a vehicle’s license plate, it provides a nearly
+unique ID to corroborate the visual match, a technique used in
+VOLUME 14, 2026
+
+intelligent transport systems for decades. Reference [10] has
+even explored using vehicle trajectory prediction to aid crosscamera association, effectively estimating where and when a
+vehicle might reappear, to narrow down candidate matches.
+The proposed approach is motivated by the gap between
+bleeding-edge accuracy and practical application in constrained environments. The system is a modular, scalable,
+and efficient MCVT system tailored for fog/edge computing.
+Instead of a monolithic system, the proposal is split into
+specialised modules: (1) a vehicle detection module using
+traditional computer vision techniques to identify vehicles in
+each camera frame quickly; 2) a feature extraction module
+that computes a compact appearance descriptor for each
+vehicle; and (3) a multi-source data association module that
+combines the appearance descriptors and spatio-temporal
+context to reidentify vehicles across cameras and reconstruct
+complete trajectories. By splitting the problem into these
+stages, each stage can be optimised or scaled independently.
+This modular design is inherently scalable, allowing more
+processing nodes to be added to handle additional camera
+streams or higher frame rates. The system can also degrade
+gracefully by skipping or simplifying specific modules if
+resources are constrained.
+This work addresses real-time multi-camera vehicle
+tracking by proposing a deployment-aware architecture
+that integrates motion consistency, appearance learning,
+and physical plausibility constraints within an edge–fog
+computing framework. The contributions are threefold.
+First, we introduce a lightweight direction-aware centroid
+linking strategy for single-camera tracking that enforces
+multi-scale motion consistency without relying on deep tracking backbones. The proposed association logic combines
+spatial overlap gating with short-, medium-, and long-term
+directional constraints, enabling stable tracklet formation
+under edge computing limitations. Second, we design a
+topology- and travel-time-constrained cross-camera association framework that couples compact transformer-based
+appearance embeddings with physically grounded feasibility
+checks. This formulation reduces implausible cross-camera
+identity merges in non-overlapping CCTV networks. Third,
+we validate the complete system in a real-world deployment
+spanning 27 CCTV cameras and seven edge nodes, sustaining 20–29 FPS per stream under CPU-based detection.
+The results demonstrate scalable, low-latency multi-camera
+tracking under production-level constraints.
+The paper is structured as follows. Section II reviews
+the related work on single- and multi-camera tracking,
+vehicle reidentification, and edge–fog deployment strategies.
+Section III presents the proposed multi-camera vehicle
+tracking architecture, detailing the detection, feature extraction, and trajectory reconstruction modules. Section IV
+reports the experimental evaluation, including detection
+accuracy, embedding quality, multi-camera reidentification
+performance, and a real-world deployment study. Finally,
+Section V concludes the paper and outlines directions for
+future work.
+47225
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+TABLE 1. Summary of acronyms and variables used throughout the paper.
+
+their assumptions, topological requirements, data association
+strategies, and evaluation paradigms, is summarized in
+Table 2.
+A. MULTI-OBJECT TRACKING
+
+Table 1 summarizes the main acronyms and variables used
+throughout the paper.
+
+MOT is traditionally formulated as a tracking-by-detection
+problem: objects are first detected in each frame, and then
+these detections are linked over time to form trajectories.
+Early approaches relied on simple appearance cues and
+motion models (e.g., Kalman filters) to associate detections,
+as exemplified by SORT [11], a lightweight tracker that
+uses bounding box overlap and constant-velocity motion
+for data association. An improvement over SORT was
+DeepSORT [1], which adds a deep CNN to compute
+appearance embeddings for each detected object, making the
+association more robust to occlusions and crossings. In recent
+years, transformer-based trackers have redefined the MOT
+landscape. These methods integrate detection and tracking
+into a unified architecture, using attention mechanisms to
+model object interactions over space and time. For example,
+TrackFormer [2] treats object tracks as learnable queries and
+carries them through a transformer decoder from frame to
+frame. TransTrack [3] similarly introduces a transformer that
+takes both previous frame tracks and current frame detections
+as input to predict new positions. MOTR [5] and its improved
+version MOTRv2 [12] eliminate the separate detection stage
+(they use a set of track queries in a DETR-like transformer
+to simultaneously detect new objects and update existing
+tracks in each frame). Although these end-to-end approaches
+demonstrate excellent performance on benchmarks, their
+high complexity requires powerful hardware. Even these
+advanced trackers struggle with prolonged occlusions or
+crowded scenes when limited to one camera view [13].
+Lightweight association strategies, such as ByteTrack, OCSORT, and GIAOTracker, improve MOT by strengthening
+motion-centric matching and fragmentation repair without
+requiring costly deep components. ByteTrack employs a
+dual-threshold policy that leverages low-score detections
+only to continue existing tracks. OC-SORT introduces
+observation-centric re-updates and a direction-aware cost
+to handle occlusions and non-linear motion. GIAOTracker,
+on the other hand, combines online association, a global link
+stage, and post-processing informed by camera/object motion
+to reconnect broken tracklets.
+B. MULTI-CAMERA TRACKING
+
+II. RELATED WORK
+
+This section reviews the main research directions relevant to
+multi-camera vehicle tracking. It first summarizes advances
+in single-camera multi-object tracking that form the foundation for cross-camera association. Then, it discusses strategies
+for multi-camera tracking and data association across views,
+followed by recent developments in reidentification models that enable robust vehicle matching under real-world
+conditions. An overview of the main approaches, including
+47226
+
+Multicamera multi-object tracking (MCT) introduces an
+inter-camera data association problem in addition to individual camera tracking. A common strategy, reflected in the
+AI City Challenge and other benchmarks, is a distributed
+pipeline: perform an independent MOT on each camera, and
+then match the resulting trajectories across cameras. The
+matching step can be formulated as a graph problem or
+clustering problem. For instance, TRACTA [14] utilises a
+tracklet affinity measured by both appearance and temporal
+VOLUME 14, 2026
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+proximity, and solves cross-camera matching via graph clustering with robust non-negative matrix factorisation. ReST
+performs two-stage association (coarse spatial clustering
+across views followed by temporal refinement), mitigating single-view ambiguities. Typically, appearance features
+(ReID embeddings) are a key input to these algorithms, often
+combined with spatial-temporal constraints (e.g. cameras that
+are far apart in distance or view likely have longer time
+gaps for the same vehicle to travel between, so a matching
+must respect plausible travel time) [7]. Reference [15]
+explicitly addresses the challenges of low-resolution CCTV
+and computational constraints on edge devices. Their method,
+ranked among the top five in the 2021 NVIDIA AI
+City Challenge, achieves large-scale city-wide tracking by
+combining efficient detection, ReID, and tracking modules
+optimised for real-world latency and resource limitations.
+This work demonstrates that high accuracy can be retained
+without relying on powerful hardware or high-resolution
+video, although it needs a GPU for multi-object tracking.
+Another line of work in multicamera tracking leverages additional contextual cues. One example is trajectory
+prediction for association, which uses a future trajectory
+predictor to estimate where a person (in their case) might
+reappear and integrate that into the matching metric for crosscamera tracking. This is particularly helpful in large camera
+networks, where a target might temporarily disappear; a
+motion model can narrow the search space of possible
+reidentities [16]. In traffic surveillance, an analogous idea
+is to use the topology of the road network. Reference [17]
+presents a system that executes deep learning detection
+and tracking algorithms directly on camera nodes and
+communicates vehicle metadata via low-power short-range
+radio, enabling decentralised, privacy-preserving tracking
+suitable for parking lots and intersections. However, it does
+not utilise appearance-based ReID, which makes identity
+association weak when cameras are spatially disjoint or the
+angles differ significantly from deployment to deployment.
+License Plate Recognition (LPR) is another powerful cue
+in vehicle tracking that has been used in practical systems:
+reading the plate gives a direct ID, which can significantly
+simplify multicamera matching (vehicles with the same plate
+are considered identical). However, LPR is not infallible
+(plates can be obscured or unreadable in motion), and it must
+be combined with visual matching for cases where the plate
+is missing or duplicated.
+Bird’s Eye View (BEV) and V2X-based Tracking: An
+emerging trend, especially in autonomous driving research,
+is to combine multiple camera views into a unified bird’s-eye
+view representation for detection and tracking. For example,
+BEVFormer [18] and PETR [19] employ transformers to
+aggregate features from multiple cameras and time steps
+to detect all objects in a global BEV coordinate frame.
+This approach can naturally handle multicamera tracking
+in the sense that, once objects are located in BEV with
+a unique identifier, switching cameras is just observing
+the same BEV track from different angles. However, the
+VOLUME 14, 2026
+
+deployment of the current proposal does not benefit from
+the commodity of such BEV projections. Unlike automotive
+platforms equipped with calibrated surround-view cameras,
+the Mercabarna CCTV network consists of independently
+mounted cameras positioned in static, asymmetric locations
+(often at the corners of buildings, with no overlapping fields
+of view or known extrinsic calibration).
+C. ReIdentification MODELS
+
+Reidentification (ReID) aims to match the same object
+across different cameras or viewpoints by learning robust
+embeddings that preserve identity despite variations in angle,
+illumination, and other factors. Recent progress [20] has
+focused on the adoption of Vision Transformers (ViT) [21].
+In particular, TransReID [22] achieved state-of-the-art results
+on vehicle datasets such as VeRi-776 and VehicleID [23] by
+enhancing a ViT-base backbone with ReID-specific modules.
+A key characteristic of modern ReID systems is the use of
+multi-stage training strategies to maximise feature discrimination and improve cosine similarity between embeddings
+of the same object. Typically, this involves three steps:
+(1) initialising with a robust pre-trained backbone (e.g., ViT
+trained on ImageNet [24] or large-scale self-supervised data),
+(2) fine-tuning on an intermediate supervised dataset related
+to the target domain, and (3) performing final fine-tuning on
+the target ReID dataset with metric-learning objectives such
+as triplet or contrastive loss.
+Several works illustrate the benefits of this progressive
+approach. For example, [25] introduced a multi-domain
+learning pipeline in which a ResNet-based model was
+first trained on a mixture of real and synthetic vehicle
+images, then fine-tuned on real-world data while freezing
+lower layers. Similarly, [26] demonstrated that incorporating diverse synthetic vehicles during training yields more
+discriminative embeddings and stronger generalisation in
+real-world deployment scenarios. VehicleNet [27] further
+exemplifies this principle by applying a two-stage progressive
+scheme: first training with a classification loss on a large
+mixed-source dataset to learn generic representations, then
+fine-tuning on the target domain to refine embeddings. Within
+the ViT paradigm, self-supervised pretraining has also shown
+substantial benefits. For instance, [28] proposed pretraining
+a ViT model on the large-scale unlabeled dataset using selfsupervised objectives, followed by supervised fine-tuning on
+ReID datasets. This multi-stage strategy effectively narrows
+the domain gap and improves downstream embedding
+performance. More recently, [29] leveraged a pretrained
+ViT and applied multi-aspect-ratio fine-tuning with feature
+fusion, showing that specialised intermediate training can
+enhance robustness in vehicle ReID tasks. These results
+highlight the importance of staged fine-tuning and domain
+adaptation in achieving robust ReID performance.
+Beyond ViT-based pipelines and staged fine-tuning, recent
+works have focused on strengthening discriminative cues
+and evaluation protocols for vehicle ReID under challenging
+47227
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+TABLE 2. Comparison of multi-camera vehicle tracking (MCVT) approaches across deployment assumptions, topology requirements, ReID strategies, and
+evaluation paradigms.
+
+CCTV conditions. MDFE-Net [30] which enhances multiple
+discriminative features via a non-local attention block and
+augments training with centre and weighted regularisation
+terms. They also propose a complementary metric, mean
+Positive Sample Occupancy (mPSO), to better characterise
+retrieval behaviour. MDFE-Net reports strong results on
+standard vehicle ReID benchmarks, including VeRi-776,
+VRIC, and VehicleID, underscoring its robustness across
+scene variability common to city-scale deployments. Complementary to model design, image quality remains a limiting
+factor in real-world networks such as VRIC [9], where
+motion blur and low resolution hinder appearance matching.
+While not a ReID model per se, the Multi-Branch Feature
+Fusion Super-Resolution network (MBFSR) [31] exemplifies
+modern SISR that can serve as a pre-processing stage
+to recover fine-grained details (e.g., lights, badges, and
+subtle textures) before embedding extraction. Integrating
+super-resolution selectively can improve downstream ReID
+stability without incurring prohibitive latency.
+III. OUR APPROACH
+
+This section details the architecture and components of the
+proposed multi-camera vehicle tracking system. We describe
+47228
+
+the modular pipeline designed for edge and fog deployment,
+covering its three main modules: vehicle detection, feature
+extraction, and trajectory reconstruction with reidentification.
+A. SYSTEM OVERVIEW
+
+The proposed multi-camera vehicle tracking system is
+designed with a modular and scalable architecture that
+emphasises edge computing for enhanced efficiency. Fig. 1
+provides an overview of the pipeline, which consists of
+three main modules: (1) Vehicle Detection, (2) Vehicle
+Feature Extraction and (3) Trajectory Reconstruction &
+Reidentification. Each module operates semi-independently,
+allowing upgrades or replacements without affecting the
+others. Specifically, a nearby edge computing unit that runs
+the detection (one edge computing unit can run one or
+more camera feeds) processes each camera feed, while a
+lightweight central (fog) node can extract features of specific
+vehicles or aggregate metadata for cross-camera tracking.
+The modular edge-based approach also ensures scalability:
+additional cameras can be added simply by deploying new
+edge modules, with the fog node handling the increased flow
+of vehicle metadata in a distributed fashion. Importantly,
+VOLUME 14, 2026
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+FIGURE 1. System overview of the proposed multi-camera vehicle tracking pipeline. The architecture consists of three main modules deployed over an
+edge–fog infrastructure. (1) Each edge camera stream is processed by the detection pipeline, which performs cropping and direction estimation to extract
+moving vehicles. (2) Detected vehicle crops are sent via the AMQP broker to the feature extraction module, where (3) metadata and images are received
+asynchronously. (4) A YOLO-based detector filters false positives and classifies vehicle types, followed by a vision transformer embedding model that
+generates compact feature vectors for reidentification. (5) The resulting embeddings and directional metadata are sent to the traffic reconstruction
+module (6), which aggregates them into camera events. The system periodically updates these events to link cameras (forming zone events) and
+subsequently match zones to reconstruct complete vehicle trajectories across the monitored area (street events).
+
+computation is performed close to the data source (cameras),
+in line with the edge computing paradigm, which improves
+real-time responsiveness and reliability in the logistics hub
+environment.
+B. VEHICLE DETECTION PIPELINE
+
+The system reduces bandwidth and latency by executing
+initial vehicle detection on fog devices using traditional
+lightweight computer vision methods. These procedures
+operate efficiently without requiring GPUs, making the
+system suitable for edge processing environments. The choice
+of traditional approaches is motivated by several practical
+considerations: (1) they demand very low computational
+resources, which makes them well-suited for edge devices
+with limited hardware capacity or legacy CCTV cameras;
+(2) they are straightforward to tune without large-scale
+training, simplifying deployment and adaptation to new
+camera setups; (3) background subtraction enables low-cost
+extraction of regions of interest (ROIs) before applying more
+expensive detection stages, thereby reducing computation
+when most of the scene remains static; and (4) they optimize
+memory usage, since only cropped candidate regions need
+to be stored or processed, minimizing RAM consumption
+and I/O overhead when disk-based storage is required. The
+detection pipeline consists of four stages: (1) bounding box
+identification, (2) postprocessing, (3) real-time tracking, and
+(4) direction identification.
+1) BOUNDING BOX IDENTIFICATION
+
+The pipeline applied to each camera image combines
+multiple algorithms, as illustrated in Fig. 2, starting with
+the identification of bounding boxes. To identify bounding
+boxes, a background subtraction method is employed using
+VOLUME 14, 2026
+
+FIGURE 2. End-to-end vehicle detection pipeline on the edge/fog stack.
+The diagram summarises the four detection stages: bounding-box
+identification (via background subtraction), post-processing, real-time
+tracking, and direction identification.
+
+previous frames as references, as the objective is to detect
+only vehicles. The overall background subtraction process
+is illustrated in Fig. 3, the algorithm models each pixel in
+the frame as a composition of various Gaussian distributions,
+which represent the different colours that appear in that
+pixel over time. The goal is to differentiate between the
+pixel colours that belong to the background and those
+that do not. Then, we apply a threshold for each pixel to
+determine whether it is part of the background distribution.
+At this stage, the result is a dot mask. To aggregate these
+dots and connect contours, initial smoothing with a 3 ×
+3 kernel is performed three times to minimise mask noise.
+Subsequently, an iterative method is applied for dilating
+the mask, accentuating object areas. After dilating the dots,
+a threshold for values above 100 is imposed. This step is
+47229
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+crucial to enhance the mask’s clarity and to isolate some
+background elements that might be mistaken for the objects
+being detected. Once parts of the vehicles are identified,
+they undergo further dilation and smoothing, culminating in
+the unification of these segments, thereby distinguishing the
+object from the background.
+
+FIGURE 3. From motion mask to candidate vehicles. Example showing
+background subtraction and morphological filtering to form contours.
+
+2) POST PROCESSING
+
+Once the algorithm identifies the contours, they are passed
+to bounding rectangles to determine if there are contours that
+can be grouped. This step is necessary because background
+subtraction frequently produces fragmented blobs for a single
+physical vehicle, especially in low-resolution CCTV or
+under weak texture conditions. For example, large trucks
+or vans with uniform surfaces (e.g., white trailers) may
+generate motion response mainly on their borders or shadow
+edges, while interior regions remain partially absorbed by
+the background model. As a result, a single vehicle can
+appear as multiple small bounding boxes that should not be
+treated independently. If these fragments are not merged,
+they can lead to duplicated track initializations, unstable
+crop geometry, and increased identity fragmentation in
+downstream tracking and reidentification stages.
+The postprocessing stage examines those bounding rectangles that meet a specific percentage of intersection, grouping
+spatially consistent fragments into a single candidate vehicle
+region. Since grouping should be transitive (i.e., if contour
+A overlaps with B, and B overlaps with C, all three should
+belong to the same vehicle), the system applies depth-first
+search (DFS) as a clustering technique, representing contours
+as nodes and intersections between those contours as edges.
+Finally, the graph is divided into the different connected
+components explored, with each one of them forming a
+subgraph that encompasses the potential vehicle bounding
+box.
+3) REAL-TIME TRACKING
+
+For each frame, the algorithm evaluates every detected
+bounding box for potential associations with existing vehicle
+tracks. The SORT algorithm is elegant and fast, but it
+47230
+
+FIGURE 4. Direction-aware centroid linker for real-time tracking. For each
+detected crop, candidate associations with existing vehicle tracks are
+evaluated through three stages: (1) a spatial overlap gate based on
+bounding-box intersection; (2) direction-aware consistency checks using
+aggregated centroid groups and multi-scale direction vectors; and (3) a
+heuristic selection step that assigns the crop to the track that minimises
+directional deviation, or initialises a new track when no valid association
+exists.
+
+has its drawbacks, especially in complex tracking scenarios. Limitations such as long-term association, short track
+lifetimes, and abrupt velocity changes are precisely what
+motivated the creation of an algorithm to track the bounding
+boxes detected. To address these conditions in an edgefriendly manner, we employ a lightweight direction-aware
+centroid linker that combines (1) a spatial overlap gate,
+(2) directional consistency checks at different temporal
+horizons, and (3) a simple angular heuristic to decide between
+competing matches. The overall association logic of the
+proposed direction-aware centroid linker is illustrated in
+Fig. 4.
+VOLUME 14, 2026
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+Let bt denote a bounding box detected at time t, and let
+bvt−1 represent the most recent bounding box associated with
+vehicle track v. A detected crop is considered eligible for
+association with track v only if a minimum spatial overlap
+criterion is satisfied, as defined in (1):
+IoU(bt , bvt−1 ) > τIoU ,
+
+(1)
+
+where τIoU is a fixed threshold. To obtain stable motion
+estimates, directions are not computed from individual
+centroid pairs but from groups of centroids aggregated over
+different portions of the track history. Specifically, given a
+selected history segment, two representative mean centroids
+are computed by averaging a group of centroids at the
+beginning and at the end of the segment. A direction vector (2)
+is then defined as the normalised displacement between these
+two mean centroids:
+p̄end − p̄start
+,
+(2)
+d=
+∥p̄end − p̄start ∥
+where p̄start and p̄end denote the mean centroids at the
+beginning and at the end of the history segment, respectively.
+This aggregation reduces sensitivity to local jitter and noise
+while preserving the dominant motion trend of the vehicle.
+Applying the same procedure to different portions of the
+centroid history yields short-, medium-, and long-term direction estimates, which capture motion consistency at different
+temporal scales. These direction estimates are used to assess
+whether a vehicle follows a coherent path both locally and
+globally, which is particularly important in intersection areas
+where multiple trajectories may spatially overlap. In this
+context, consistency at short distances ensures physically
+plausible frame-to-frame motion, while consistency at longer
+distances enforces global trajectory coherence. For each
+candidate crop, an additional direction estimate, denoted
+dnew , is computed by hypothetically appending the crop
+centroid to the track history and recomputing the aggregated
+direction over the corresponding history segment. Unlike
+the existing direction estimates, dnew explicitly encodes the
+directional change introduced by the candidate association.
+The effective history length used for this appended estimate
+is adapted to the track speed, with longer histories for slower
+motion and shorter histories for faster motion, balancing stability and responsiveness. Directional compatibility between
+two direction estimates is evaluated through their angular
+deviation, defined as in (3):
+
+
+1θ(da , db ) = arccos d⊤
+(3)
+a db ,
+where da and db are unit direction vectors derived from
+aggregated centroid groups. For convenience, the correv
+sponding direction angles are denoted by θmid,last
+(t) for the
+medium-term direction of track v before association, and
+v
+by θmid,new
+(t; bt ) for the medium-term direction obtained
+after hypothetically appending the candidate crop bt . These
+angles are directly derived from the corresponding direction
+vectors via their orientation. This angular deviation is used
+to perform three complementary consistency checks. First,
+VOLUME 14, 2026
+
+a short-term change check compares the current short-term
+direction of a track with the corresponding dnew , allowing the
+detection of abrupt, physically implausible direction changes.
+Second, a medium-term stability check performs the same
+comparison at a longer temporal scale, preventing gradual
+drift or identity switches once sufficient trajectory history
+has been accumulated. Third, a long-term consistency check
+compares the direction estimated from the initial portion
+of the trajectory with direction estimates obtained from
+later portions after appending the candidate crop, enforcing
+global coherence of the track over extended time spans.
+A candidate association is rejected when one or more of these
+angular deviations exceed predefined thresholds. Together,
+these checks allow tolerance to small local fluctuations
+while suppressing associations that would contradict the
+established motion of the vehicle, including cases where
+different vehicles share a similar spatial path but move in
+opposite directions.
+Among the remaining admissible candidates, association
+is decided using a simple angular heuristic derived from the
+medium-term motion of each track. The heuristic score is
+defined as the wrapped absolute angular difference between
+the medium-term direction of the track before association
+and the medium-term direction obtained after hypothetically
+appending the candidate crop, as defined in (4):
+
+v
+v
+h(v, bt ) = wrap180 θmid,new
+(t; bt ) − θmid,last
+(t) . (4)
+Here, wrap180 (·) maps angular differences to the interval
+[−180◦ , 180◦ ] to account for angular periodicity. Smaller
+values of h(v, bt ) indicate stronger directional consistency
+between the candidate crop and the existing trajectory. For
+each detected crop, the vehicle track that minimises the
+heuristic score is selected as the best match:
+v∗ = arg min h(v, bt ).
+v
+
+(5)
+
+If no existing track satisfies the spatial overlap and directional
+consistency constraints, a new vehicle track is initialised.
+Tracks are retained for a limited number of frames even
+in the absence of new associations, improving robustness
+to short-term occlusions and intermittent missed detections
+while keeping the overall computation lightweight for
+real-time edge deployment.
+The algorithm first verifies if there is sufficient spatial
+overlap between the new crop and the previous bounding
+boxes. For each existing vehicle with spatial overlap, a short,
+medium and long speed-adaptive temporal direction of its
+movement is maintained, allowing the system to measure how
+much the direction would change if the new crop were added
+to the track. A crop is rejected if: a) it causes a significant
+short-term direction and either a significant long-term
+change or middle-term change; or b) it causes a significant
+middle-term direction change when the trajectory is long
+enough. The multi-scale approach enables maintaining object
+identity over extended periods, even in complex scenarios
+with multiple objects and varying motion patterns.
+47231
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+ranges. This method enables robust and context-aware
+direction labelling, accommodating camera-specific layouts
+and complex orientation scenarios.
+C. FEATURE EXTRACTION COMPONENT
+
+FIGURE 5. Direction labelling by weighted interpolation. Given a position
+p, distances and importance weights to reference points define an
+interpolated angular range that maps to the most likely motion label
+(UP/RIGHT/DOWN/LEFT).
+
+4) DIRECTION IDENTIFICATION
+
+Once the system has linked all bounding boxes corresponding
+to a single vehicle, it calculates the vehicle’s trajectory
+orientation, identifying the start and end directions (e.g. UP,
+LEFT, RIGHT or DOWN). First, two angles are computed:
+one from the first centroid to the midpoint (start angle) and
+another from the midpoint to the final centroid (end angle).
+Since each camera may have a different orientation relative to
+the global scene, the measured angles are transformed using
+a camera-specific directional mapping to ensure consistency
+in labelling across views. This is achieved by defining a set
+of reference points, each associated with a predefined angular
+range representing a directional label, as illustrated in Fig. 5.
+The system computes a weighted combination of all reference
+points. Thus, for a detected position, the algorithm evaluates
+its relationship to each reference point using a weight wi as
+defined in (6):
+
+
+1
+wi =
+· αi ,
+(6)
+dist(p, ci ) + ε
+where dist (p, ci ) is the Euclidean distance between the
+vehicle’s point p and reference point ci ; ε, a small constant
+to prevent division by zero; and αi , a predefined importance
+factor reflecting the relevance for each point due to the
+camera’s point of view. These weights are subsequently
+normalized as in (7):
+wi
+.
+(7)
+w′i = Pn
+j=1 wj
+Given the known directional range associated with each
+reference point, defined as an interval [fromi (D) , toi (D)],
+the final estimated directional range for the trajectory is
+computed as in (8):
+" n
+#
+n
+X
+X
+′
+′
+Range(D) =
+wi fromi (D),
+wi toi (D) . (8)
+i=1
+
+i=1
+
+Finally, the system determines which directional label
+best matches the angle of the vehicle’s motion vector by
+checking if it falls within any of the interpolated directional
+47232
+
+Once vehicles are detected, the system enriches each
+detection with additional features for reidentification. This
+component refines the raw bounding box detections and prepares the data for reidentification tasks. The first step involves
+applying a YOLO-based object detector to the cropped
+image (trained using a mixture of public datasets [32], [33],
+[34], [35], [36]), with a class distribution as described in
+Fig. 6. This step serves as a filtering and classification
+stage, removing false positives from the initial detection
+and classifying valid crops into predefined classes: car, van,
+truck, forklift, and motorcycle. Additionally, YOLO enables
+the detection of multiple vehicles within the same crop,
+a situation that may arise due to limitations in the initial
+vehicle detection stage. In such cases, a single crop can lead
+to multiple valid vehicle detections, ensuring that no instance
+is missed.
+
+FIGURE 6. Class distribution and balancing for YOLO training. Dataset
+composition across car, van, truck, forklift, and motorcycle and the
+balancing strategy used to mitigate class imbalance during detector
+training.
+
+For each valid crop, the system generates a vehicle embedding using a fine-tuned ViT-B/16 that captures high-level
+semantic features of vehicle appearance. The backbone
+used is a ViT-B/16 [37] pre-trained on ImageNet-21k
+and fine-tuned on ImageNet 2012 [24], both at resolution
+224 × 224. By our part, the model is fine-tuned using
+the Stanford Cars dataset [38], [39] and then, to improve
+its suitability for the reidentification task in Mercabarna’s
+specific logistics context (appearance of new classes such as
+forklifts, motorcycles and trucks), the model was fine-tuned
+with a triplet-based contrastive loss on a private dataset
+using LoRa. This training approach encourages embeddings
+of the exact vehicle (from different angles or frames) to
+be close in feature space, while pushing apart embeddings
+of different vehicles. The LoRA configuration was selected
+to balance adaptation capacity and overfitting control given
+the limited size of the Mercabarna dataset. Table 3 and
+Table 4 show fine-tuning training parameters used. Although
+the Mercabarna dataset is relatively small, it stands out for
+VOLUME 14, 2026
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+its representativeness in real-world logistics environments,
+where backgrounds and vehicle types create a domain that
+is difficult to reproduce. We have reduced the learning rate
+in this stage to prevent overfitting and promote better model
+adaptation.
+TABLE 3. Fine-tuning training parameters for embedding models.
+Learning rates, training steps/epochs, and sample counts for the Stanford
+Cars pre-fine-tuning and the Mercabarna triplet-loss adaptation used to
+produce the final ViT embedding model.
+
+TABLE 4. LoRA configuration for ViT embedding fine-tuning. Low-Rank
+adaptation hyperparameters used during the Stanford Cars
+pre-fine-tuning and subsequent Mercabarna triplet-loss adaptation to
+produce the final vehicle re-identification embedding model.
+
+The embedding model is used to group the vehicles
+detected by YOLO across different frames. To associate
+detections across crops, we compute the cosine similarity
+between two embedding vectors ea and eb as in (9):
+Scos (ea , eb ) =
+
+e⊤
+a eb
+,
+∥ea ∥ ∥eb ∥
+
+(9)
+
+where Scos ∈ [−1, 1] measures appearance similarity.
+Two crops are considered to represent the same vehicle
+if Scos > τreid , with τreid denoting the reidentification
+threshold, allowing the system to build consistent tracklets
+over time. Note that this association can only be performed
+across YOLO-derived crops from different frames, and not
+within the same traditional crop where multiple vehicles may
+appear simultaneously. Lastly, the feature extraction pipeline
+concludes by computing and storing the average embedding
+across the tracked trajectory for matching vehicles across
+disjoint camera views.
+D. TRAJECTORY RECONSTRUCTION
+
+This module, responsible for reconstructing vehicle trajectories across different camera views, uses the embeddings and
+metadata (camera ID, timestamp, and directions) produced
+in the previous stages to establish spatio-temporal links
+between detections. The process begins by matching vehicle
+detections from different cameras that are part of the
+same predefined zone. These matches are called zone
+events. In cases where cameras have overlapping views,
+the same vehicle may be detected simultaneously by two
+cameras. The system identifies these duplicate instances
+VOLUME 14, 2026
+
+using a combination of high embedding cosine similarity and
+near-synchronised timing. Such duplicates are resolved by
+consolidating them into a single track so that the vehicle is
+counted only once. In case of ambiguous directions, both
+directions are discarded and the direction of the new event is
+set to unknown. If no match is found between two cameras
+in the same zone within a specified temporal range, the
+unmatched events are still stored for further analysis, but with
+lower priority. Vehicles in zones with only one camera are
+always stored as zone events.
+Once candidate matches are stored, they serve as the
+foundation for re-identification across zones and the reconstruction of complete trajectories. A link between zone events
+is called a street event, and a trajectory is defined as a set
+of linked street events. Mercabarna’s camera layout provides
+natural constraints: cameras cover partially overlapping or
+sequential zones such that a vehicle travelling through
+the hub will appear in a predictable order. These spatial
+relationships are encoded as prior knowledge. Thus, when
+a new detection occurs, the search for a match is restricted
+to a pool of candidate embeddings from cameras that
+could logically observe the same vehicle next. Additionally,
+temporal constraints are imposed based on the estimated
+travel time between zones, which reduces false match
+attempts by pruning physically implausible pairings.
+To further control false associations, we use two cosine
+similarity thresholds depending on the reliability of the
+motion metadata. When the street directions are known and
+consistent, directionality acts as an additional discriminative
+cue that reduces the effective ambiguity of the candidate
+set. Therefore, a more permissive appearance threshold is
+sufficient (e.g., τdir = 0.65), allowing matches under
+challenging viewpoint/illumination changes while remaining
+constrained by direction feasibility. In contrast, when direction is unknown (e.g., due to reversing, stops, or conflicting
+motion estimates), the system must rely almost exclusively
+on appearance similarity. In this regime, we adopt a stricter
+threshold (e.g., τunk = 0.85) to compensate for the
+increased uncertainty and to avoid visually plausible but
+incorrect cross-camera merges, which are common under
+low-resolution CCTV and repetitive vehicle fleets.
+IV. EXPERIMENTS AND RESULTS
+
+This section evaluates the YOLO refinement detector on
+a Mercabarna validation set, then analyzes embedding
+stability and cross-dataset retrieval performance on VeRi776 and VRIC. Next, we report end-to-end multi-camera
+identity metrics on Mercabarna using manually tagged
+matches, followed by a targeted ablation study isolating
+tracking, refinement, and embedding contributions. Finally,
+we describe the full-scale deployment across 27 cameras and
+report runtime resource requirements.
+A. YOLO DETECTION MODEL
+
+To evaluate the detection prior to the feature embedding stage,
+we created a validation dataset from the Mercabarna deploy47233
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+TABLE 5. Performance of the YOLO-based vehicle detector on the
+Mercabarna validation set, showing per-class recall and mAP@0.5 across
+22474 instances, highlighting robust forklift/truck recall and lower recall
+on motorcycles due to size/occlusion.
+
+ment. The validation consisted of 8964 images containing
+instances with the trained class distributions. Images of
+parked vehicles were removed to assess only vehicles in
+movement. Additionally, 17% of the images in the validation
+set do not have any labelled instances.
+Table 5 summarizes the per-class recall and mean Average
+Precision (mAP@0.5) on the Mercabarna validation set.
+Fig. 7 complements these results by showing the main
+inter-class confusions under row-normalization, independent
+of class imbalance. As shown in Table 5, despite the
+class imbalance, the model performed reliably across all
+categories. We used the mAP as the main evaluation
+metric, since it provides a balanced measure that captures both precision and recall across classes and IoU
+thresholding. Forklifts, which are particularly relevant in
+warehouse operations, achieved the highest mAP@0.5.
+Meanwhile, motorcycle detection showed the lowest recall,
+highlighting the difficulty of detecting smaller or more
+dynamic objects in occluded scenes. As shown in Fig. 7,
+the row-normalized confusion matrix further reveals the
+main misclassification patterns, with motorcycles being
+more frequently confused with larger vehicle categories,
+which is consistent with their lower recall. Overall, the
+model achieved strong detection performance across most
+classes, with forklifts and trucks obtaining the highest recall
+rates.
+
+FIGURE 7. Row-normalized confusion matrix of the YOLO-based vehicle
+detector evaluated on the Mercabarna validation set. Rows correspond to
+ground-truth classes and columns to predicted classes, with values
+normalized per row. This representation highlights systematic inter-class
+confusions independently of class imbalance. In particular, motorcycles
+exhibit higher confusion with larger vehicle categories, consistent with
+their lower recall and mAP@0.5 reported in Table 5.
+
+partly attributed to the inclusion of vehicle categories (such
+as forklifts, vans, and trucks) that are absent in the Stanford
+Cars dataset. However, increasing the number of epochs,
+the learning rate, and the number of training iterations
+could allow for deeper convergence on the domain-specific
+distribution. Additionally, expanding the validation dataset
+may help to identify better overfitting or assist in avoiding
+it during training.
+
+B. VEHICLE EMBEDDINGS
+
+To evaluate the effectiveness of the vehicle feature extraction
+strategy for cross-camera vehicle reidentification, we compared the three ViT models by analysing the distribution of
+cosine similarities between embedding vectors of the same
+vehicle across frames. The validation dataset consisted of
+325 images of 76 vehicles. The baseline model shows a
+broad and dispersed distribution, indicating poor consistency
+in embeddings. Fig. 8, illustrates the difference in cosine
+similarity between the three models, highlighting how our
+Mercabarna fine-tuned model achieves better intra-class
+closeness and inter-class separation. The Stanford model
+significantly improves upon this, producing a more concentrated distribution centred above 0.75. The Mercabarna
+model further tightens this distribution and shifts slightly
+toward higher similarity values, confirming a marginal but
+consistent improvement. This performance improvement is
+47234
+
+FIGURE 8. Embedding consistency across models. KDE of cosine
+similarities for ground-truth pairings of baseline ViT-base 16 × 16 (blue),
+the Stanford ViT 16 × 16 fine-tuned on the Stanford Cars dataset (orange),
+and the Mercabarna ViT 16 × 16 model (green) in validation dataset.
+
+To assess transferability beyond Mercabarna at the embedding level, we evaluated the appearance model on VeRi-776
+[8] and VRIC [9] benchmark dataset. VeRi-776 and VRIC
+are used here to assess the appearance embedding component
+in isolation, rather than the full end-to-end Mercabarna
+system. These benchmarks provide cross-camera vehicle
+retrieval metrics, whereas our deployed pipeline additionally
+relies on deployment-specific elements. Consequently, the
+results below should be interpreted as a measurement of
+VOLUME 14, 2026
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+how well the learned embedding space generalizes to unseen
+camera networks and vehicle identities, and as evidence
+that the Mercabarna-adapted representation is not merely
+memorizing the deployment data. All reported benchmark
+results are obtained in a zero-shot setting (no fine-tuning on
+the benchmark training splits).
+For VeRi-776, we adopt an evaluation setting in which
+any image of the same vehicle captured by a different
+camera is considered a valid match, ignoring timestamp and
+spatial resolution constraints, as the objective is to validate
+the robustness of the learned embedding space. We report
+Precision at various top-k retrieval thresholds and mean
+Average Precision (mAP). For each query q, let Gq denote
+the set of ground-truth matches and let rk ∈ {0, 1} indicate
+whether the retrieved sample at rank k is correct. Precision at
+rank k is defined as (10):
+
+Q
+
+1X
+⊮ (∃ i ≤ k s.t. ri = 1) ,
+Rank-k =
+Q
+
+(13)
+
+q=1
+
+where ⊮(·) is the indicator function. Rank-k measures the
+probability that at least one correct match appears within the
+top-k retrieved results.
+TABLE 6. VeRi-776 [8] retrieval results (zero-shot) assessing appearance
+robustness.
+
+k
+
+1X
+ri .
+Precision@k =
+k
+
+real-world traffic variability, the high Precision@1 and mAP
+values suggest that the learned representation captures stable
+vehicle-specific features rather than overfitting to datasetspecific biases.
+To further probe cross-dataset generalization, we also
+evaluated on the VRIC benchmark [9] without using its
+training split. In addition to mAP, VRIC reports Rank-k
+accuracy, defined as in (13):
+
+(10)
+
+i=1
+
+Average Precision (AP) for a single query is computed as
+in (11):
+N
+
+AP(q) =
+
+1 X
+Precision@k · rk ,
+|Gq |
+
+(11)
+
+k=1
+
+where N is the number of retrieved gallery samples. The mean
+Average Precision (mAP) over all Q queries can be found
+in (12).
+
+TABLE 7. VRIC [9] retrieval results (zero-shot), shows solid cross-dataset
+transfer with remaining domain shift.
+
+Q
+
+mAP =
+
+1X
+AP(q).
+Q
+
+(12)
+
+q=1
+
+The zero-shot evaluation on VeRi-776 [8], as it can be
+found in Table 6, demonstrates strong appearance robustness
+of the learned embedding space under cross-camera matching
+conditions. The model achieves very high precision at low
+retrieval depths, indicating that for the vast majority of
+queries, the top-ranked retrieval corresponds to the correct
+vehicle identity. This reflects a well-structured embedding
+space in which intra-class samples cluster tightly despite
+viewpoint and illumination variations. The mAP values
+further confirm that correct matches are consistently ranked
+within the highest retrieval positions. The gradual decrease
+in mAP as the retrieval depth increases is expected, as larger
+retrieval pools introduce more visually similar distractors.
+Nevertheless, the relatively slow decay suggests that the
+model maintains strong discriminative capacity beyond
+the first position and preserves meaningful neighborhood
+ordering. Importantly, these results were obtained without
+fine-tuning on VeRi-776, which indicates that the embedding
+model generalizes effectively to unseen camera configurations and vehicle instances. Furthermore, incorporating
+spatial consistency constraints would further improve quantitative performance, but at the cost of reducing the strict
+zero-assumption nature of this evaluation. Overall, given
+that VeRi-776 includes significant viewpoint changes and
+VOLUME 14, 2026
+
+As reported in Table 7, our model outperforms the
+original VRIC baseline [9] across all reported metrics despite
+being evaluated in a strict zero-shot setting. This indicates
+that the learned embedding space generalizes beyond the
+training distribution and retains discriminative structure
+under unseen surveillance conditions. However, methods
+explicitly trained and optimized on VRIC, such as those
+proposed by [30] and [31], achieve substantially stronger
+retrieval performance.
+This performance gap suggests the presence of residual domain shift, likely attributable to dataset-specific
+visual statistics in VRIC, including tighter bounding
+boxes, compression artifacts, extreme pose variation, and
+camera-specific illumination patterns. We hypothesize that
+incorporating a more diverse, cross-domain training corpus
+(spanning heterogeneous camera geometries and environmental conditions) would improve invariance to such factors
+and further narrow the gap to VRIC-trained approaches.
+These benchmark results are complemented by the
+deployment-grounded ablation study in Table 9, which
+demonstrates that domain alignment of the embedding
+model is the dominant factor for multi-camera identity
+preservation under Mercabarna conditions. Together, the
+controlled benchmark evaluation and the real-world ablation
+47235
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+TABLE 8. Multi-camera re-identification on Mercabarna. Identity Recall
+(IDR), Identity Precision (IDP), IDF1, and Uniqueness computed on
+226 manually tagged matches; high recall with precision/uniqueness
+indicating residual ambiguity from direction cues and occlusions.
+
+analysis consistently indicate that embedding robustness is
+primarily limited by dataset-specific domain characteristics
+rather than architectural constraints.
+C. REIDENTIFICATION EVALUATION METRICS
+
+To evaluate the whole system under real multi-camera
+operational conditions in Mercabarna, we computed identitybased metrics using 226 manually annotated vehicle matches
+as ground truth. Let TP denote correctly predicted identity
+associations, FP incorrect predicted associations, and FN
+missed ground-truth associations. Identity Recall (IDR),
+measuring how many ground-truth re-identification connections are successfully recovered, is defined as (14):
+TP
+.
+(14)
+TP + FN
+Identity Precision (IDP), measuring how many predicted
+matches are correct, is defined as (15):
+IDR =
+
+TP
+.
+(15)
+TP + FP
+The identity F1-score (IDF1), which balances recall and
+precision and penalizes both false matches and missed links,
+is defined as (16):
+IDP =
+
+2 · TP
+2 · IDP · IDR
+=
+.
+(16)
+2 · TP + FP + FN
+IDP + IDR
+Finally, we define Uniqueness to measure identity fragmentation, as can be defined in (17). Let GT be the
+number of ground-truth identity trajectories and S the
+number of predicted identity fragments corresponding to
+those trajectories:
+IDF1 =
+
+GT
+,
+(17)
+S
+where a lower value indicates trajectory splitting or duplicated identities.
+As it can be seen in Table 8, while our system achieves
+high recall, the precision and uniqueness metrics reveal
+limitations in the current reidentification pipeline. The
+relatively low precision indicates that a considerable portion
+of predicted matches are incorrect, often resulting from
+ambiguous embeddings or inaccurate direction labels. IDF1
+also indicates a balanced, yet imperfect association across
+cameras, penalising both missed links and false matches.
+In highly dynamic environments, such as Mercabarna,
+forklifts and delivery vehicles frequently exhibit non-linear
+and bidirectional motion, including reversing or making sharp
+Uniqueness =
+
+47236
+
+turns, which compromises the reliability of direction-based
+cues. Additionally, temporary stops, unexpected parking,
+or interactions at pedestrian crossings (e.g., vehicles halting
+at zebra crossings) can further obscure the actual motion
+vector. These factors introduce uncertainty in the linking
+phase and increase the chance of mismatched identities.
+The uniqueness score, although relatively high, still reflects
+a notable number of duplicated matches, where a single
+ground-truth vehicle trajectory is incorrectly split into
+multiple predicted identities. This fragmentation is often
+caused by incomplete tracking in low-visibility segments,
+embedding drift, or trajectory splits due to occlusion or
+sudden movements. Moreover, inconsistencies in vehicle
+detection (e.g., false negatives during occluded frames
+or misclassified static vehicles) can break the temporal
+coherence needed to group detections reliably. These findings
+suggest that improving the robustness of the detection and
+tracking modules (particularly under occlusion and direction
+ambiguity) is essential for enhancing both precision and
+identity consistency in future deployments. To improve
+precision and uniqueness, we propose following recent
+approaches such as YOLO11-JDE [40], which integrates
+detection and Re-ID into a single lightweight model,
+reducing ID switches and enhancing real-time association
+performance. In edge environments, lightweight models such
+as YOLOv4-Tiny [41] or ByteTrack [6] combined with
+optimised tracking strategies (IoU, histograms) have also
+demonstrated significant improvements in speed and identity
+uniqueness.
+
+D. ABLATION STUDY
+
+The previous subsections evaluated the main components
+of the pipeline in isolation and then reported end-toend multi-camera re-identification performance under real
+operational conditions in Mercabarna. While these results
+validate the overall feasibility of the proposed modular
+architecture, they do not isolate the contribution of key design
+choices that affect identity preservation across cameras.
+To this end, we conduct a targeted ablation study focusing
+on three high-impact components: (i) the single-camera
+association mechanism responsible for forming temporally
+stable tracklets that later feed the cross-camera linking stage,
+(ii) the appearance embedding model used for cross-camera
+association, and (iii) the YOLO refinement stage that filters
+and disambiguates detections prior to embedding extraction.
+All ablations are evaluated on the same Mercabarna
+multi-camera protocol described in Section IV, using the
+same manually annotated set of 226 ground-truth vehicle
+matches. We report Identity Precision (IDP), Identity Recall
+(IDR), IDF1, and Uniqueness. Unless explicitly stated,
+all hyperparameters, camera topology constraints, crosscamera similarity thresholds, and aggregation strategy (tracklevel average embedding) are held constant to ensure that
+performance differences can be attributed to the ablated
+component only.
+VOLUME 14, 2026
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+TABLE 9. Ablation results on Mercabarna multi-camera evaluation. End-to-end identity metrics computed on 226 manually tagged cross-camera matches.
+Higher is better for IDP, IDR, IDF1, and uniqueness. Values are reported as percentages.
+
+Table 9 shows that single-camera tracking influences endto-end re-identification, but it is not the primary determinant
+of identity precision or recall. Instead, its main impact is
+on identity fragmentation: simplifying the tracker reduces
+Uniqueness markedly, indicating that weaker intra-camera
+association produces shorter and more fragmented tracklets
+that propagate downstream as duplicated identities. In other
+words, tracking affects the structural continuity of identities
+more strongly than the overall ability to recover correct crosscamera links. Disabling the YOLO refinement stage reveals
+a clear precision–recall trade-off. Removing refinement can
+slightly increase recall, as more detections are forwarded to
+the re-identification stage, increasing the chance of recovering ground-truth links. However, this comes at the expense
+of precision, because the absence of filtering allows false
+positives and ambiguous crops from the traditional vehicle
+detection component to enter the embedding and matching
+pipeline, inflating incorrect associations. These results confirm the role of YOLO refinement as a noise-suppression step
+that improves the quality of candidate tracklets prior to crosscamera matching. The embedding model is one of the most
+impactful components for cross-camera identity preservation
+in terms of both precision and recall. Using a non-finetuned ViT embedding leads to a pronounced degradation,
+demonstrating that domain mismatch yields unstable or insufficiently discriminative representations under Mercabarna’s
+viewpoint variability and mixed vehicle categories. Finetuning on the Stanford Cars dataset improves performance,
+indicating domain shift due to vehicle types. Comparing it to
+the baseline, the usage of the Mercabarna fine-tuned model
+only improves slightly the identity metrics. This is consistent
+with the KDE of cosine similarities from 8.
+In addition, the trajectory reconstruction ablation confirms
+that the prior topology and travel-time gating encoded in the
+zone/street event logic is not merely an efficiency heuristic,
+but a major contributor to association correctness. When
+spatial ordering constraints (restricting candidate matches to
+logically reachable cameras/zones) and temporal feasibility
+constraints (travel-time windows) are removed, the matching
+problem degenerates into a global appearance-only retrieval
+over a substantially larger candidate pool. This drastically
+increases the number of plausible-but-incorrect pairings
+in Mercabarna, where many vehicles share similar visual
+signatures (e.g., repeated forklift models, delivery vans, and
+VOLUME 14, 2026
+
+trucks). As a result, identity precision collapses and the
+overall identity consistency degrades, indicating that false
+cross-camera merges become the dominant failure mode.
+Interestingly, Uniqueness decreases less sharply than in the
+weakest tracking ablation, suggesting that the primary impact
+of removing spatio-temporal constraints is not increased
+fragmentation, but rather incorrect linking across physically
+implausible camera transitions. Finally, the recall decrease
+is consistent with error propagation: early false matches
+‘‘consume’’ identities and prevent the correct downstream
+links from being established, turning what could have been
+recoverable associations into missed links.
+Overall, the ablations indicate that the appearance embedding is the dominant factor shaping multi-camera association quality (IDP/IDR/IDF1), while single-camera tracking
+mainly affects downstream identity continuity by modulating
+fragmentation (Uniqueness). The YOLO refinement stage
+primarily acts as an upstream noise filter that enforces a
+clear precision–recall trade-off by suppressing false positives
+and ambiguous crops. Finally, the trajectory reconstruction
+priors (camera adjacency and travel-time feasibility) prove
+essential to prevent physically implausible matches, thereby
+preserving high precision in real deployments, particularly
+under low-resolution CCTV and visually repetitive vehicle
+fleets.
+E. DEPLOYMENT TEST
+
+We implemented the proposed system in Mercabarna
+(Barcelona), a major hub of the wholesale market with
+significant daily truck and vehicle traffic. The deployment
+consists of twenty-seven CCTV cameras covering key
+entry/exit points and internal road intersections of the
+facility, as illustrated in Fig. 9. Seven edge processing units
+(GEEKOM Mini PC XT12 Pro, Intel i7-12650H, 32 GB
+RAM) run the Vehicle Detection Pipeline and can be assigned
+to different cameras depending on stream resolution and
+activity. The system operates in real time, with edge devices
+processing each video stream at approximately 20–29 FPS
+depending on scene activity (high activity corresponds to
+6–8 vehicles simultaneously within the ROI). The Mercabarna environment introduces challenging real-world conditions, including strong illumination variation across the day,
+weather changes, dense traffic, and frequent occlusions due
+to similar-looking forklifts and delivery vehicles as well as
+pedestrians crossing the road.
+47237
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+range reflects variability in crop counts across vehicles and
+streams, as well as load-dependent scheduling of the parallel
+feature extraction workers.
+For the Feature Extraction Component, we instantiated
+20 parallel processes on a 40-core Intel(R) Xeon(R) CPU
+E5-2640 v4 @ 2.40 GHz to sustain the aggregate crop
+throughput across cameras. A single Trajectory Reconstruction & Reidentification process was sufficient to handle the
+resulting stream of vehicle embeddings and maintain global
+trajectories across the full Mercabarna topology in real time.
+V. CONCLUSION
+
+FIGURE 9. Mercabarna multi-camera deployment. Numbered icons mark
+fixed cameras (1–26) and shaded triangles show their fields of view. LPR
+checkpoints (27) cover the right-side access corridors. Overlapping views
+secure cross-street junctions and the central thoroughfare between the
+main market halls, enabling robust handover for multi-camera vehicle
+tracking.
+
+On the edge side, the Vehicle Detection Pipeline has a peak
+RAM usage of 3.65 GB per stream under normal operation
+and up to 5.65 GB per stream in high-load situations.
+These peaks occur when vehicles remain visible for long
+durations, increasing the number of maintained track states
+and buffered trajectory information; in such cases, a practical
+trade-off to reduce high-load conditions is to randomly
+delete (subsample) stored crops per vehicle, bounding the
+per-vehicle crop buffer while minimally affecting the average
+embedding representation. After detection, vehicle events
+are forwarded to the Vehicle Feature Extraction stage,
+which applies YOLO-based refinement and computes the
+embedding used for cross-camera association. The feature
+extraction stage completes one vehicle event (i.e., refinement
+and embedding for all crops associated with that vehicle)
+in approximately 1–5 s depending on how long the vehicle
+is observed and therefore how many crops are processed,
+typically between 75 and 190 crops per vehicle. With an
+average inference time of approximately 34 ms per crop
+(YOLO refinement plus embedding extraction), the effective
+throughput is about 1/0.034 ≈ 29.4 crops/s, corresponding
+to an expected per-vehicle processing time of roughly
+2.4–5.8 s for 70–170 crops. In practice, the observed 1–5 s
+47238
+
+This work presented a modular, edge–fog multi-camera vehicle tracking system that decouples detection, feature embedding, and multi-source association to meet real-time constraints under limited compute. Deployed across 27 CCTV
+cameras with seven edge units sustaining 20–29 FPS, the
+architecture reduces bandwidth, keeps latency low, and scales
+by adding nodes per need. In this context, the system
+provides a practical foundation for deploying city-scale
+vehicle tracking systems that are efficient, accurate, and
+resilient, while remaining open to integration with the next
+generation of detection and association algorithms.
+The implementation deliberately prioritises efficiency
+and operational robustness on resource-constrained edge
+hardware. However, this design choice introduces a structural
+limitation. The reliance on traditional computer-vision-based
+detection and a highly tuned real-time tracking component
+makes the system closely adapted to the deployment scenario.
+While this improves stability and throughput, transferring the
+pipeline to substantially different environments (e.g., altered
+viewpoints, traffic density, or scene dynamics) may require
+non-trivial retuning.
+From a performance perspective, the ablation analysis
+revealed a clear component–metric relationship. Appearance
+representation is the primary driver of multi-camera association quality, directly impacting precision in cross-camera
+matching. In contrast, the tracking module largely governs
+identity fragmentation, reflected in the Uniqueness metric.
+Finally, the detection stage determines the precision–recall
+balance by controlling false positives and bounding-box
+consistency. These findings provide a principled roadmap for
+future improvements.
+Building on this foundation, several extensions offer
+a clear path to improved accuracy and robustness without sacrificing real-time performance. First, future work
+will focus on migrating the detection stage toward compact, quantized deep neural models. Replacing the current
+background-subtraction-based approach with lightweight
+quantized detectors would increase robustness to dynamic
+urban scenes while preserving real-time performance on
+the same edge hardware. More stable detections are
+expected to reduce downstream track fragmentation and
+improve both precision and Uniqueness without compromising throughput. Second, improving trajectory detection and cross-camera vehicle linking represents a central
+VOLUME 14, 2026
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+research direction. The ablation results demonstrate that
+spatial ordering constraints and travel-time feasibility windows are not merely efficiency heuristics but fundamental
+mechanisms for association correctness. Future extensions
+will therefore explore more expressive trajectory models
+that integrate topology priors, dynamic travel-time estimation, and probabilistic gating within a unified formulation. Finally, the re-identification head can be reinforced
+through more expressive metric-learning objectives and
+training strategies tailored to viewpoint variation and occlusion. Since appearance representation was identified as
+the principal driver of multi-camera association quality,
+improving embedding discriminability through stronger
+contrastive formulations and domain-adaptive augmentation
+is expected to yield measurable gains in cross-camera
+precision.
+Overall, the proposed system establishes a practical
+real-time baseline for edge-deployed MCVT. Its modular
+architecture enables targeted upgrades at the detector, tracker,
+or embedding level without architectural redesign. This
+preserves the efficiency principles of the edge–fog paradigm
+while providing a controlled and technically grounded path
+toward higher precision, stronger identity stability, and
+improved cross-domain transferability.
+REFERENCES
+[1] N. Wojke, A. Bewley, and D. Paulus, ‘‘Simple online and realtime tracking
+with a deep association metric,’’ in Proc. IEEE Int. Conf. Image Process.
+(ICIP), Sep. 2017, pp. 3645–3649.
+[2] T. Meinhardt, A. Kirillov, L. Leal-Taixe, and C. Feichtenhofer, ‘‘TrackFormer: Multi-object tracking with transformers,’’ in Proc. IEEE/CVF
+Conf. Comput. Vis. Pattern Recognit. (CVPR), Jun. 2022, pp. 8834–8844.
+[Online]. Available: https://ieeexplore.ieee.org/document/9879668
+[3] P. Sun, J. Cao, Y. Jiang, R. Zhang, E. Xie, Z. Yuan, C. Wang, and
+P. Luo, ‘‘TransTrack: Multiple object tracking with transformer,’’ 2020,
+arXiv:2012.15460.
+[4] C. Zhang, S. Zheng, H. Wu, Z. Gu, W. Sun, and L. Yang, ‘‘AttentionTrack:
+Multiple object tracking in traffic scenarios using features attention,’’ IEEE
+Trans. Intell. Transp. Syst., vol. 25, no. 2, pp. 1661–1674, Sep. 2023.
+[5] F. Zeng, B. Dong, T. Wang, C. Chen, X. Zhang, and Y. Wei, ‘‘MOTR:
+End-to-end multiple-object tracking with transformer,’’ in Proc. Eur. Conf.
+Comput. Vis. (ECCV) Workshops, 2021, pp. 659–675, doi: 10.1007/978-3031-19812-0_38.
+[6] Y. Zhang, P. Sun, Y. Jiang, D. Yu, F. Weng, Z. Yuan, P. Luo, W. Liu, and
+X. Wang, ‘‘Bytetrack: Multi-object tracking by associating every detection
+box,’’ in Proc. ECCV, 2022, pp. 1–21, doi: 10.1007/978-3-031-20047-2_1.
+[7] Z. Tang, M. Naphade, M.-Y. Liu, X. Yang, S. Birchfield, S. Wang, R.
+Kumar, D. Anastasiu, and J.-N. Hwang, ‘‘CityFlow: A city-scale benchmark for multi-target multi-camera vehicle tracking and re-identification,’’
+in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR),
+Jun. 2019, pp. 8789–8798. [Online]. Available: https://ieeexplore.ieee.org/
+document/8954347
+[8] X. Liu, W. Liu, H. Ma, and H. Fu, ‘‘Large-scale vehicle re-identification
+in urban surveillance videos,’’ in Proc. IEEE Int. Conf. Multimedia Expo
+(ICME), Jul. 2016, pp. 1–6. [Online]. Available: https://ieeexplore.ieee.
+org/document/7553002
+[9] A. Kanacı, X. Zhu, and S. Gong, ‘‘Vehicle re-identification in context,’’
+in Proc. Pattern Recognit. 40th German Conf., Stuttgart, Germany, 2019,
+pp. 377–390, doi: 10.1007/978-3-030-12939-2_26.
+[10] A. Niculescu-Mizil, D. Patel, and I. Melvin, ‘‘MCTR: Multi camera
+tracking transformer,’’ in Proc. IEEE/CVF Winter Conf. Appl. Comput.
+Vis. Workshops (WACVW), Feb. 2025, pp. 816–826. [Online]. Available:
+https://openaccess.thecvf.com/content/WACV2025W/RWS/papers/Nicule
+scu-Mizil_MCTR_Multi_Camera_Tracking_Transformer_WACVW_202
+5_paper.pdf
+VOLUME 14, 2026
+
+[11] A. Bewley, Z. Ge, L. Ott, F. Ramos, and B. Upcroft, ‘‘Simple online
+and realtime tracking,’’ in Proc. IEEE Int. Conf. Image Process. (ICIP),
+Sep. 2016, pp. 3464–3468, doi: 10.1109/ICIP.2016.7533003.
+[12] Y. Zhang, T. Wang, and X. Zhang, ‘‘MOTRv2: Bootstrapping endto-end multi-object tracking by pretrained object detectors,’’ in Proc.
+IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR), Jun. 2023,
+pp. 22056–22065, doi: 10.1109/CVPR52729.2023.02112.
+[13] C.-C. Cheng, M.-X. Qiu, C.-K. Chiang, and S.-H. Lai, ‘‘ReST: A
+reconfigurable spatial–temporal graph model for multi-camera multiobject tracking,’’ in Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV),
+Oct. 2023, pp. 10017–10026, doi: 10.1109/ICCV51070.2023.00922.
+[14] Y. He, X. Wei, X. Hong, W. Shi, and Y. Gong, ‘‘Multi-target multi-camera
+tracking by tracklet-to-target assignment,’’ IEEE Trans. Image Process.,
+vol. 29, pp. 5191–5205, 2020, doi: 10.1109/TIP.2020.2980070.
+[15] P. Khorramshahi, V. Shenoy, M. Pack, and R. Chellappa, ‘‘Scalable and
+real-time multi-camera vehicle detection, re-identification, and tracking,’’
+2022, arXiv:2204.07442.
+[16] O. Styles, T. Guha, and V. Sanchez, ‘‘Multi-camera trajectory forecasting
+with trajectory tensors,’’ IEEE Trans. Pattern Anal. Mach. Intell., vol. 44,
+no. 11, pp. 8482–8491, Nov. 2022, doi: 10.1109/TPAMI.2021.3107958.
+[17] M. Nikodem, M. Słabicki, T. Surmacz, P. Mrówka, and C. D. Ega,
+‘‘Multi-camera vehicle tracking using edge computing and low-power
+communication,’’ Sensors, vol. 20, no. 11, p. 3334, Jun. 2020.
+[18] Z. Li, W. Wang, H. Li, E. Xie, C. Sima, T. Lu, Y. Qiao, and J. Dai,
+‘‘Bevformer: Learning bird’s-eye-view representation from multi-camera
+images via spatiotemporal transformers,’’ in Proc. Eur. Conf. Comput. Vis.
+(ECCV), 2022, pp. 1–18, doi: 10.1007/978-3-031-20077-9_1.
+[19] Y. Liu, T. Wang, X. Zhang, and J. Sun, ‘‘Petr: Position embedding
+transformation for multi-view 3D object detection,’’ in Proc. Eur. Conf.
+Comput. Vis. (ECCV), 2022, pp. 531–548, doi: 10.1007/978-3-031-198120_31.
+[20] M. Ye, S. Chen, C. Li, W.-S. Zheng, D. Crandall, and B. Du, ‘‘Transformer
+for object re-identification: A survey,’’ Int. J. Comput. Vis., vol. 133, no. 5,
+pp. 2410–2440, May 2025, doi: 10.1007/s11263-024-02284-4.
+[21] A. Dosovitskiy, L. Beyer, A. Kolesnikov, D. Weissenborn, X. Zhai,
+T. Unterthiner, M. Dehghani, M. Minderer, G. Heigold, S. Gelly, J. Uszkoreit, and N. Houlsby, ‘‘An image is worth 16×16 words: Transformers for
+image recognition at scale,’’ 2020, arXiv:2010.11929.
+[22] S. He, H. Luo, P. Wang, F. Wang, H. Li, and W. Jiang, ‘‘TransReID: Transformer-based object re-identification,’’ in Proc. IEEE/CVF
+Int. Conf. Comput. Vis. (ICCV), Oct. 2021, pp. 14993–15002, doi:
+10.1109/ICCV48922.2021.01474.
+[23] H. Liu, Y. Tian, Y. Wang, L. Pang, and T. Huang, ‘‘Deep relative distance
+learning: Tell the difference between similar vehicles,’’ in Proc. IEEE Conf.
+Comput. Vis. Pattern Recognit. (CVPR), Jun. 2016, pp. 2167–2175, doi:
+10.1109/CVPR.2016.238.
+[24] J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. Fei-Fei, ‘‘ImageNet:
+A large-scale hierarchical image database,’’ in Proc. IEEE Conf. Comput.
+Vis. Pattern Recognit., Jun. 2009, pp. 248–255.
+[25] S. He, H. Luo, W. Chen, M. Zhang, Y. Zhang, F. Wang, H. Li, and W. Jiang,
+‘‘Multi-domain learning and identity mining for vehicle re-identification,’’
+2020, arXiv:2004.10547.
+[26] P. Khorramshahi, S. S. Rambhatla, and R. Chellappa, ‘‘Towards accurate
+visual and natural language-based vehicle retrieval systems,’’ in Proc.
+IEEE/CVF Conf. Comput. Vis. Pattern Recognit. Workshops (CVPRW),
+Jun. 2021, pp. 4178–4187, doi: 10.1109/CVPRW53098.2021.00472.
+[27] Z. Zheng, T. Ruan, Y. Wei, Y. Yang, and T. Mei, ‘‘VehicleNet:
+Learning robust visual representation for vehicle re-identification,’’
+IEEE Trans. Multimedia, vol. 23, pp. 2683–2693, 2021, doi:
+10.1109/TMM.2020.3014488.
+[28] H. Luo, P. Wang, Y. Xu, F. Ding, Y. Zhou, F. Wang, H. Li, and R. Jin, ‘‘Selfsupervised pre-training for transformer-based person re-identification,’’
+2021, arXiv:2111.12084.
+[29] M. Qiu, L. Ann Christopher, S. Chien, and L. Li, ‘‘Adaptive aspect ratios
+with patch-mixup-ViT-based vehicle ReID,’’ 2024, arXiv:2411.06297.
+[30] L. Bai and L. Rong, ‘‘Vehicle re-identification with multiple discriminative
+features based on non-local-attention block,’’ Sci. Rep., vol. 14, no. 1,
+pp. 1–13, Dec. 2024. [Online]. Available: https://www.nature.com/articles/
+s41598-024-82755-3
+[31] D. Li, S. Yang, X. Wang, Y. Qin, and H. Zhang, ‘‘Multi-branchfeature fusion super-resolution network,’’ Digit. Signal Process.,
+vol. 145, Feb. 2024, Art. no. 104332. [Online]. Available:
+https://www.sciencedirect.com/science/article/pii/S105120042300427X
+47239
+
+O. Alás et al.: Scalable Real-Time Multi-Camera Vehicle Tracking System for Urban Environments
+
+[32] UQTR. (May 2023). Forklift Dataset. [Online]. Available: https://universe.
+roboflow.com/uqtr-2v1ej/forklift-9rs9h
+[33] Pallette. (Aug. 2025). Forklift Dataset (Ugeoh-Zp1eq). [Online]. Available:
+https://universe.roboflow.com/pallette/forklift/dataset-ugeoh-zp1eq
+[34] Lynkeus03. (Jul. 2023). Vehicle-Detection Dataset. [Online]. Available:
+https://universe.roboflow.com/lynkeus03/vehicle-detection-by9xs
+[35] Lynkeus.(Jul. 2023). Vehicle-Detection Dataset. [Online]. Available: https:
+//universe.roboflow.com/lynkeus/vehicle-detection-mgjdd
+[36] (Jun. 2023). Intersection Dataset. [Online]. Available: https://universe.
+roboflow.com/thesis-8yadw/intersection-t5pp2
+[37] B. Wu, C. Xu, X. Dai, A. Wan, P. Zhang, Z. Yan, M. Tomizuka,
+J. Gonzalez, K. Keutzer, and P. Vajda, ‘‘Visual transformers: Tokenbased image representation and processing for computer vision,’’ 2020,
+arXiv:2006.03677.
+[38] J. Krause, J. Deng, M. Stark, and L. Fei-Fei, ‘‘3D object representations
+for fine-grained categorization,’’ in Proc. IEEE Int. Conf. Comput. Vis.
+Workshops, Sydney, NSW, Australia, Dec. 2013, pp. 554–561, doi:
+10.1109/ICCVW.2013.77.
+[39] Hugging Face Dataset. (2024). Tanganke/stanford/cars. [Online]. Available: https://huggingface.co/datasets/tanganke/stanford/cars
+[40] I. Erregue, K. Nasrollahi, and S. Escalera, ‘‘YOLO11-JDE: Fast and
+accurate multi-object tracking with self-supervised re-ID,’’ in Proc.
+IEEE/CVF Winter Conf. Appl. Comput. Vis. Workshops (WACVW),
+Feb. 2025, pp. 776–785, doi: 10.1109/WACVW65960.2025.00092.
+[41] N. Ha, Y. Liu, A. Benslimane, and M. Cheriet, ‘‘Tiny-pirate: A tiny
+model with parallelized intelligence for real-time analysis in traffic
+environments,’’ in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit.
+(CVPR) Workshops, Jun. 2021, pp. 2818–2827.
+
+ORIOL ALÁS received the B.Sc. and M.Sc.
+degrees in computer engineering from the
+Universitat de Lleida (UdL), Spain.
+He is currently a Researcher with the Applied
+Artificial Intelligence Unit, Eurecat, Technology
+Centre of Catalonia. His work spans computer
+vision and AI systems engineering, with current
+focus on multi-camera vehicle tracking, vehicle
+reidentification, object detection, and embedding
+models. He is also interested in edge/fog deployment and retrieval-augmented generation (RAG) for domain intelligence.
+He has contributed to real-world deployments and training activities on
+RAG and LLMs versus SLMs. His research interests include deep learning,
+machine learning, and NLP.
+
+47240
+
+RICARD CERVERA received the B.Sc. and M.Sc.
+degrees in computer engineering with a specialization in computing from the University of Lleida
+(UdL), Spain.
+He is currently a Researcher with the Applied
+Artificial Intelligence (AAI) Unit, Eurecat, with
+over six years of experience in the development of
+the IoT and full-stack software solutions, including
+both frontend and backend systems. His work
+focuses on the design and implementation of
+intelligent platforms for diverse domains, such as environment, industry, and
+water management. He has participated in various research and development
+projects, contributing to the integration of data-driven technologies, smart
+systems, and cloud-based architectures. His professional interests include
+distributed systems, software architecture, and the practical application of
+artificial intelligence in real-world scenarios.
+
+ROBERT SANFELIU received the B.Sc. and
+M.Sc. degrees in computer engineering from the
+University of Lleida (UdL), Spain.
+He is currently a Researcher with the Applied
+Artificial Intelligence (AAI) Unit, Eurecat, with
+over ten years of experience in software development across various platforms and programming
+languages. He has contributed to research and
+development projects in both academic and technological centers, focusing on the application
+of optimization techniques in domains such as water and workforce
+management. In recent years, his work has centered on the design and
+implementation of the IoT and data platforms using big data technologies
+for large-scale data acquisition and analysis. He has also applied rule-based
+reasoning systems to model expert knowledge and has taken part in hardware
+development projects, including the creation of a low-cost, low-power
+autonomous image capture systems.
+
+VOLUME 14, 2026
+
+

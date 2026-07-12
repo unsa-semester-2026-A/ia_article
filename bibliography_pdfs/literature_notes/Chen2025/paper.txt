@@ -1,0 +1,1018 @@
+IEEE TRANSACTIONS ON MULTIMEDIA, VOL. 27, 2025
+
+5387
+
+ArbiTrack: A Novel Multi-Object Tracking
+Framework for a Moving AAV to Detect and
+Track Arbitrarily Oriented Targets
+Yuqing Chen , Jiayu Wang, Qianchen Zhou, and Huosheng Hu , Life Senior Member, IEEE
+
+Abstract—The operation of traditional multi-object trackers on
+a moving autonomous aerial vehicle (AAV) faces many difficulties
+due to the irregular motion of AAV, the occlusion problem,
+and in particular arbitrarily oriented targets that are densely
+distributed with complex backgrounds. To solve these difficulties,
+this paper proposes a novel multi-object tracking framework,
+namely ArbiTrack, for a moving AAV to effectively detect and
+track arbitrarily oriented targets on the grounds. The proposed
+framework consists of an oriented object detection module to
+capture ground objects, a multi-scale context aggregation (MCA)
+module to improve the detection accuracy of small objects, and an
+adaptive motion switching (AMS) module to deal with the nonlinear
+complexity among AAV and ground objects. Historical information
+from multiple moments is used in this framework to learn the
+spatio-temporal characteristics so that the occlusion problem can
+be solved effectively. Experiments are conducted by using our
+OriDrone dataset and the public dataset UAVDT dataset. Results
+demonstrate that the proposed method achieves state-of-the-art
+tracking performance.
+Index Terms—Multi-object tracking, multi-scale context aggregation, oriented object detection, spatio-temporal evolutionary
+memory, AAV.
+
+I. INTRODUCTION
+ITH the rapid development of computer vision and sensor technologies, multi-object tracking (MOT) technology shows great potential in many application scenarios, such
+as intelligent surveillance [1], autonomous driving [2], and advanced video analytics [3]. Tracking by detection (TBD) [4], [5],
+is currently the mainstream tracking paradigm for MOT, aiming to accurately detect objects of interest from video sequences
+and obtain the corresponding motion trajectories based on the
+temporal and spatial information or the visual features of the
+video data. In recent years, it has attracted the attention of many
+
+W
+
+Received 3 February 2024; revised 31 August 2024 and 6 December 2024;
+accepted 13 December 2024. Date of publication 17 February 2025; date of
+current version 27 August 2025. This work was supported by the National Natural Science Foundation of China under Grant 61203082. The associate editor
+coordinating the review of this article and approving it for publication was Dr.
+Yu Kong. (Corresponding author: Yuqing Chen.)
+Yuqing Chen, Jiayu Wang, and Qianchen Zhou are with the Department of Automation, College of Marine Electrical Engineering, Dalian
+Maritime University, Dalian 116026, China (e-mail: chen@dlmu.edu.cn; jiayu_wang2804@163.com; zqc18768006620@163.com).
+Huosheng Hu is with the School of Computer Science and Electronic Engineering, University of Essex, CO43SQ Colchester, U.K. (e-mail:
+hhu@essex.ac.uk).
+Digital Object Identifier 10.1109/TMM.2025.3543018
+
+researchers [6], [7], [8], [9] due to the high maneuverability and
+flexibility of Autonomous Aerial Vehicles (AAV) [10], [11].
+Traditional MOT algorithms can effectively detect and track
+multiple objects in the video captured by fixed or static cameras
+and show impressive performance. However, they have many
+challenges to manage multi-object tracking for a moving AAV.
+UAVMOT [12] addresses that in the detection phase, a new
+gradient balanced focal loss to supervise the learning of object
+heat map (GBF loss) is proposed to address the impact on target
+detection accuracy due to the high flight altitude of the AAV
+and the fact that most of the targets in its viewpoint are small.
+In the tracking phase, a local relational filter is designed to cope
+with the frequent ID switching due to the irregular motion of the
+target triggered by the superposition of the camera motion due
+to the movement of the AAV camera. However, the limitation
+of the local relational filter is that the number of targets and
+related positions in the adjacent two frames do not change, but
+in the actual AAV flight situation, special circumstances such as
+occlusion will often occur resulting in the change of the number
+of targets and related positions in the adjacent two frames, which
+leads to the failure of the local relational filter.
+In the detection stage, the object image captured from a moving AAV is usually non-axial, arbitrary direction, densely distributed, and complex background. The traditional object detection model focuses on upright or axially symmetrical objects.
+The rectangular bounding box predicted by the traditional object detection model cannot accurately describe the shape of the
+object and may lead to inaccurate positioning or misjudgment.
+Furthermore, AAVs fly at high altitudes, and the object in their
+view is small. In the tracking stage, the object motion state observed by an AAVs is complex and nonlinear, which consists of
+the motion states of AAV and ground objects. The traditional
+Kalman filter cannot be used here for motion modeling.
+However, the methods mentioned above have some limitations. In this paper, we propose a novel multi-object tracking
+framework for a moving AAV to effectively detect and track
+arbitrarily oriented targets, which is called ArbiTrack. To accurately characterize the shape and position of an arbitrarily
+oriented object, Oriented RepPoints [13] is used as a detector
+in our tracking network, which can capture geometrical information of an arbitrarily oriented object from a moving AAV. It
+can provide orientation information in addition to the traditional
+appearance and motion cues for the subsequent data correlation
+stage. The oriented object detection algorithm is to replace the
+
+1520-9210 © 2025 IEEE. All rights reserved, including rights for text and data mining, and training of artificial intelligence and similar technologies.
+Personal use is permitted, but republication/redistribution requires IEEE permission. See https://www.ieee.org/publications/rights/index.html for more information.
+
+Authorized licensed use limited to: University of Pittsburgh. Downloaded on July 07,2026 at 16:41:24 UTC from IEEE Xplore. Restrictions apply.
+
+5388
+
+IEEE TRANSACTIONS ON MULTIMEDIA, VOL. 27, 2025
+
+traditional detection algorithm in MOT tasks. To improve the detection of small-scale objects, we construct a multi-scale context
+aggregation module (MCA) to fully utilize the contextual information and expand the sensory field, which helps us to capture
+fine-grained features effectively.
+To solve the problem of inaccurate motion estimation due to
+the irregular motion of AAVs, we propose an Adaptive Motion
+Switching (AMS) module based on motion state feedback. It can
+adaptively select different motion estimation filters according to
+the different motion modes of the AAV to provide accurate motion information for the tracker. Moreover, it can significantly
+improve tracking in complex variable-speed scenarios, while
+maintaining high tracking accuracy relative to static scenarios.
+In addition, to solve the problem of prolonged complete occlusion that occurs during AAV tracking, a Spatio-temporal Evolutionary Memory (SEM) tracking algorithm is created based on
+Convolutional Gated Recurrent Unit (ConvGRU) [14], which
+combines the object’s historical positional and motion information to learn its spatiotemporal characteristics, and models its
+spatio-temporal evolution to guide the localization and correlation of the objects in the input video sequences.
+Since the bounding box obtained by the oriented object detector carries orientation information, its labeling differs from that
+of the traditional bounding box and the existing dataset cannot
+meet the requirements. Therefore, we built our oriented object
+dataset, OriDrone. Then, our algorithm is evaluated by conducting experiments on OriDrone and the public dataset UAVDT
+[15]. The main contributions of this article are summarized as
+follows:
+r An MCA module is constructed to aggregate local and
+global contextual information, enhancing the feature representation of small-scale objects. An oriented object detector, unlike the traditional non-oriented rectangular bounding boxes, is employed to capture objects from the AAV
+perspective. This detector is not constrained to only upright
+or axially symmetrical objects but is adaptable to targets
+of any orientation and shape.
+r An AMS module is developed to switch motion estimation
+filters according to different motion modes of AAV, which
+can provide accurate motion information for the tracker;
+r A SEM tracking algorithm is designed to model the spatiotemporal evolution of the object and to guide the localization and association of objects in the input video sequences,
+addressing the issue of occlusion from the AAV perspective. Thus, the number of objects and their relative positions
+can vary between adjacent frames.
+r A dataset OriDrone is constructed for oriented object tracking of a moving AAV in many different scenarios. Different
+from the existed AAV-based datasets, its bounding boxes
+are labeled with an orientation, which can significantly contribute to developing oriented object detection algorithms
+in MOT.
+The rest of the paper is organized as follows. Section II reviews some related research work on the detection and tracking
+framework and then discuss the approach taken in the data association stage. In Section III, the main framework of ArbiTrack
+is first described and then three key modules are described: the
+
+multi-scale context aggregation network, the adaptive velocity
+estimation module, and the data association method for learning
+spatio-temporal features of the object by combining the entire
+history information of the object. Experiments are conducted in
+Section IV to verify the feasibility and performance of the proposed framework. Finally, a brief conclusion and future work
+are given in Section V.
+II. RELATED WORK
+A. Tracking-by-Detection
+The tracking by detection (TBD) paradigm divides the MOT
+task into three stages: object detection, feature extraction, and
+data association [16]. Specifically, the tracker in the TBD
+paradigm associates objects detected in different video frames
+with existing trajectories according to their similarity or initializes a new trajectory to deal with the list of emerging objects.
+The early MOT algorithm SORT [17] used Faster RCNN [18]
+as the object detection model, Kalman filter (KF) [19] for object
+trajectory prediction and Hungarian Algorithm [20] for object
+and trajectory matching. It has real-time performance, but no be
+able to solve practical problems due to the frequent switching
+of object and trajectory during tracking.
+Subsequently, Wojke et al. proposed the Deep Sort algorithm
+[21] based on SORT, which used the Re-identification Network
+(Re-ID) to obtain the appearance information for data matching.
+They proposed the idea of cascade matching further to improve
+the accuracy of the algorithm tracking and matching. Lee et al.
+[22] designed a ReID network combined with Feature Pyramid
+Network (FPN) [23] to enrich the obtained information by fusing different levels of features. Sun et al. [24] proposed a deep
+affinity network for estimating object embeddings and predicting affinities between objects. These trackers performed well in
+crowded scenes and have good tracking accuracy.
+To balance the accuracy and speed requirements of MOT, researchers began to propose a single-stage MOT algorithm. The
+main framework of the single-stage MOT algorithm was to add
+an embedded vector to the head of the detector for ReID learning
+and later data association. For example, JDE [25] first extracted
+feature vectors from the feature mapping of YOLOv3 [26] and
+applied automatic balance loss [27] to balance the importance of
+classification, regression, and Re-ID in the network. JDE was the
+first real-time single-stage MOT tracker, but its tracking accuracy of JDE does not show a significant advantage in comparison
+with the previous two-stage method.
+Based on the anchor-free detector CenterNet [28], Zhang et al.
+[29] added the learning of embedded vectors to form the FairMOT Multi-object tracker, which balances the detection and
+Re-ID tasks by learning low-dimensional Re-ID features. At
+the same time, it effectively reduced the risk of over-fitting and
+achieves good accuracy and speed. CenterTrack [30] directly
+predicted the displacement of the center point of the object. It
+can simultaneously predict the position of the object and ReID
+learning in a unified network, avoiding many repeated calculations, thus improving the tracking speed. These methods were
+based on traditional object detectors and focused on vertical or
+axial objects from fixed cameras to achieve good tracking results.
+
+Authorized licensed use limited to: University of Pittsburgh. Downloaded on July 07,2026 at 16:41:24 UTC from IEEE Xplore. Restrictions apply.
+
+CHEN et al.: ARBITRACK: A NOVEL MOT FRAMEWORK FOR A MOVING AAV TO DETECT AND TRACK ARBITRARILY ORIENTED TARGETS
+
+However, non-axial objects are densely distributed in aerial images with the complex background, which will bring difficulties
+in object detection and thus affect the tracking effect.
+The thermal infrared target tracking is also investigated in recent years and it is not affected by illumination changes to track
+targets in some extreme weather [31]. There are many thermal infrared tracking methods are widely used, such as machine learning, Siamese Network, discriminative prediction model, multimodal tracks. Although some progress has been made, thermal
+infrared target tracking still faces many unresolved challenges,
+e.g., similarity interference, intensity change, deformation, occlusion.
+Tracking in the AAV scenarios is one of the main components
+of target-tracking tasks. Apart from the aforementioned methods, Yuan et al. recently proposed ASTCA [32]. This approach
+used spatial-temporal context to improve the tracking robustness in AAV scenarios. While it is effective for object detection
+in small-scale and occlusion-heavy scenes, it focuses primarily
+on correlation filtering and lacks a mechanism to handle highly
+nonlinear motion patterns resulting from AAV maneuvers.
+Therefore, this paper introduces an oriented object detector to
+obtain an accurate object box, which can provide a better object
+description and a more accurate initial tracking result, thereby
+improving the overall tracking performance.
+
+5389
+
+matching and is often used to deal with occlusion problems.
+However, appearance features are often unreliable, such as motion blur, occlusion, and objects with high appearance similarity.
+Recently, as the transformer has demonstrated its power in
+many computer vision tasks, several researchers [41], [42] have
+attempted to utilize it for MOT tasks. In the transformer-based
+MOT methodology each tracked object’s ID features and geometric features were treated as a query propagated between
+frames. For example, Sun et al. proposed TransTrack [35] based
+on DETR [43]. This was the first time that the transformer technique was applied to MOT. TransTrack used IOU to match detection and track boxes from two decoders. Meinhardt et al. [41]
+proposed a tracking query that can follow changes in the object’s
+position, but the information came only from the previous frame
+of the image.
+A significant limitation of these methods is that they are entirely independent of the previous history and only refer to the
+previous frame for data correlation. Our proposed SEM tracking module uses ConvGRU [14] to combine the entire history
+of the object with learning the spatio-temporal characteristics
+of the object and modeling its spatio-temporal evolution, thus
+predicting both partially and fully occluded object locations and
+obtaining a more reliable similarity metric.
+III. METHODOLOGY
+
+B. Data Association
+Data association [33] is a crucial step in MOT, especially in
+the TBD paradigm. It associates objects detected in different
+frames and assigns a unique ID number to each object based on
+the similarity between the trajectory and the detection frame.
+Data association follows two key cues: motion laws and object features. The object motion laws are commonly used in
+close-range matching and are characterized using position and
+motion similarity. Traditional methods [17], [21], [34] mostly
+used conventional Kalman filters to estimate object position and
+motion information. Some recent approaches [35], [36], [37]
+obtained better results with camera motion or low frame rates
+by designing neural networks to learn object motion.
+Nonetheless, the methods discussed previously exhibit certain
+constraints when viewed from the context of AAV As the object
+motion law is the composition of the motion states of AAV and
+ground objects, the traditional Kalman filter cannot accurately
+estimate such a complex nonlinear motion. At the same time,
+learning object motion through a neural network could bring a
+non-negligible computational burden to the tracking network.
+The AMS module designed in this paper can accurately estimate the motion of the object without introducing a new neural
+network.
+For object appearance, similar to the ReID task [37], most
+methods extracted the Re-ID features of each object and measured the appearance similarity by the cosine similarity of the
+Re-ID features to distinguish different objects. For example,
+MOTDT [39] first used appearance similarity to match and then
+uses IoU similarity to match unmatched trajectories. QDTrack
+[40] converts appearance similarity into probability by bidirectional softmax operation and uses nearest neighbor search to
+complete matching. Appearance similarity is helpful for remote
+
+The main framework of ArbiTrack is first described in
+Section A. The proposed ArbiTrack consists of three key modules: the multi-scale context aggregation network constructed
+in Section B, the adaptive velocity estimation module designed
+in Section C, and the data association method for learning
+spatio-temporal features of the object by combining the entire
+history information of the object as described in Section D.
+A. Overall Framework
+In this paper, deformable convolution is used to obtain the set
+of adaptive points as a fine-grained representation in Oriented
+RepPoints. The detector can capture the critical geometric features of arbitrary direction, clutter, and non-axis aligned objects
+and proposes an effective method to learn high-quality adaptive points. In the architecture of ArbiTrack Network, shown in
+Fig. 1, the video sequences from the AAV perspective are used
+as inputs, and the features are extracted through the backbone
+network. To obtain richer context information to enhance the
+ability of small object detection, an MCA module is constructed
+to replace the feature pyramid structure (FPN) in the original
+detector.
+After passing the detection head, the ID feature map is obtained, and the position of each object in the current frame and
+the angle of the bounding box are encoded. Subsequently, an
+adaptive motion switching module (AMS) is designed to accurately estimate the complex motion of the object from the
+perspective of the AAV. Finally, three components (the ID feature maps corresponding to each time step, the motion information obtained by the AMS module, and the history state of the
+previous frame) are input into the Spatio-Temporal Evolution
+Memory (SEM) module to model its spatio-temporal evolution
+to cope with the long-time occlusion problem.
+
+Authorized licensed use limited to: University of Pittsburgh. Downloaded on July 07,2026 at 16:41:24 UTC from IEEE Xplore. Restrictions apply.
+
+5390
+
+IEEE TRANSACTIONS ON MULTIMEDIA, VOL. 27, 2025
+
+Fig. 1.
+
+Architecture of ArbiTrack network.
+
+In MCA, the multiscale feature maps C2 , C3 , C4 , and C5 are
+the module’s inputs which are outputs from the backbone network stage2, stage3, stage4, and stage5. After top-down feature
+aggregation, Cross Attention modules are designed to obtained
+local context information. F2 and F4 are reshaped to the same
+size as F3 , and then the transpose of F2 is multiplied by F3 ,
+while multiplying F3 with the transpose of F4 in another branch.
+Then the cross-relation weight maps WF2 and WF4 are calculated
+through the softmax as follows:
+WFxyn = 
+Fig. 2.
+
+Architecture of MCA module.
+
+B. Multi-Scale Context Aggregation
+The object image captured by a moving AAV is small due
+to its wide field of view and high altitude. The existing Feature
+Pyramid Network (FPN) is a valid solution to the problem of
+small object detection. It manages multi-scale object detection
+tasks by assigning different scale instances to various levels of
+feature layers. However, this network may have the problem of
+misassigning instances of similar sizes to various levels. Furthermore, the importance of features may not be strongly correlated
+with the level to which they belong, and the detecting loses the
+opportunity to gather more diverse information at a single feature level. Meanwhile, the multiple branches in FPN increase
+the computational cost and leads to substantial runtime delays.
+In this paper, a multi-scale context aggregation method is designed to deal with the problem of object-scale variation and
+small object detection from the perspective of AAV. The proposed MCA uses cross-attention to capture local contextual information from neighboring feature layers and global average
+pooling to obtain global contextual feature vectors. Therefore,
+it aggregates local and global contextual information from multiple scales to generate features more conducive to identifying
+small objects. Inspired by [44], [45], fusion factors are used to
+weigh different input features according to their importance in
+this method, and the differentiated fusion of these features can
+deal with the multi-scale variation. The network structure of
+MCA is shown in Fig. 2.
+
+exp(Fnx · F3y )
+y , n = 2, 4
+x
+x=1 exp(Fn · F3 )
+
+(1)
+
+whereFnx and F3y denote the x-th and y-th channels of Fn or F3 ,
+respectively. WFxyn represents the element of WFn at the position
+(x, y), which expresses the correlation between the x-th channel
+of Fn and the y-th channel of F3 .
+i
+(i = 2, 3, 4, 5) are outputs separately in tradiFinally, Cout
+tional FPN. Unlike this, fusion factors are introduced to adapt
+and fuse features from different layers in our MCA, as shown in
+the following equation:
+Cout
+= Conv
+
+
+
+
+w1 · C2out + w2 · C3out + w3 · C4out + w4 · C5out
+w1 + w2 + w3 + w4 + 
+(2)
+
+whereCout is the final output feature, wi (i = 12,34) are
+the learnable weights and satisfies 0 ≤ wi ≤ 1.  is a small
+value to avoid numerical instability and is usually taken to be
+0.0001, and Conv is usually a convolution operation for feature
+processing.
+As the network deepens, the features of small objects will
+be lost. We believe that localized information around the object
+is beneficial for small object detection, like a small object on
+the surface of the water with a high probability of being a boat.
+Therefore, cross-attention is used to capture the local context
+information between neighboring layers. After that, the global
+context feature vector by applying a global average pooling on
+the C5 feature map. Finally, the four generated feature maps are
+aggregated. By using local and global contextual information,
+MCA effectively improves the representation of feature maps,
+
+Authorized licensed use limited to: University of Pittsburgh. Downloaded on July 07,2026 at 16:41:24 UTC from IEEE Xplore. Restrictions apply.
+
+CHEN et al.: ARBITRACK: A NOVEL MOT FRAMEWORK FOR A MOVING AAV TO DETECT AND TRACK ARBITRARILY ORIENTED TARGETS
+
+Fig. 3.
+
+Architecture of AMS module.
+
+which is more conducive to coping with scale variations and
+small object detection problems. Unlike traditional FPN, MCA
+only output the fused features that combine all the levels for
+subsequent prediction and no longer need to detect the different
+feature layers separately.
+C. Adaptive Motion Switching Module
+When the camera is fixed on a moving AAV, its motion brings
+new challenges to the multi-object tracking algorithms as the
+motion of ground objects is not a simple linear motion but a
+nonlinear motion against the motion states of AAV. The traditional Kalman filter gives the minimum error covariance estimation based on all available observations at the current time step
+under linear motion. Therefore, the traditional Kalman filter is
+difficult to deal with this complex superposition motion caused
+by AAV motion. A novel AMS module is proposed, which is
+shown in Fig. 3.
+Motion Mode Selection: According to the linear-nonlinear
+characters of the motion, the motion state can be categorized
+into two types: normal mode and abnormal mode.
+r Normal motion mode: If the AAV flies smoothly in the air at
+a fixed speed, or the object’s speed does not vary suddenly,
+the motion of the object can be regarded as approximately
+linear motion. This case can be seen as normal motion
+mode.
+r Abnormal motion mode: if the AAV is droved at a varied
+speed, such as sudden acceleration, the motion of ground
+objects shows a complex nonlinear motion from the perspective of the AAV. This case can be seen as abnormal
+motion mode.
+To deal with these two modes, an acceleration threshold τ a
+is presented. When the acceleration of the tracked object is less
+than τ a, it is considered that the motion state does not change
+drastically and is in the normal mode, and vice versa. Then,
+Kalman filtering (KF) and Unscented Kalman Filtering (UKF
+[46]) are employed in the normal mode and abnormal mode to
+estimate the motion states of the tracked objects, respectively,
+as shown in Algorithm1.
+
+5391
+
+Algorithm 1: Adaptive Motion Switching Algorithm.
+Input: Kalman Filter KF; Unscented Kalman Filter
+UKF; Acceleration threshold τ a; The set of tracked
+objects T in each frame of AAV video
+Output: the velocity and acceleration of the tracked
+object{v, a}
+/∗Motion mode judgment, using different Kalman
+filters to estimate the motion information of tracked
+objects∗/
+1: for t int T do
+//For each tracked object t int set T
+2: if t.a < τ a then
+//normal mode
+3:
+t←KF(t)
+4: else
+//abnormal mode
+5:
+t←UKF(t)
+6: end if
+7: end for
+8: return{v, a}
+//Output motion information{v, a}
+of tracked objects
+
+D. Spatio-Temporal Evolutionary Memory
+In aerial imagery, the trajectories of the tracked objects are
+usually complex and irregular and may sometime be obscured
+by the other objects. For this situation, most traditional MOT
+algorithms are difficult to deal with these complex trajectories
+and occlusion problems, resulting a non-continuous and unstable tracking behavior. Currently, more spatio-temporal feature
+is helpful. Therefore, the spatio-temporal feature extraction is
+the key to solving the problem for the tracked objects in our
+ArbiTrack.
+GRU [47] is a gated recurrent neural network and exhibits
+good memory performance but with lower memory requirements compared to LSTM [48]. It has the advantage of being
+adaptive and capable of modeling non-fixed-length time series.
+In the basic structure of GRU, a reset gate and an update gate are
+designed, and the reset gate can control the degree of forgetting
+of historical information, while the update gate can control the
+retention of current information.
+In SEM, ConvGRU [14] was used in the tracker part. It is an
+extension of classical GRU, which replaces 1D state vectors with
+2D feature maps and uses convolution to compute a fully connected layer of state updates. At each time step t, the corresponding detector outputs ID feature map IDFt , which was then passed
+to the ConvGRU with the previous state St-1 . Different from the
+method in [49], the output motion information (v, a) of AMS
+was inputted into the ConvGRU as a matrix Mt. It guides the
+object position prediction of the ConvGRU. Consequently, the
+state update can be expressed as St = GRU (St−1 , IDFt , Mt ).
+The state matrix St includes the positions of the multiple objects
+{O1 , O2 , . . . . . .} observed in time series {1, 2, . . . .., t}.
+Specifically, the detector transmits the position, orientation,
+and their confidence value of each detected object to the tracker.
+The position is represented by an Oriented RepPoints point set,
+the orientation is the rotation angle of the object’s bounding box,
+and the confidence value is the probability that the object is a
+
+Authorized licensed use limited to: University of Pittsburgh. Downloaded on July 07,2026 at 16:41:24 UTC from IEEE Xplore. Restrictions apply.
+
+5392
+
+IEEE TRANSACTIONS ON MULTIMEDIA, VOL. 27, 2025
+
+natural object. Motion information can be used in ConvGRU,
+and the tracking accuracy and robustness are improved. Thus, in
+SEM tracker network, the previous historical information is used
+to learn the spatio-temporal characteristics of the object, model
+its spatio-temporal evolution, and guide the localization and association of objects in the input video sequence. In addition, it
+can predict the location of objects seen in the past but currently
+occluded. When they reappear, they can still be matched into the
+original tracking trajectory again.
+To learn the spatio-temporal features of objects, L1 loss is
+used as the location prediction loss Lt in the tracker network, as
+follows:
+Lt =
+
+N
+
+1   t
+pi − y 
+N i=1
+
+(3)
+
+where pti is the center point coordinate of object Oi at moment t
+as predicted by the tracker based on historical information, and
+y is the valid center point coordinate of that object.
+Matching algorithms: With a sufficiently accurate prediction
+of the object location, inspired by [30], a simple greedy matching
+algorithm is constructed. The algorithm idea is shown below:
+⎧
+⎨ (x − x )2 + (y − y )2 ≤ k Trajectory association
+1
+2
+1
+2
+⎩ (x − x )2 + (y − y )2 > k Trajectory creation
+1
+
+2
+
+√
+k=
+
+1
+
+2
+
+(4)
+w 2 + h2
+2
+
+(5)
+
+where (x1 , y1 ) is the center position of the object predicted by
+the tracker, and (x2 , y2 ) is that detected by the detector in the
+current frame. Threshold k is computed from the width and the
+height of the object’s bounding box.
+If there is corresponding prediction within a radius k for the
+tracker, the predicted position is greedily associated with the
+closest detected position. Otherwise, a new trajectory is generated. The simplicity of this greedy matching algorithm once
+again highlights the advantages of our tracker. Simple position
+prediction is enough to link objects across time. No complex
+feature distance measurement or feature similarity matching is
+required.
+When the object is occluded, the ConvGRU prediction is directly stored in the state matrix S, which is used as the tracking
+result to predict the object position of the next frame. The object’s position and orientation are saved if it is occluded in the
+previous frame. When the object is recaptured by the detector
+near the center position of the object predicted by the tracker, the
+current detection result is checked for match with the ConvGRU
+prediction. Firstly, the distance to the center coordinate position
+is judged. Then, the probability of bounding-box matching is
+reflected using similarity Qcor :
+Qcor = Ft (bj , bt )
+
+(6)
+
+where Ft denotes the CIoU between the detection box bj and
+the tracker’s prediction box bt . The CIoU improves the accuracy
+and robustness of the matching task by considering the bounding
+
+box’s aspect ratio instead of judging its similarity based on the
+overlap area alone in IoU function.
+IV. EXPERIMENTS
+A. Datasets and Metrics
+Datasets: To validate the effectiveness of ArbiTrack, we conducted a series of experiments on our self-built OriDrone dataset
+and the public UAVDT dataset [15].
+The annotation method for our OriDrone dataset was different from the existing AAV tracking datasets. Since ArbiTrack
+introduced the oriented object detection algorithm as a detector, a novel AAV-tracking dataset was required with the oriented object box annotation. The object tracking dataset was
+collected based on the DJI Spirit AAV Phantom 4 Pro, equipped
+with a 20-million-pixel CMOS camera. Many tracking experiments were conducted under different road conditions, different
+heights, and different AAV-speed and abundant object tracking
+data was obtained from the perspective of the AAV. The video
+resolution of the camera was 1280 × 720 and specialized for
+vehicle objects. In MOT task, it was divided into a training set
+(30 sequences) and a test set (10 sequences) consisting of various common scenarios, including parking lots, intersections,
+and viaducts. Each object was annotated by an oriented bounding box, category, and tracking ID in each frame.
+The public UAVDT dataset is dedicated to vehicle detection
+and tracking, which consists of three categories: cars, trucks, and
+buses. It is divided into a training set (30 sequences) and a test
+set (20 sequences). The resolution of the video is 1080 × 540,
+including various familiar scenes such as squares, main streets,
+and toll stations.
+Metrics: To comprehensively evaluate ArbiTrack with other
+state-of-the-art methods, several metrics were used to evaluate
+the performance of tracking [50], such as multi-object tracking
+accuracy (MOTA), Multi-object tracking precision (MOTP), ID
+switching (IDs). MOTA was the most critical metric. MOTA
+considered various errors in the tracking process as defined below:
+MOTA = 1 −
+
+FN + FP + IDs
+GT
+
+(7)
+
+B. Implementation Details
+Training: In the detector part, the original settings of Oriented
+RepPoints are maintained. Here, we provided hyperparameter
+values about the tracker network referring to [48], ConvGRU
+had a feature dimension of 256 and used 7 × 7 convolutions.
+Sequences of captured video frames were used to train the network. Specifically, they were divided into segments at a fixed
+time step and labeled to obtain the information sequences of the
+bounding boxes, which was used for training. The Adam optimizer was used to train the model for 30 epochs with a batch
+size 6 on information sequences. The learning rate was set to
+1.25e-4, which was decayed by a factor of 10 at 10 epochs and
+20 at 20 epochs, respectively. The ArbiTrack was trained and
+evaluated on a single GeForce RTX 3090 GPU.
+
+Authorized licensed use limited to: University of Pittsburgh. Downloaded on July 07,2026 at 16:41:24 UTC from IEEE Xplore. Restrictions apply.
+
+CHEN et al.: ARBITRACK: A NOVEL MOT FRAMEWORK FOR A MOVING AAV TO DETECT AND TRACK ARBITRARILY ORIENTED TARGETS
+
+5393
+
+TABLE I
+QUANTITATIVE COMPARISON OF ARBITRACK WITH OTHER METHODS ON THE ORIDRONE TEST SET
+
+TABLE II
+QUANTITATIVE COMPARISON OF ARBITRACK WITH OTHER METHODS ON THE UAVDT TEST SET
+
+C. Comparison With State-of-the-Arts
+OriDrone dataset: Due to the specificity of our dataset, the
+representation of its object boxes is oriented and different from
+the representation of regular rectangular object boxes. To obtain more unbiased results, our dataset was labeled with normal
+object boxes to facilitate the training of other methods. Then,
+we compared it with the existing methods in the test set of our
+dataset. The results of our method evaluated on the dataset are
+shown in Table I , where our method achieved 44.6% in MOTA
+and 56.9% in IDF1. ArbiTrack surpasses the previously representative tracker FairMOT [29] by 2.4% on MOTA and 2.1%
+on IDF1. Compared to TrackFormer [41], a tracker using transform, our method outperforms it by 6.7% on MOTA and 11.7%
+on IDF1. Meanwhile, ArbiTrack outperformed other trackers on
+IDs, showing that our method achieved better tracking performance in the face of the complexity of the AAV view. In addition,
+our tracker also achieved the best result on MT, demonstrating
+the high completeness of the tracking trajectory of our method
+and proving its strong robustness.
+UAVDT dataset: To further validate the effectiveness of our
+ArbiTrack, we compared ArbiTrack to other methods on the
+UAVDT test set for MOT task. We relabeled the training set
+of the UAVDT so that it could be used to train our network.
+The results of our method evaluated on the dataset are shown
+
+TABLE III
+ABLATION EXPERIMENTS ON THE ORIDRONE TEST SET
+
+in Table II, our method achieved 47.6% on MOTA and 67.4%
+on IDF1. ArbiTrack outperformed the previous most representative tracker FairMOT by 2.7% on MOTA and 6.5% higher on
+IDF1. It also outperformed other trackers on IDs, showing that
+our method can effectively reduce ID switching and has better
+robustness in complex scenarios.
+D. Ablation Study
+A series of ablation experiments were conducted in the
+OriDrone test set to validate the effectiveness of each module in
+our approach. In the ablation experiments, Oriented RepPoints
+and Sort were used as baseline models, and Resnet50 was used
+as the backbone network.
+As shown in Table III, AMS employs KF and UKF to estimate
+the motion state of the tracked target in different motion modes,
+
+Authorized licensed use limited to: University of Pittsburgh. Downloaded on July 07,2026 at 16:41:24 UTC from IEEE Xplore. Restrictions apply.
+
+5394
+
+IEEE TRANSACTIONS ON MULTIMEDIA, VOL. 27, 2025
+
+TABLE IV
+ABLATION EXPERIMENTS ON THE ORIDRONE TEST SET
+
+respectively. We report three key metrics for each module in
+the test set. Using our AMS module on MOTA is 44.6%, IDs
+are 786, and FPS is 10. When the motion state estimator uses
+the KF module, MOTA decreases to 43.2%, IDs become 1340,
+and FPS improves to 12. When the motion state estimator uses
+the UKF module, MOTA improves to 44.8%, IDs become 563,
+and FPS decreases to 5. Although the FPS (frames per second)
+using the KF module as the motion estimation module is the
+highest at 12 FPS, indicating fast processing speed; however, it
+has the lowest MOTA (multi-target tracking accuracy) at 43.2%
+and the highest number of ID switches at 1340. This indicates
+that the KF module, although fast, performs poorly in terms of
+tracking accuracy and stability. The UKF module, when used as
+a motion estimation module, has the best performance in MOTA
+and the least number of ID switches, but it has the lowest FPS
+of 5FPS, which is slow in processing speed. The AMS module
+ensures high tracking accuracy while taking into account the
+processing speed and tracking stability, thus providing a better
+balance between performance and speed. This makes it ideal
+for use in processing complex motion estimation, especially in
+AAV application scenarios where both real-time and accuracy
+need to be considered.
+As shown in Table IV, ArbiTrack contains three core components: the MCA module, the AMS module, and the SEM tracking
+algorithm. Three critical metrics are shown for each module in
+the test set. The baseline model is 38.4% on MOTA, 44.6% on
+IDF1, and 2075 on IDs. Adding the MCA module to the baseline
+model improves MOTA to 42.8%, decreases IDs to 1340, and
+reaches 46.3% on IDF1. Adding the MCA module and the AMS
+module to the baseline model, the MOTA improves to 43.2%,
+the IDF1 improves to 53.2%, and the IDs decrease from 1340 to
+985. Adding all three modules, our MOT model reaches 44.6%
+on the MOTA and 56.9% on the IDF1.
+The advantages of our ArbiTrack in terms of MOTA and IDF1
+come from the three proposed modules. Specifically, the oriented
+object detector with the MCA module enables our tracker to accurately detect the object under complex AAV viewpoints, while
+the AMS module enhances the tracking effectiveness of ArbiTrack under complex AAV motions. The synergy of AMS and
+SEM improves the tracking stability of ArbiTrack under occlusion or complex AAV motions, which reduces the ID switching
+occurrences, and ensures the integrity of the output tracking trajectory.
+
+Fig. 4. Visualization results of UAVDT dataset. Red boxes indicate areas
+where many objects are lost, or ID switches occur.
+
+E. Visualization
+The tracking results are visualized, and the qualitative results
+were analyzed. We selected FairMOT [29], the next best tracking method in UAVDT and OriDrone. The yellow corner marker
+in the upper left corner of the image denotes the frame number
+of the tracking sequence where the image is located. To facilitate
+the observation of the object motion trajectory, the tracking trajectory is output while tracking the object in the resulting image
+of our method. Fig. 4 presents the tracking results of FairMOT
+and our method ArbiTrack for four different sets of scenarios in
+the UAVDT dataset.
+In Fig. 4(a), the object position in its perspective rotates while
+the AAV suddenly rotates rapidly to the left during flight, and the
+original motion pattern will be disrupted. In this special scenario,
+FairMOT experienced object loss during the tracking process (as
+shown in the red box). Furthermore, ID switching occurred (as
+shown in the red box) after the perspective stabilized. However,
+ArbiTrack can accurately track objects without being affected
+by AAV rotations. In Fig. 4(b), a dense vehicle intersection is
+monitored while the AAV is hovering in the air. In this case, vehicles that are farther away from the AAV appear to be objects
+with small size in the image captured from the AAV’s viewpoint (marked by the red rectangular box at the top of the image), which cannot be tracked in FairMOT, but can be accurately
+tracked in ArbiTrack.
+In Fig. 4(c), the object size in the AAV view becomes smaller
+when the AAV altitude keeps increasing. At the same time, there
+are more complex background information in the image. In this
+
+Authorized licensed use limited to: University of Pittsburgh. Downloaded on July 07,2026 at 16:41:24 UTC from IEEE Xplore. Restrictions apply.
+
+CHEN et al.: ARBITRACK: A NOVEL MOT FRAMEWORK FOR A MOVING AAV TO DETECT AND TRACK ARBITRARILY ORIENTED TARGETS
+
+Fig. 5. Visualization results in the OriDrone dataset. The red boxes represent
+areas where many objects are missing, while the green boxes represent the
+objects that need attention.
+
+scenario, our ArbiTrack can accurately track the object against
+the complex background, while FairMOT cannot track all the objects due to the interference of the complex background. Fig. 4(d)
+shows that when the AAV turns right during flight, the object
+motion trend under its perspective is a complex nonlinear motion
+that superimposes the AAV’s motion and its own motion. At the
+same time, when turning right, the scene in the image undergoes
+rapid changes. In this scenario, our ArbiTrack can quickly adapt
+to scene changes and accurately track all moving objects in the
+image, while FairMOT can potentially lose objects.
+To further demonstrate the superiority of our ArbiTrack, four
+more challenging scenarios are selected for AAV tracking in
+comparison with the FairMOT method. The visualization results
+are shown in Fig. 5.
+r Scenario 1 – the object undergoes occlusion: As shown in
+Fig. 5(a), three objects experienced occlusion (as shown in
+the green box) during the tracking. The vehicle with ID 58
+undergone occlusion at frame 249 and was recaptured at
+frame 302 when it appeared once again (the occlusion time
+was around 2.5 s). The two vehicles with IDs 56 and 63
+undergone occlusions at frame 315 and were recaptured at
+frame 361 (the occlusion time was around 1.8 s). For these
+
+5395
+
+occlusions at various times, our ArbiTrack has shown excellent tracking results benefited from the SEM module.
+However, FairMOT cannot effectively deal with the occlusion scene in this scenario in which three vehicles have
+switched their IDs after they are occluded.
+r Scenario 2 – AAV rotates rapidly to the right: Fig. 5(b)
+shows the visualization results obtained in the scene when
+the AAV rotated rapidly to the right. It can be seen from
+the output trajectory points, our ArbiTrack can accurately
+track the object and ensure the integrity of the trajectory
+when the position and motion trend of the objects change
+drastically in response to the rapid rotation of the AAV. On
+the contrary, FairMOT lost many objects during rotation,
+resulting in many IDs switching.
+r Scenario 3 – AAV performs acceleration motion: Fig. 5(c)
+shows the visualization results obtained in the AAV accelerated motion scene. The AAV is rapidly moving in the
+opposite direction along the road. In this scene, the scene
+changed rapidly from the AAV viewpoint while the objects moved at different speeds and movement law of the
+objects is complex. For example, the vehicle with ID 183
+(shown in the green box) was captured in frame 775. Its
+motion direction and speed were different from most objects in the image and obscured by trees in frames 775
+to 783. However, it was still accurately captured when it
+appeared in frame 783. Our method achieved good robustness in complex scenes, while FairMOT lost many objects
+during object tracking.
+r Scenario 4 – The AAV camera rotates up and down:
+Fig. 5(d) shows the visualization results obtained in a scene
+where the camera rotated up and down rapidly when the
+AAV was hovering. In this scene, the object position in
+the AAV’s viewpoint and the surrounding scene changed
+rapidly. It can be seen from the output trajectory points; our
+method tracked the whole trajectory for the objects under
+this scenario. In contrast, FairMOT lost many objects with
+a lot of IDs switching in this scenario.
+From the visualization results in Figs. 4 and 5, our ArbiTrack
+achieved good detection results for objects in complex backgrounds due to the proposed MCA module and the oriented object detector. Furthermore, based on the AMS and the SEM modules, our ArbiTrack can ensure the integrity and accuracy of the
+tracking trajectory in many scenarios such as occlusion, complex
+AAV motions. It significantly reduced the times of ID switching. Therefore, our ArbiTrack is valid in coping with tracking
+scenarios from the AAV viewpoint.
+V. CONCLUSION
+The primary motivation of this work is to design a multi-object
+tracker for a moving AAV. Our research is focused on the arbitrarily oriented object detection and tracking under AAV scenarios. A novel ArbiTrack framework was proposed for multi-object
+tracking of a moving AAV in this paper. An oriented object detector was used, and a multi-scale-context-aggregation module
+MCA was designed to aggregate local and global context information and enhance the feature representation of small-scale
+
+Authorized licensed use limited to: University of Pittsburgh. Downloaded on July 07,2026 at 16:41:24 UTC from IEEE Xplore. Restrictions apply.
+
+5396
+
+IEEE TRANSACTIONS ON MULTIMEDIA, VOL. 27, 2025
+
+objects. To adapt to the complex AAV motion, an AMS module was proposed based on motion state feedback. According to
+the different motion modes of the AAV, two motion filters were
+adaptively selected and switched to provide accurate motion information for the tracker. Besides, a SEM tracking algorithm was
+presented to solve the problem of long-term complete occlusion
+during AAV tracking. In SEM, the historical position and motion
+state of the object were combined to learn the spatio-temporal
+characteristics of the objects. Its spatio-temporal evolution was
+modeled to guide the positioning and association of objects for
+the input video sequences. At last, a series of experiments were
+conducted using our OriDrone dataset and the public UAVDT
+dataset. The experimental results demonstrated that the proposed
+ArbiTrack framework can accurately track multiple objects by
+a moving AAV.
+Our future work will further explore multiple-object tracking
+of AAV at night or in dark scenes by fusing visible and infrared
+images.
+
+REFERENCES
+[1] Y. Jiao et al., “A digital twin-based motion forecasting framework for preemptive risk monitoring,” Adv. Eng. Inform., vol. 59, 2024, Art. no. 102250,
+doi: 10.1016/j.aei.2023.102250.
+[2] L. Wang et al., “CAMO-MOT: Combined appearance-motion optimzatio n for 3D multi-object tracking with camera-LiDAR fusion,” IEEE
+Trans. Intell. Transp. Syst., vol. 24, no. 11, pp. 11981–11996, Nov. 2023,
+doi: 10.1109/TITS.2023.3285651.
+[3] T. T. Nguyen, H. H. Nguyen, M. Sartipi, and M. Fisichella,
+“Multi-vehicle multi-camera tracking with graph-based tracklet
+features,” IEEE Trans. Multimedia, vol. 26, pp. 972–983, 2024,
+doi: 10.1109/TMM.2023.3274369.
+[4] G. Brasó and L. Leal-Taixé, “Learning a neural solver for multiple object tracking,” in Proc. IEEE Conf. Comput. Vis. Pattern Recognit., 2020,
+pp. 6246–6256, doi: 10.1109/cvpr42600.2020.00628.
+[5] Y. Du et al., “Strongsort: Make deepsort great again,” IEEE Trans. Multimedia, vol. 25, pp. 8725–8737, 2023, doi: 10.1109/TMM.2023.3240881.
+[6] X. Li et al., “High-performance detection-based tracker for multiple-object
+tracking in UAVs,” Drones, vol. 7, no. 11, Nov. 2023, Art. no. 681,
+doi: 10.3390/drones7110681.
+[7] P. Zhu et al., “Detection and tracking meet drones challenge,” IEEE Trans.
+Pattern Anal. Mach. Intell., vol. 44, no. 11, pp. 7380–7399, Nov. 2022,
+doi: 10.1109/TPAMI.2021.3119563.
+[8] L. A. Varga, B. Kiefer, M. Messmer, and A. Zell, “Seadronessee: A
+maritime benchmark for detecting humans in open water,” in Proc.
+IEEE/CVF Winter Conf. Appl. Comput. Vis., 2022, pp. 3686–3696,
+doi: 10.1109/wacv51458.2022.00374.
+[9] Z. Liu et al., “Robust multi-drone multi-target tracking to resolve target occlusion: A benchmark,” IEEE Trans. Multimedia, vol. 25, pp. 1462–1476,
+2023, doi: 10.1109/TMM.2023.3234822.
+[10] S. A. H. Mohsan et al., “Towards the unmanned aerial vehicles (UAVs):
+A comprehensive review,” Drones, vol. 6, no. 6, Nov. 2022, Art. no. 147,
+doi: 10.3390/drones6060147.
+[11] A. Li, S. Hou, Q. Cai, Y. Fu, and Y. Huang, “Gait recognition with drones:
+A benchmark,” IEEE Trans. Multimedia, vol. 26, pp. 3530–3540, 2024,
+doi: 10.1109/TMM.2023.3312931.
+[12] S. Liu, X. Li, H. Lu, and Y. He, “Multi-object tracking meets moving UAV,”
+in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit., New Orleans,
+LA, USA, 2022, pp. 8866–8875, doi: 10.1109/CVPR52688.2022.00867.
+[13] W. Li, Y. Chen, K. Hu, and J. Zhu, “Oriented reppoints for aerial object
+detection,” in Proc. IEEE Conf. Comput. Vis. Pattern Recognit., 2022,
+pp. 1819–1828, doi: 10.1109/cvpr52688.2022.00187.
+[14] N. Ballasn et al., “Delving deeper into convolutional networks for learning
+video representations,” 2015, arXiv:1511.06432.
+[15] D. Du et al., “The unmanned aerial vehicle benchmark: Object detection and tracking,” in Proc. Eur. Conf. Comput. Vis., 2018, pp. 370–386,
+doi: 10.1007/978-3-030-01249-6_23.
+
+[16] G. Ciaparrone et al., “Deep learning in video multi-object tracking: A survey,” Neurocomputing, vol. 381, pp. 61–88, Nov. 2020,
+doi: 10.1016/j.neucom.2019.11.023.
+[17] A. Bewley, Z. Ge, L. Ott, F. Ramos, and B. Upcroft, “Simple online and
+realtime tracking,” in Proc. IEEE Int. Conf. Image Process., Phoenix, AZ,
+USA, 2016, pp. 3464–3468, doi: 10.1109/icip.2016.7533003.
+[18] R. Girshick, “Fast R-CNN,” in Proc. IEEE/CVF Int. Conf. Comput. Vis.,
+2015, pp. 1440–1448, doi: 10.1109/iccv.2015.169.
+[19] R. E. Kalman, “A new approach to linear filtering and prediction problems,” J. Basic Eng., vol. 82, pp. 35–45, Nov. 1960,
+doi: 10.1115/1.3662552.
+[20] H. W. Kuhn, “The Hungarian method for the assignment problem,” Nav. Res. Logistics Quart., vol. 2, no. 1/2, pp. 83–97, 1955,
+doi: 10.1002/nav.3800020109.
+[21] N. Wojke, A. Bewley, and D. Paulus, “Simple online and realtime tracking
+with a deep association metric,” in Proc. IEEE Int. Conf. Image Process.,
+2017, pp. 3645–3649, doi: 10.1109/icip.2017.8296962.
+[22] S. Lee and E. Kim, “Multiple-object tracking via feature pyramid siamese
+networks,” IEEE Access, vol. 7, pp. 8181–8194, 2019, doi: 10.1109/access.2018.2889442.
+[23] T.-Y. Lin et al., “Feature pyramid networks for object detection,” in
+Proc. IEEE Conf. Comput. Vis. Pattern Recognit., 2017, pp. 936–944,
+doi: 10.1109/cvpr.2017.106.
+[24] S. Sun, N. Akhtar, H. Song, A. Mian, and M. Shah, “Deep
+affinity network for multiple object tracking,” IEEE Trans. Pattern Anal. Mach. Intell., vol. 43, no. 1, pp. 104–119, Jan. 2021,
+doi: 10.1109/TPAMI.2019.2929520.
+[25] Z. Wang et al., “Towards real-time multi-object tracking,” in Proc.
+Eur. Conf. Comput. Vis., 2020, pp. 107–122, doi: 10.1007/978-3-030
+-58621-8_7.
+[26] J. Redmon and A. Farhadi, “Yolov3: An incremental improvement,”
+2018, arXiv:1804.02767.
+[27] R. Cipolla, Y. Gal, and A. Kendall, “Multi-task learning using uncertainty to weigh losses for scene geometry and semantics,” in Proc.
+IEEE Conf. Comput. Vis. Pattern Recognit., 2018, pp. 7482–7491,
+doi: 10.1109/cvpr.2018.00781.
+[28] K. Duan et al., “Centernet: Keypoint triplets for object detection,”
+in Proc. IEEE/CVF Int. Conf. Comput. Vis., 2019, pp. 6568–6577,
+doi: 10.1109/iccv.2019.00667.
+[29] Y. Zhang et al., “FairMOT: On the fairness of detection and re-identification
+in multiple object tracking,” Int. J. Comput. Vis., vol. 129, pp. 3069–3087,
+2021, doi: 10.1007/s11263-021-01513-4.
+[30] X. Zhou, V. Koltun, and P. Krähenbühl, “Tracking objects as
+points,” in Proc. Eur. Conf. Comput. Vis., 2020, pp. 474–490,
+doi: 10.1007/978-3-030-58548-8_28.
+[31] D. Yuan et al., “Thermal infrared target tracking: A comprehensive review,” IEEE Trans. Instrum. Meas., vol. 73, 2024, Art. no. 5000419,
+doi: 10.1109/TIM.2023.3338701.
+[32] D. Yuan, X. Chang, Z. Li, and Z. He, “Learning adaptive spatial-temporal
+context-aware correlation filters for UAV tracking,” ACM Trans. Multimedia Comput. Commun. Appl., vol. 18, no. 3, pp. 70:1–70:18, Aug. 2022,
+doi: 10.1145/3486678.
+[33] L. Zhang, Y. Li, and R. Nevatia, “Global data association for multi-object
+tracking using network flows,” in Proc. IEEE Conf. Comput. Vis. Pattern
+Recognit., 2008, pp. 1–8, doi: 10.1109/cvpr.2008.4587584.
+[34] Y. Zhang et al., “ByteTrack: Multi-object tracking by associating every detection box,” in Proc. Eur. Conf. Comput. Vis., 2022, pp. 1–21,
+doi: 10.1007/978-3-031-20047-2_1.
+[35] P. Sun et al., “Transtrack: Multiple object tracking with transformer,”
+2020, arXiv:2012.15460.
+[36] J. Wu et al., “Track to detect and segment: An online multi-object
+tracker,” in Proc. IEEE Conf. Comput. Vis. Pattern Recognit., 2021,
+pp. 12347–12356, doi: 10.1109/cvpr46437.2021.01217.
+[37] R. Li et al., “An end-to-end identity association network based on geometry
+refinement for multi-object tracking,” Pattern Recognit., vol. 129, 2022,
+Art. no. 108738, doi: 10.1016/j.patcog.2022.108738.
+[38] L. Zheng et al., “Person re-identification in the wild,” in Proc.
+IEEE Conf. Comput. Vis. Pattern Recognit., 2017, pp. 3346–3355,
+doi: 10.1109/cvpr.2017.357.
+[39] L. Chen, H. Ai, Z. Zhuang, and C. Shang, “Real-time multiple people tracking with deeply learned candidate selection and person reidentification,” in Proc. IEEE Int. Conf. Multimedia Expo., 2018, pp. 1–6,
+doi: 10.1109/icme.2018.8486597.
+[40] J. Pang et al., “Quasi-dense similarity learning for multiple object
+tracking,” in Proc. IEEE Conf. Comput. Vis. Pattern Recognit., 2021,
+pp. 164–173, doi: 10.1109/cvpr46437.2021.00023.
+
+Authorized licensed use limited to: University of Pittsburgh. Downloaded on July 07,2026 at 16:41:24 UTC from IEEE Xplore. Restrictions apply.
+
+CHEN et al.: ARBITRACK: A NOVEL MOT FRAMEWORK FOR A MOVING AAV TO DETECT AND TRACK ARBITRARILY ORIENTED TARGETS
+
+[41] T. Meinhardt, A. Kirillov, L. Leal-Taixé, and C. Feichtenhofer,
+“TrackFormer: Multi-object tracking with transformers,” in Proc.
+IEEE Conf. Comput. Vis. Pattern Recognit., 2022, pp. 8834–8844,
+doi: 10.1109/cvpr52688.2022.00864.
+[42] F. Zeng et al., “MOTR: End-to-end multiple-object tracking with transformer,” in Proc. Eur. Conf. Comput. Vis., 2022, pp. 659–675, doi: 10.1
+007/978-3-031-19812-0_38.
+[43] N. Carion et al., “End-to-end object detection with transformers,” in
+Proc. Eur. Conf. Comput. Vis., 2020, pp. 213–229, doi: 10.1007/978-3-030
+-58452-8_13.
+[44] S. Liu, L. Qi, H. Qin, J. Shi, and J. Jia, “Path aggregation network for instance segmentation,” in Proc. IEEE Conf. Comput. Vis. Pattern Recognit.,
+2018, pp. 8759–8768, doi: 10.1109/cvpr.2018.00913.
+[45] M. Tan, R. Pang, and Q. V. Le, “EfficientDet: Scalable and efficient object
+detection,” in Proc. IEEE Conf. Comput. Vis. Pattern Recognit., 2020,
+pp. 10778–10787, doi: 10.1109/cvpr42600.2020.01079.
+[46] E. A. Wan and R. Van Der Merwe, “The unscented Kalman filter for nonlinear estimation,” in Proc. IEEE Adaptive Syst. Signal Process. Commun.
+Control Symp., 2000, pp. 153–158, doi: 10.1109/asspcc.2000.882463.
+[47] K. Cho et al., “Learning phrase representations using RNN encoderdecoder for statistical machine translation,” 2014, arXiv:1406.1078.
+[48] X. Shi et al., “Convolutional LSTM network: A machine learning approach
+for precipitation nowcasting,” in Proc. Adv. Neural Inf. Process. Syst.,
+2015, vol. 28, pp. 802–810.
+[49] P. Tokmakov, J. Li, W. Burgard, and A. Gaidon, “Learning to track with
+object permanence,” in Proc. IEEE/CVF Int. Conf. Comput. Vis., 2021,
+pp. 10840–10849, doi: 10.1109/iccv48922.2021.01068.
+[50] A. Milan et al., “MOT16: A benchmark for multi-object tracking,”
+2016, arXiv:1603.00831.
+[51] A. Milan, S. Roth, and K. Schindler, “Continuous energy minimization
+for multitarget tracking,” IEEE Trans. Pattern Anal. Mach. Intell., vol. 36,
+no. 1, pp. 58–72, Jan. 2014, doi: 10.1109/tpami.2013.103.
+[52] C. Dicle, O. I. Camps, and M. Sznaier, “The way they move: Tracking
+multiple targets with similar appearance,” in Proc. IEEE/CVF Int. Conf.
+Comput. Vis., 2013, pp. 2304–2311, doi: 10.1109/iccv.2013.286.
+[53] E. Bochinski, V. Eiselein, and T. Sikora, “High-speed tracking-bydetection without using image information,” in Proc. IEEE Int. Conf.
+Adv. Video Signal Based Surveill., 2017, pp. 1–6, doi: 10.1109/avss.2017
+.8078516.
+[54] L. Greedy, “Globally-optimal greedy algorithms for tracking a variable
+number of objects,” in Proc. IEEE Conf. Comput. Vis. Pattern Recognit.,
+2011, pp. 1201–1208, doi: 10.1109/cvpr.2011.5995604.
+[55] S.-H. Bae and K.-J. Yoon, “Robust online multi-object tracking based
+on tracklet confidence and online discriminative appearance learning,” in
+Proc. IEEE Conf. Comput. Vis. Pattern Recognit., 2014, pp. 1218–1225,
+doi: 10.1109/cvpr.2014.159.
+[56] Y. Xiang, A. Alahi, and S. Savarese, “Learning to track: Online multiobject tracking by decision making,” in Proc. IEEE/CVF Int. Conf. Comput. Vis., 2015, pp. 4705–4713, doi: 10.1109/iccv.2015.534.
+
+5397
+
+Jiayu Wang received the B.S. degree in automation
+from the School of Electrical Engineering, Liaoning
+University of Technology, Jinzhou, China, in 2021.
+He is currently working toward the M.S. degree in
+control science and engineering with Dalian Maritime University, Dalian, China. His research interests
+include deep learning, computer vision, multitarget
+tracking and their application in UAVs.
+
+Qianchen Zhou received the B.S. degree in electronic information engineering from the School
+of Computer and Information Engineering, Harbin
+Commercial University, Harbin, China, in 2022. He
+is currently working toward the M.S. degree in control
+science and engineering with Dalian Maritime University, Dalian, China. His research interests include
+deep learning, visual servoing, single object tracking,
+and their applications in robots.
+
+Huosheng Hu (Life Senior Member, IEEE) received
+the M.S. degree in industrial automation from the
+Central South University, Changsha, China, in 1982,
+and the Ph.D. degree in robotics from the University
+of Oxford, Oxford, U.K., in 1993. He is currently a
+Professor with the School of Computer Science and
+Electronic Engineering, University of Essex, Colchester, U.K. His research interests include intelligent
+systems and autonomous robots.
+
+Yuqing Chen received the Ph.D. degree in control
+theory and control engineering from the Dalian University of Technology, Dalian, China, in 2006. He
+then joined the College of Marine Electrical Engineering, Dalian Maritime University, Dalian. From 2014
+to 2015, he was a Visiting Research Fellow with the
+Robotic Lab, Department of Electrical Engineering,
+City University of New York, New York, NY, USA.
+He is currently a Professor with the Department of
+Automation, College of Marine Electrical Engineering, Dalian Maritime University. His research interests include nonlinear control theory, intelligent control algorithm and applications in autonomous vessels, autonomous aerial vehicles, and autonomous
+mobile robotics.
+
+Authorized licensed use limited to: University of Pittsburgh. Downloaded on July 07,2026 at 16:41:24 UTC from IEEE Xplore. Restrictions apply.
+
+

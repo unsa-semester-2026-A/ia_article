@@ -5,103 +5,80 @@
 - **Venue**: ISPRS Journal of Photogrammetry and Remote Sensing
 
 ## Resumen
-Este artículo presenta una metodología generativa simple y altamente efectiva para mitigar la escasez de datos anotados en la detección de vehículos aéreos (especialmente para clases de larga cola como maquinaria agrícola o de construcción). En lugar de recurrir a costosos motores de renderizado 3D o simulaciones fotorrealistas complejas, los autores proponen un generador de imágenes 2D que toma planos CAD bidimensionales simplificados (blueprints) de vehículos, los pinta y deforma de forma aleatoria, y los superpone en fondos neutros sintetizados con ruido Gaussiano o en fondos reales de percepción remota. Utilizando un detector RetinaNet modificado (con un pirámide de características truncado optimizado para objetos pequeños, rama de centerness y un cabezal de segmentación semántica auxiliar), los experimentos demuestran que agregar imágenes artificiales a conjuntos pequeños de datos reales mejora drásticamente la precisión. En escenarios de datos reales extremadamente limitados (p. ej., solo 8 imágenes), la adición de 1000 imágenes artificiales eleva el AP medio (mAP) en hasta 70 puntos. El estudio analiza además el impacto crítico de la composición de la imagen, revelando que el ruido y la estructura del fondo son más determinantes que el fotorrealismo de los vehículos para reducir la tasa de falsos positivos en objetos similares (hard negatives).
+Este artículo aborda el problema de la escasez de datos etiquetados para la detección de vehículos en imágenes aéreas (como maquinaria agrícola o de construcción) mediante un enfoque generativo simple pero efectivo. Los autores proponen un generador de imágenes aéreas cenitales que utiliza planos de diseño asistido por computadora (CAD 2D) simplificados y coloreados de forma aleatoria, los cuales se superponen sobre fondos artificiales con patrones de ruido fino y grueso. Para la detección, adaptan la arquitectura de RetinaNet eliminando los niveles superiores de la pirámide de características FPN ($P_5$-$P_7$) e incorporando un nivel inferior fino ($P_2$) para capturar objetos pequeños. También integran mecanismos de centerness de ATSS y una rama adicional de segmentación semántica para analizar cualitativamente la representación de características. Los experimentos basados en el dataset ISPRS Potsdam demuestran que las redes entrenadas únicamente con datos artificiales son capaces de generalizar y detectar vehículos reales (0.68 AP). Al combinar datos, la adición de 1000 imágenes artificiales a pequeños conjuntos reales (ej. 8 imágenes reales) eleva el AP desde niveles casi nulos hasta 0.736 AP, reduciendo a la mitad la cantidad de imágenes reales necesarias para alcanzar niveles óptimos de precisión. Además, analizan en profundidad la importancia de la composición de la imagen (foreground vs. background) y revelan que la colocación semántica (ej. evitar coches sobre tejados) influye de manera secundaria en el rendimiento del detector.
 
 ## Secciones y Subsecciones
 
-### 1. Introduction
-Se expone el problema de la escasez de datos etiquetados en tomas aéreas y su impacto en la detección con aprendizaje profundo. A pesar del éxito de detectores basados en CNNs, la recolección y anotación manual es sumamente costosa, especialmente para clases con distribuciones desbalanceadas (long-tail) donde automóviles comunes abundan pero vehículos industriales o agrícolas son muy raros.
-* **Problemas atacados**: La gran demanda de datos anotados de las redes profundas frente a la escasez de muestras reales para clases vehiculares raras y la enorme variación intra-clase (colores, formas, entornos).
-* **Limitaciones de ese entonces**: Las soluciones tradicionales implican campañas costosas de vuelo o el modelado manual en 3D de alta complejidad para motores gráficos, lo cual sigue requiriendo un esfuerzo humano sustancial.
-* **Soluciones alcanzadas**: Desarrollo de un generador de imágenes artificiales aéreas basado en planos 2D CAD simplificados superpuestos en fondos sintéticos texturizados. Se simula la escasez de datos entrenando modelos con la clase común "autos" del dataset Potsdam a escalas reducidas de muestras reales.
+### 1. Introducción
+Presenta el contexto de la detección de vehículos en imágenes cenitales y la problemática de la escasez de datos etiquetados en aplicaciones del mundo real, especialmente en distribuciones desbalanceadas de cola larga (long-tail) para vehículos raros o especializados.
+* **Problemas atacados**: Alto coste de etiquetado manual y la escasez física de imágenes de vehículos de baja frecuencia (ej. excavadoras, tractores) en comparación con coches de pasajeros.
+* **Limitaciones de ese entonces**: Los detectores de aprendizaje profundo requieren miles de muestras para aprender invariancias ante variaciones de color de los vehículos, sombras, iluminación y texturas de fondo.
+* **Soluciones alcanzadas**: Desarrollo de un generador de imágenes artificiales 2D de bajo coste computacional y diseño de experimentos sistemáticos con RetinaNet modificado para cuantificar el impacto del tamaño del dataset real y la simulación de clases raras.
 
-### 2. Related work
-Revisión de la literatura sobre metodologías para abordar la escasez de datos. Se subdivide en aumentos de imagen, aprendizaje por transferencia, adaptación de dominio, aprendizaje semi-supervisado, generación de imágenes sintéticas 3D/videojuegos, y redes generativas adversarias (GANs).
-* **Problemas atacados**: Comparar y justificar el uso de un generador sintético geométrico frente a técnicas de aumento tradicionales o aprendizaje no supervisado.
-* **Limitaciones de ese entonces**: Técnicas de aumento clásico (cropping, flipping) no agregan información fuera de la distribución original. La adaptación de dominio y el aprendizaje semi-supervisado (como Noisy Student o CycleGAN) requieren conjuntos de datos de origen ya anotados y extensos. La simulación 3D requiere texturas detalladas y trabajo de animación complejo.
-* **Soluciones alcanzadas**: Justificación de que la generación artificial 2D es la opción más flexible y económica para clases raras, sirviendo como base sobre la cual pueden aplicarse técnicas complementarias de aumentos, armonización o CycleGANs.
+### 2. Trabajo Relacionado
+Clasifica y compara las estrategias existentes para mitigar la falta de datos: aumento de imágenes (Simple, Mixup, RICAP), aprendizaje por transferencia, adaptación de dominio (CORAL, CycleGAN), aprendizaje semi-supervisado (Noisy Student) y síntesis de imágenes (motores 3D, videojuegos, GANs).
+
+* **Problemas atacados**: Identificación de los pros y contras de cada método de enriquecimiento de datos.
+* **Limitaciones de ese entonces**: Los motores de renderizado 3D y videojuegos requieren el modelado manual costoso de texturas y entornos en 3D. Los enfoques semi-supervisados o GANs siguen necesitando una cantidad base considerable de muestras de la misma distribución objetivo.
+* **Soluciones alcanzadas**: Posicionar la síntesis basada en CAD 2D como una alternativa barata y rápida que permite automatizar las anotaciones de caja (OBB y HBB) y de píxel de forma gratuita, sirviendo de base para aplicar técnicas posteriores de regularización o aumento.
 
 ### 3. Framework
-Descripción de los dos componentes principales del sistema propuesto: el detector de objetos optimizado y el generador de imágenes artificiales 2D.
-* **Problemas atacados**: Adaptación del detector de objetos terrestre a tomas aéreas de resolución sub-métrica y diseño de un pipeline de generación que minimice la complejidad visual sin comprometer la transferencia de características.
-* **Limitaciones de ese entonces**: Los detectores comunes como RetinaNet están optimizados para MS COCO, el cual contiene objetos grandes y vistas a nivel del suelo, resultando en un rendimiento deficiente cuando se procesan objetos aéreos pequeños de pocos píxeles.
-* **Soluciones alcanzadas**: Adaptación de RetinaNet a parches fijos pequeños y desarrollo de un generador que automatiza la creación de máscaras y anotaciones de OBB/HBB.
+Describe la estructura integrada del sistema: el detector de objetos modificado y el generador generativo de imágenes.
 
-#### 3.1. Object detector
-Modificaciones específicas introducidas sobre la arquitectura de RetinaNet y su extractor de características ResNet-50.
-* **Problemas atacados**: El desperdicio computacional de evaluar características gruesas y el desalineamiento entre el centro de los anclajes y los objetos pequeños en vistas aéreas.
-* **Limitaciones de ese entonces**: Las capas superiores de la pirámide de características FPN (P5 a P7) tienen campos receptivos demasiado grandes para objetos aéreos pequeños, lo que produce falsas alarmas. La regresión estándar Smooth L1 no penaliza adecuadamente desalineamientos finos del centro.
-* **Soluciones alcanzadas**: Truncamiento de la pirámide eliminando P5-P7 e incorporando la capa de alta resolución P2. Se agregaron una rama predictora de "centerness" (para ponderar la confianza del anclaje), una rama auxiliar de segmentación semántica en P2 y el uso de factores de escala ajustables.
+* **Problemas atacados**: Ajustar detectores genéricos de imágenes naturales a las restricciones de escala aérea y formular el proceso de dibujo vectorial del coche.
+* **Limitaciones de ese entonces**: Redes estándar como RetinaNet para COCO están optimizadas para objetos que ocupan gran parte del encuadre y no para vehículos pequeños de pocos píxeles observados desde arriba.
+* **Soluciones alcanzadas**: Rediseño del flujo FPN y simplificación geométrica de los blueprints vehiculares para crear parches sintéticos.
 
-#### 3.2. Artificial Image Generator
-Pasos del algoritmo de generación sintética 2D (Fig. 5).
-* **Problemas atacados**: Variabilidad geométrica y de color de los objetos sintetizados y simulación de oclusiones sin usar gráficos 3D.
-* **Limitaciones de ese entonces**: Los objetos 2D puros superpuestos de forma estática carecen de variabilidad de forma y detalles de contorno, pareciendo artificiales a las capas iniciales de la CNN.
-* **Soluciones alcanzadas**: Uso de 2D blueprints CAD vectoriales pintados de forma aleatoria, aplicación de deformaciones de escala ($\pm 5\%$), rotaciones de $360^\circ$, cortes geométricos aleatorios para simular oclusiones parciales e introducción de ruido Gaussiano de frecuencia fina y gruesa (interpolación bicúbica) en el fondo.
+#### 3.1 Detector de Objetos
+Detalla los cambios a RetinaNet: sustitución de los niveles FPN gruesos por un nivel P2 de alta resolución espacial, adición de escalado por nivel de FCOS y el predictor de centerness de ATSS. También introduce una rama complementaria de segmentación.
+* **Problemas atacados**: Baja resolución de las características en mapas de grano grueso y falsos positivos por anclas mal alineadas con el centro físico del objeto.
+* **Limitaciones de ese entonces**: Las capas altas FPN ($P_5$-$P_7$) tienen campos receptivos demasiado grandes (ej. 10x10 píxeles de activación) que no se activan con vehículos pequeños.
+* **Soluciones alcanzadas**: Eliminación de las capas predictivas $P_5$-$P_7$, derivación de predicciones a partir de $P_2$ y $P_3$ unicamente. Se implementa la rama de segmentación semántica con pérdida combinada Dice y Binary Cross-Entropy para estudiar cualitativamente la respuesta de los píxeles.
 
-### 4. Data
-Manejo y adaptación del conjunto de datos real ISPRS Potsdam para las pruebas de detección.
-* **Problemas atacados**: Adaptar un dataset diseñado para segmentación semántica de píxeles a tareas de regresión de cajas delimitadoras.
-* **Limitaciones de ese entonces**: Potsdam contiene etiquetas de píxeles continuas pero carece de anotaciones de cajas orientadas individuales (OBB) necesarias para detectores modernos. Además, sufre de oclusiones no etiquetadas bajo árboles sin hojas en otoño/invierno.
-* **Soluciones alcanzadas**: Procesamiento de contornos de la clase "car" mediante técnicas de visión por computadora para derivar cajas orientadas (OBB) y alineadas con los ejes (HBB) (Fig. 6), eliminando las instancias parcialmente truncadas de menos de 20 píxeles.
+#### 3.2 Generador de Imágenes Artificiales
+Explica cómo se preparan los planos CAD 2D (blueprints), el flujo de coloreado por tipo de superficie, deformación del coche y la inyección de ruido grueso y fino en el fondo.
+* **Problemas atacados**: Variabilidad geométrica e intra-clase y el modelado de fondos que prevengan falsos positivos.
+* **Limitaciones de ese entonces**: Usar representaciones CAD crudas incluye marcas de acotación de ingeniería inútiles. Fondos artificiales planos provocan que el modelo aprenda a discriminar solo la ausencia de textura.
+* **Soluciones alcanzadas**: Proceso de limpieza de planos CAD 2D para aislar la vista superior del vehículo (Figura 3). El generador crea un fondo gris (promedio de ImageNet) y le superpone ruido grueso (interpolación bicúbica sobre una cuadrícula $10 \times 10$) y ruido fino gaussiano, imitando pavimentos reales. Los vehículos se colorean, deforman hasta $\pm 5\%$ y se recortan opcionalmente para simular oclusiones.
 
-### 5. Experiments
-Protocolo de experimentación, métricas y resultados empíricos divididos en cuatro sub-experimentos.
-* **Problemas atacados**: Evaluar la generalización de la red entrenada con imágenes sintéticas al dominio de imágenes reales bajo variaciones de GSD, capacidad del backbone y técnicas de aumento.
-* **Limitaciones de ese entonces**: Falta de análisis riguroso sobre cómo influye la cantidad de muestras reales en el beneficio neto aportado por el dataset sintético.
-* **Soluciones alcanzadas**: Configuración de pruebas usando PyTorch Lightning sobre GPUs V100, evaluando mediante métricas MS COCO AP al umbral IoU=0.5 con 8 repeticiones aleatorias por experimento.
+### 4. Datos
+Introduce el conjunto de datos de Potsdam (ISPRS 2D Semantic Labeling) y explica la conversión de sus máscaras de segmentación en cajas delimitadoras HBB y OBB (Figura 6).
+* **Problemas atacados**: Obtención de una base de datos real consistente para realizar simulaciones de escasez de datos.
+* **Limitaciones de ese entonces**: Potsdam provee máscaras de píxeles para segmentación semántica urbana, pero no anotaciones nativas de cajas para detección.
+* **Soluciones alcanzadas**: Extracción morfológica de los contornos de la clase "coche" y estimación geométrica automática de las cajas alineadas con los objetos, depurando errores como oclusiones extremas y tranvías mal etiquetados.
 
-#### 5.1. Experimental Setup
-Definición de las particiones de datos y el escalado espacial (GSD).
-* **Problemas atacados**: Ajustar el campo de visión de las imágenes aéreas Potsdam gigantescas a la capacidad del detector.
-* **Limitaciones de ese entonces**: Procesar imágenes de $6000 \times 6000$ píxeles directamente satura la memoria GPU.
-* **Soluciones alcanzadas**: Segmentación en parches de $600 \times 600$ píxeles y reducción de escala (down-sampling) a $300 \times 300$ para duplicar el GSD original a 0.10 m/px, acelerando drásticamente el entrenamiento con una pérdida de precisión marginal.
+### 5. Experimentos
+Presenta los resultados de los experimentos unificados entrenados con PyTorch-Lightning en GPUs Tesla V100.
 
-#### 5.2. Combining real and artificial images
-Resultados cuantitativos y cualitativos de la fusión de datasets reales y sintéticos.
-* **Problemas atacados**: Cuantificar el beneficio de las imágenes artificiales a medida que aumenta el volumen de datos reales de entrenamiento.
-* **Limitaciones de ese entonces**: La suposición de que los datos sintéticos simples degradan el rendimiento semántico de la red si se dispone de muestras reales.
-* **Soluciones alcanzadas**: La adición de 1000 imágenes artificiales estabiliza las predicciones del detector y eleva el AP de forma masiva en el rango de menos de 100 imágenes reales (p. ej., con 8 imágenes reales el AP sube de un valor inservible a 0.70). Con datasets reales grandes (>200 imágenes), las curvas convergen al mismo límite de 0.95 AP, demostrando que los datos artificiales no dañan el rendimiento general.
+* **Problemas atacados**: Medición del beneficio de los datos sintéticos combinados y análisis de componentes del generador.
+* **Limitaciones de ese entonces**: Evaluar la síntesis de datos sin medir el impacto del GSD o de la capacidad del extractor (backbone).
+* **Soluciones alcanzadas**: Demostración de la robustez del método variando sistemáticamente el número de muestras reales ($N_r$), las técnicas de aumento y la composición del fondo.
 
-##### Impact of network capacity
-* **Problemas atacados**: Validar si el beneficio de las imágenes artificiales depende del tamaño del backbone.
-* **Limitaciones de ese entonces**: Redes con mayor capacidad podrían sobreajustar (overfit) a las características simples de los planos CAD.
-* **Soluciones alcanzadas**: Pruebas con ResNet-18, 50, 152, ResNeXt y WideResNet demuestran que el beneficio es consistente en todos los backbones, determinando que ResNet-50 es el balance óptimo.
+#### 5.1 Configuración Experimental
+Describe los parches de 600x600 px submuestreados a 300x300 px (GSD resultante de 0.10 m/px) y el uso de la política de entrenamiento "one-cycle".
+* **Problemas atacados**: Eficiencia temporal y convergencia estable del optimizador en datasets de tamaño variable.
+* **Limitaciones de ese entonces**: Épocas variables dificultan comparar pérdidas entre datasets de diferente escala.
+* **Soluciones alcanzadas**: Fijar el entrenamiento a un número constante de 2500 iteraciones en lugar de épocas fijas, usando una tasa de aprendizaje con rampas de ascenso y descenso controlado (Smith, 2018).
 
-##### Impact of ground sampling distance
-* **Problemas atacados**: Evaluar el impacto de la resolución espacial (GSD) en la transferencia de datos sintéticos.
-* **Limitaciones de ese entonces**: Falta de análisis de la degradación del rendimiento al perder detalles sub-métricos.
-* **Soluciones alcanzadas**: Se demuestra que el beneficio sintético se mantiene en GSDs de 0.05, 0.10, 0.15 y 0.20 m/px, con una reducción predecible de la precisión general a resoluciones más gruesas por la pérdida de detalles finos (Table 2).
+#### 5.2 Combinación de Imágenes Reales y Artificiales
+Compara los grupos de entrenamiento "baseline" (solo real, $N_r = 8$ a $2039$) contra "combination" (real + 1000 artificiales, $N_a=1000$).
+* **Problemas atacados**: Cuantificar el salto de AP en escenarios de escasez extrema.
+* **Limitaciones de ese entonces**: Se desconocía el punto de saturación donde los datos sintéticos dejan de aportar valor.
+* **Soluciones alcanzadas**: Si se disponen de solo 8 imágenes reales, añadir 1000 imágenes sintéticas sube el rendimiento de 0.05 a 0.736 AP. La ganancia se mantiene significativa por debajo de 100 imágenes reales y converge a 0.95 AP en conjuntos grandes (Figura 7). Además, se comprueba que el beneficio es independiente de la capacidad de la red (de ResNet-18 a ResNeXt-50, ver Tabla 1) y del GSD de entrada (Tabla 2).
 
-##### Comparison with image augmentation
-* **Problemas atacados**: Determinar la relación de complementariedad entre aumentos de datos y la síntesis artificial.
-* **Limitaciones de ese entonces**: La creencia de que aumentos avanzados (como expandir y recortar de SSD) eliminan la necesidad de sintetizar muestras.
-* **Soluciones alcanzadas**: Se demuestra que el aumento radiométrico y geométrico por rotación/flipping es complementario a la síntesis. Entrenar con imágenes combinadas y todos los aumentos activos proporciona la curva de AP más alta y estable (Fig. 11).
+#### 5.3 Detalles del Generador de Imágenes Artificiales
+Mide de forma aislada el aporte de cada módulo del generador entrenando únicamente con datos sintéticos ($N_r = 0$).
+* **Problemas atacados**: Aporte marginal de las líneas de contorno, las deformaciones y el ruido de fondo.
+* **Limitaciones de ese entonces**: Modelar la geometría del coche con formas de un solo color plano reducía el AP notablemente.
+* **Soluciones alcanzadas**: 1) Añadir contornos negros al coche aporta +0.032 AP. 2) Simular oclusiones cortando vehículos aporta +0.028 AP. 3) Introducir deformaciones geométricas aporta +0.046 AP. 4) Añadir ruido de fondo (grueso y fino) aporta +0.06 AP, demostrando ser el factor clave para mitigar falsos positivos en pavimentos reales.
 
-#### 5.3. Details of the artificial image generator
-Ablación sistemática de los componentes del generador sintético.
-* **Problemas atacados**: Identificar qué componentes geométricos o visuales del generador 2D aportan mayor valor al entrenamiento del modelo.
-* **Limitaciones de ese entonces**: Falta de guías de diseño que especifiquen si el contorno, el color o el fondo de los objetos sintetizados son prioritarios.
-* **Soluciones alcanzadas**: El desglose en la Table 3 revela que: 1) eliminar el contorno negro de los vehículos reduce el AP en 0.032, 2) omitir oclusiones parciales disminuye el AP en 0.028, y 3) la adición de ruido Gaussiano fino y grueso en el fondo aporta la mayor ganancia individual (+0.06 AP), ya que entrena a la red para diferenciar la estructura de los vehículos del ruido del terreno.
+#### 5.4 La Importancia de la Composición de la Imagen
+Analiza cuantitativamente la interacción del objeto y el fondo cruzando componentes artificiales y reales (Tabla 4).
+* **Problemas atacados**: Determinar si el realismo visual del fondo es suficiente por sí solo o si influyen los factores de colocación semántica.
+* **Limitaciones de ese entonces**: Se teorizaba que colocar coches sobre tejados o copas de árboles (violando las restricciones de circulación reales) destruiría la capacidad de generalización del detector.
+* **Soluciones alcanzadas**: 1) La diferencia de rendimiento entre coches reales y artificiales sobre el mismo fondo sintético es mínima (<0.05 AP), lo que valida el realismo de las características aprendidas con planos CAD 2D. 2) Colocar vehículos sobre fondos reales sin lógica espacial (ej. coches flotantes o sobre edificios) apenas reduce el mAP de 0.93 a 0.89 AP, confirmando que el contexto semántico de la escena es un factor secundario para el aprendizaje del detector de vehículos.
 
-#### 5.4. The importance of image composition
-Análisis cualitativo y cuantitativo del impacto del fondo y la semántica en la generalización de la red.
-* **Problemas atacados**: Evaluar cómo influyen las vecindades espaciales y los contrastes de los objetos en la aparición de falsos positivos (hard negatives).
-* **Limitaciones de ese entonces**: La creencia de que el rendimiento deficiente de modelos sintéticos se debe únicamente al modelado simplificado de los objetos.
-* **Soluciones alcanzadas**: Se identifican y documentan dos aspectos cruciales detallados a continuación.
-
-##### The effect of background
-* **Problemas atacados**: Analizar visualmente la aparición de falsas alarmas en el terreno.
-* **Limitaciones de ese entonces**: Los mapas de activación semántica de modelos entrenados en fondos lisos muestran un alto nivel de ruido en bordes estructurados reales.
-* **Soluciones alcanzadas**: El análisis de activación semántica (Fig. 12) demuestra que entrenar con fondos lisos fuerza a la red a clasificar cualquier estructura física como vehículo. Agregar ruido al fondo sintético o incorporar solo 8 imágenes reales educa a la red para suprimir las activaciones en el terreno de fondo.
-
-##### Image composition
-* **Problemas atacados**: Evaluar la necesidad de ubicar los objetos en posiciones semánticamente coherentes (p. ej. autos solo sobre carreteras).
-* **Limitaciones de ese entonces**: La suposición de que los vehículos colocados de forma incongruente (sobre techos o árboles) degradan severamente el aprendizaje de características de contexto.
-* **Soluciones alcanzadas**: Experimentos con cuatro combinaciones cruzadas de vehículos y fondos reales/artificiales (Table 4) revelan que la colocación semánticamente incorrecta de vehículos sobre fondos aleatorios reales provoca una pérdida insignificante de AP (0.89 vs 0.93), demostrando que la red se enfoca prioritariamente en la geometría local del vehículo y que la coherencia de contexto espacial es secundaria.
-
-### 6. Conclusion and future work
-Resumen de las conclusiones del estudio y propuestas de desarrollo.
-* **Problemas atacados**: Consolidar las pautas para el desarrollo de generadores de datos eficientes para visión aérea.
-* **Limitaciones de ese entonces**: Campañas costosas de etiquetado real que inhiben el despliegue de soluciones deep learning en ODAI.
-* **Soluciones alcanzadas**: Demostración de que planos CAD 2D simples y un modelado texturizado básico del fondo permiten entrenar detectores robustos y sugieren para el futuro el desarrollo de modelos que desacoplen y modelen de forma independiente los factores de variación de fondo y primer plano.
+### 6. Conclusión y Trabajo Futuro
+* **Problemas atacados**: Resumen de descubrimientos sobre la interacción de fondos y objetos sintéticos.
+* **Limitaciones de ese entonces**: Queda una brecha de rendimiento (gap) por cerrar entre modelos entrenados solo con datos sintéticos (0.68 AP) y datos reales (0.94 AP).
+* **Soluciones alcanzadas**: Demostración de que el fondo real actúa principalmente como un regularizador contra falsos positivos. Se propone como trabajo futuro investigar técnicas de armonización y adaptación de dominio de las OBBs sintetizadas, así como analizar qué detalles visuales específicos del vehículo inducen las mayores ganancias de aprendizaje.

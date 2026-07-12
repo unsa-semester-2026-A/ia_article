@@ -1,0 +1,2399 @@
+sustainability
+Article
+
+Fusion of Deep Sort and Yolov5 for Effective Vehicle Detection
+and Tracking Scheme in Real-Time Traffic Management
+Sustainable System
+Sunil Kumar 1 , Sushil Kumar Singh 2, * , Sudeep Varshney 3 , Saurabh Singh 4 , Prashant Kumar 5 ,
+Bong-Gyu Kim 6 and In-Ho Ra 7, *
+1
+
+2
+3
+
+4
+
+5
+
+6
+
+7
+
+*
+
+Citation: Kumar, S.; Singh, S.K.;
+Varshney, S.; Singh, S.; Kumar, P.;
+Kim, B.-G.; Ra, I.-H. Fusion of Deep
+Sort and Yolov5 for Effective Vehicle
+Detection and Tracking Scheme in
+Real-Time Traffic Management
+Sustainable System. Sustainability
+2023, 15, 16869. https://doi.org/
+10.3390/su152416869
+Academic Editors: Zhenzhong Ma
+and Kun Li
+Received: 28 October 2023
+
+School of Computing Science and Engineering, Galgotias University, Greater Noida 201310, Uttar Pradesh,
+India; sunildangikc107@gmail.com
+Department of Computer Engineering, Marwadi University, Rajkot 360003, Gujarat, India
+Department of Computer Science & Engineering, School of Engineering & Technology, Sharda University,
+Greater Noida 201310, Uttar Pradesh, India; sudeep149@gmail.com
+Department of AI and Bigdata, Woosong University, Daejeon 34606, Republic of Korea;
+singh.saurabh@wsu.ac.kr
+Department of Mechanical, Robotics and Energy Engineering, Dongguk University-Seoul, Seoul 04620,
+Republic of Korea; prashantkumar@dgu.ac.kr
+School of Electronic and Information Engineering, Kunsan National University, Gunsan 54150,
+Republic of Korea; bgkim123@kunsan.ac.kr
+School of Software, Kunsan National University, Gunsan 54150, Republic of Korea
+Correspondence: sushilkumar.singh@marwadieducation.edu.in (S.K.S.); ihra@kunsan.ac.kr (I.-H.R.)
+
+Abstract: In recent years, advancements in sustainable intelligent transportation have emphasized the
+significance of vehicle detection and tracking for real-time traffic flow management on the highways.
+However, the performance of existing methods based on deep learning is still a big challenge due
+to the different sizes of vehicles, occlusions, and other real-time traffic scenarios. To address the
+vehicle detection and tracking issues, an intelligent and effective scheme is proposed which detects
+vehicles by You Only Look Once (YOLOv5) with a speed of 140 FPS, and then, the Deep Simple
+Online and Real-time Tracking (Deep SORT) is integrated into the detection result to track and
+predict the position of the vehicles. In the first phase, YOLOv5 extracts the bounding box of the
+target vehicles, and in second phase, it is fed with the output of YOLOv5 to perform the tracking.
+Additionally, the Kalman filter and the Hungarian algorithm are employed to anticipate and track
+the final trajectory of the vehicles. To evaluate the effectiveness and performance of the proposed
+algorithm, simulations were carried out on the BDD100K and PASCAL datasets. The proposed
+algorithm surpasses the performance of existing deep learning-based methods, yielding superior
+results. Finally, the multi-vehicle detection and tracking process illustrated that the precision, recall,
+and mAP are 91.25%, 93.52%, and 92.18% in videos, respectively.
+Keywords: convolutional neural networks; deep SORT; Kalman filter; vehicle detection and tracking;
+YOLOv5
+
+Revised: 20 November 2023
+Accepted: 4 December 2023
+Published: 15 December 2023
+
+1. Introduction
+Copyright: © 2023 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license (https://
+creativecommons.org/licenses/by/
+4.0/).
+
+Autonomous driving systems are advocated for their potential to enhance safety by
+addressing issues such as drunk or reckless driving, rule violations, and making improved
+decisions in challenging road conditions. Additionally, these systems are expected to
+contribute to congestion relief through efficient decision-making processes [1]. With the
+rapid growth in the global economy, the living standard has improved [2–4]. With the rapid
+growth of vehicles on the roadways, there are some significant causes of traffic safety issues
+such as vehicle accidents, drunk driving, road conditions, and traffic violations [5]. Road
+traffic congestion in urban areas is the most common issue due to the density of traffic and
+the growth of the urban population [6].
+
+Sustainability 2023, 15, 16869. https://doi.org/10.3390/su152416869
+
+https://www.mdpi.com/journal/sustainability
+
+Sustainability 2023, 15, 16869
+
+2 of 24
+
+Therefore, vehicle recognition and tracking are necessary for conventional algorithms
+that use machine learning and deep learning-based algorithms to forecast the volume
+of traffic flow [7]. However, with the rapid improvement in computer vision and deep
+learning, deep learning-based algorithms replaced the traditional object detection methods
+for real-time object detection [8–10]. Deep learning methods are more effective and accurate,
+and they perform better in complex environments to detect objects [11]. Convolutional
+neural network (CNN)-based deep learning techniques for object recognition [12–14] are
+categorized into two types: the two-stage method and one-stage method [15–17]. In the
+one-stage method, deep-learning-based object detection, You Only Look Once (YOLO) v5
+achieves high accuracy, speed, and high reliability in object detection compared to the other
+one-stage-based detectors [18]. However, the object detection system still has a few of the
+problems frequently encountered in detection such as occluded vehicles, flickering, and
+challenging illumination.
+The fusion of Deep SORT and YOLOv5 for effective vehicle detection and tracking
+in real-time traffic management stems from several compelling motivations. First and
+foremost, there is the overarching goal of enhancing road safety. By combining the unique
+strengths of Deep SORT, which is known for its robust tracking capabilities, and YOLOv5,
+which is renowned for accurate and rapid object detection, the fusion aims to mitigate the
+risks associated with reckless driving, violations, and adverse road conditions.
+Another critical motivation lies in the pursuit of optimizing traffic flow and reducing
+congestion. The integration of these advanced technologies enables a more comprehensive understanding of the dynamic traffic environment. This, in turn, facilitates precise
+decision-making processes, leading to smoother traffic patterns and improved overall traffic
+management efficiency.
+Moreover, the increasing demand for sustainable transportation systems propels the
+fusion of Deep SORT and YOLOv5. Achieving sustainable traffic solutions involves not
+only enhancing safety and efficiency but also minimizing the environmental impact. By
+deploying a sophisticated vehicle detection and tracking scheme, the system contributes
+to a sustainable approach to traffic management, aligning with global efforts to promote
+eco-friendly transportation practices.
+1.1. Contribution
+The main contribution of vehicle detection and tracking is to provide accurate and
+real-time data on the movement and behavior of vehicles on roadways. These data can
+be used to optimize traffic flow and improve safety. In response to the above problems,
+integrating the Deep SORT and YOLOv5 ensures better accuracy for vehicle detection,
+tracking, and counting. In order to track several objects, Deep SORT is the first choice
+of researchers as one of the best leading tracking algorithms due to its robustness and
+speed [19]. Kumar et al. [20] integrated the YOLO model with the Kalman filter to track
+the objects for counting. However, this system was not efficient in real-time detection and
+tracking due to the constraints in speed. The integration of YOLOv5 and Deep SORT for
+vehicle detection and tracking offers several novel aspects and advantages compared to
+traditional approaches. Here, there are some key points highlighting the novelty of this
+proposed work:
+
+•
+•
+•
+
+•
+
+We propose an effective vehicle detection and tracking scheme with the fusion of deep
+sort and Yolov5 in a real-time traffic management system.
+The detection of vehicles using YOLOv5 to identify the current location of vehicle
+using a bounding box and classification.
+Deep SORT algorithm tracks the vehicles after identifying the bounding box by the
+YOLOv5 model for tracking the vehicles and counting their vehicles. The same
+algorithm will also strengthen the vehicle detection and tracking to reduce erroneous
+detections and missed detections relying on extraneous factors.
+Assigning unique IDs to each vehicle to monitor the traffic flow for vehicle tracking
+and counting while passing through hot zones and virtual lines.
+
+Sustainability 2023, 15, 16869
+
+3 of 24
+
+Vehicle detection using YOLOv5: YOLOv5 is an advanced object detection algorithm
+that is widely recognized for its exceptional precision and real-time capabilities. It leverages
+a deep neural network to directly forecast the bounding boxes and class labels of objects
+present within an image. This approach eliminates the need for additional post-processing
+steps, resulting in efficient and accurate vehicle detection. By integrating YOLOv5 into
+the proposed work, it enables efficient and precise vehicle detection, allowing for the
+real-time tracking of vehicles in a video stream or series of images. Deep SORT for Vehicle
+Tracking: Deep SORT (Deep Simple Online and Realtime Tracking) is a tracking algorithm
+that extends the capabilities of object detection algorithms by associating detected objects
+across frames and maintaining unique identities for each object. It leverages deep learning
+techniques to learn the appearance features of objects and uses them to track and match
+objects over time. Deep SORT provides robust tracking even in challenging scenarios with
+occlusions, object appearance changes, and crowded scenes.
+End-to-end vehicle detection and tracking: The proposed work integrates YOLOv5
+and Deep SORT to create an end-to-end pipeline for vehicle detection and tracking. This integration allows for a seamless transition from object detection to object tracking, providing
+a comprehensive solution for monitoring and analyzing vehicle movements in real-world
+scenarios. The combined approach enhances the overall performance and accuracy of the
+system by leveraging the strengths of both algorithms.
+Real-time performance: YOLOv5 is known for its real-time inference speed, making it suitable for applications that require fast processing, such as video surveillance
+and autonomous driving. By integrating YOLOv5 with Deep SORT, the proposed work
+enables real-time vehicle detection and tracking, facilitating timely decision making and response in various domains, including traffic management, security systems, and intelligent
+transportation systems.
+Robustness and accuracy: Deep SORT enhances the tracking capabilities by considering the appearance features and motion information of vehicles over time. This integration
+results in robust and accurate tracking, even in challenging scenarios with occlusions,
+complex motion patterns, and crowded scenes. The combination of YOLOv5 and deep
+SORT improves the reliability of the system and provides more accurate and consistent
+vehicle tracking results.
+1.2. Organization
+This research paper is organized into five sections to present a comprehensive study
+on vehicle detection and tracking. Section 2 offers a literature review that summarizes
+various existing algorithms related to object detection, object tracking, and vehicle detection tracking. In Section 3, the proposed framework for vehicle detection and tracking,
+specifically designed to estimate traffic flow, is thoroughly discussed. Section 4 presents
+the results obtained from implementing the proposed framework and comprehensively analyzes the findings. Quantitative and qualitative assessments of the system’s performance
+are discussed, and comparisons with existing approaches are presented. Finally, Section 5
+serves as the conclusion of the research paper.
+2. Related Work
+In recent years, numerous vehicle detection algorithms have emerged in the research
+community. There are a few strategies for vehicle detection that impact our exploration
+study. Vehicle detection has become a prominent area of focus within autonomous driving
+systems, benefitting from the rapid advancements in deep learning and computer vision
+technology. Vehicle detection and tracking algorithms have been applied to videos for
+traffic management to solve traffic flow predictions [21,22]. Therefore, vehicle counting is a
+common way to deal with the traffic flow using object detection and object tracking. Recent
+advances relate to object detection, object tracking, and vehicle detection and tracking are
+explored in the subsection below.
+
+Sustainability 2023, 15, 16869
+
+4 of 24
+
+2.1. Research Study of Vehicle Detection
+Over the years, a series of improvements and advancements in object detection research have increased the prediction of objects with a high accuracy rate of frames per
+second. The object detection approach is categorized into two methods: the two-stage and
+one-stage method. The two-stage approach based on old research gives high prediction
+accuracy but cannot achieve speed and higher performance [5]. The two-stage category
+networks to detect objects are Region-Based Convolutional Neural Network (R-CNN), Fast
+R-CNN, Faster R-CNN, and Spatial Pyramid Pooling Network (SPP-net) [23]. This network
+system builds up object proposals for a group and then gives predictions based on object
+regions and corresponding levels.
+On the other hand, one one-stage approach has better ongoing execution exactness
+and speed on MS COCO and PASCAL VOC datasets [24,25]. Various two-stage object
+detection algorithms have been proposed, like R-CNN, Fast R-CNN, Faster R-CNN, and
+Mask R-CNN, for the necessity of speed and accuracy [12–15]. He et al. [21] proposed a
+two-stage SPP-net. The CNN was 20 times quicker than R-CNN [13] with similar accuracy.
+It can also obtain inputs of non-fixed size, disregarding the size of the region of interest. Ren
+et al. [12] proposed a region proposal network (RPN) based on Fast R-CNN and Faster RCNN, resulting in an improved object detection algorithm using candidate box generation.
+In 2017, Mask R-CNN was proposed. It comprises RPN, feature pyramid network (FPN),
+and detection. It can perform three tasks, namely target recognition [26], detection [27],
+and segmentation [28].
+The drawbacks of this two-stage approach include its speed because of first-stage
+localization and identification of objects in the second stage. Various object detection
+algorithms have been proposed based on the one-stage approach. They are fast and
+make predictions of objects with high efficiency [5]. Joseph Redmon et al. [29] proposed
+a YOLO model in 2016 that is state-of-the-art in real-time object detection. Regression
+techniques divide input images into S × S grids for the estimation of bounding boxes
+and the classification probability of the detected objects; various techniques have been
+employed. [1]. You Only Look Once Version 5 needs one complete pass to generate the
+bounding box using the convolutional neural network. Therefore, this model is commonly
+used for object detection because of its higher real-time detection rate. Subsequently, the
+author introduced the improved version of YOLO in 2017, called YOLOv2, with higher
+accuracy. This improvement was achieved using batch normalization in the CNN, the
+classifier with high resolution, Darknet19 network, and anchor boxes to predict the object
+location [9]. Then, in 2018, the author introduced YOLOv3 with some improvements,
+further improving the accuracy rate and speed. This version replaced the Darknet-19 with
+Darknet-53 to be more effective than previous versions [10].
+In early 2020, Bochkovskiy et al. [30] introduced an advanced version of YOLOv3
+called YOLOv4. It turned out to be more accurate and faster by using Cross Stage Partial
+Network (CSP Darknet-53), a combination of Darknet53 and the CSP-Net [30]. More
+importantly, this model was intended to empower training on a conventional GPU, contrary
+to alternative models [29], as well as incorporated many features such as CSP connections
+along with the CSP Darknet-53, the activation function of Mish and Leaky ReLU [31–33],
+the adoption of Path Aggregation Network (PANet) by replacing the FPN used in YOLOv3
+and Spatial Pyramid Pooling [34] in order to achieve the best efficiency and higher accuracy
+for object detection. Glenn Jocher introduced a YOLOv5 model with several improvements
+for achieving the high detection accuracy and speed. This model is the most recent variant
+of the YOLO series [35]. Additionally, the proposed method showcases an impressive
+detection speed, capable of processing up to 140 frames per second, which is the most
+significant benefit of this variant. Furthermore, compared to the YOLOv4, the size of
+the weight file in the YOLOv5 network is 90% smaller. Therefore, it can be deployed to
+embedded devices for real-time object detection because of its fast speed, small size, and
+high detection accuracy [36].
+
+Sustainability 2023, 15, 16869
+
+5 of 24
+
+2.2. Research Study of Vehicle Tracking
+Due to recent advancements in object detection, object tracking is one of the significant
+components in multiple object tracking. There are some traditional methods like Multiple
+Hypothesis Tracking (MHT) [37] and Joint Probabilistic Data Association Filter (JPDAF) [38]
+that impact the results of object tracking. However, data association can be performed by
+dividing the received observations into tracks. For better surveillance, Multi-Target Tracking (MTT) is an essential component. MHT is broadly viewed as the most crucial technique
+for performing the data association problem in MTT frameworks [39]. In the JPDAF, data
+association can be achieved by generating a single-state hypothesis with weighting. The
+rapid advancement in deep learning and computer vision technologies for self-driving cars
+can improve the object-tracking performance. Recently, several tracking algorithms have
+been introduced to improve the accuracy and robustness of vehicle tracking.
+Nevertheless, for tracking the object, Bewley et al. [40] introduced an algorithm called
+Simple Online and Real-Time Tracking (SORT) in 2016, which is one of the most robust
+approaches in terms of speed for tracking multiple objects. This approach was introduced to
+achieve detection-based online tracking. It combines the Kalman filter [41], which predicts
+the current frame speed based on the target frame while moving the target object, and the
+Hungarian [42] algorithm. In this, the data association on each frame enhances multiple
+objects’ tracking performances. The SORT algorithm accomplishes an execution 20 times
+faster than other state-of-the-art trackers [43]. However, it fails to maintain accuracy due to
+occlusions and viewpoint changes. Wojke et al. [40] introduced the enhanced version of
+SORT named Deep SORT. Deep SORT resulted in a better performance for occlusions and a
+change in viewpoint by embedding a convolutional neural network technique called deep
+appearance-based metric and the data association by motion-based metrics. Deep SORT
+first predicts the trajectory using the Kalman filter, then detections in the current frame are
+matched with the predicted trajectory. Finally, the Kalman filter is updated and applied in
+Multiple Object Tracking (MOT) for assigning different IDs to every vehicle [43].
+2.3. Previous Works
+A lot of studies have already been conducted on vehicle detection and tracking. Significant advancements have been made in computer vision and machine learning to solve this
+issue, leading to the development of various algorithms. The expansion and enhancement
+of automated driving and computer vision technologies have demonstrated the rising
+importance of detection and tracking in the study area. The research techniques of vehicle
+detection are classified into three major categories: feature-based, conventional-based training, and deep learning. The feature-based detection technique generally identifies vehicles
+based on their prominent look.
+Teoh et al. [44] applied a method for front vehicles using sensor images. Furthermore,
+this method has improved the region’s edges and then transmitted them for confirmation
+to the support vector machine (SVM) classifier. However, this technique was not able to
+produce better results compared to other state-of-the-art algorithms when it came to the
+viewing angle and natural environment. Therefore, this technique applies to roads. Wang
+et al. [45] employed a segmentation technique of the iterative method to find the shadow
+characteristics for the vehicle, utilized specific masks to acquire object characteristics at
+different ranges, and used the restrictions of vanishing points to obtain the result for front
+vehicles with speed. However, these feature-based methods achieve a high detection rate
+under different conditions with low algorithm complexity.
+The conventional detection methods based on machine learning use feature classifiers
+to identify the vehicles. Zhang et al. [46] used a method for segmenting the color space
+to scan the image with a combination of multi-dimensional Haar-like features and the
+Adaboost algorithm. Kim et al. [47] used the histogram of oriented gradients (HOGs),
+which has efficiently minimized the total computation and accelerated the vehicle identification. Latif, G. et al. [48] utilized a Haar-like local binary pattern (LBP) and HOG fusion
+classification algorithm for object tracking and achieved a better detection rate.
+
+Sustainability 2023, 15, 16869
+
+6 of 24
+
+With the recent rapid advances in machine learning, CNNs that use deep learning
+represent a popular and promising area for computer vision. This technique has successfully
+been applied to classify images, speech recognition, and processing natural languages.
+Computational intelligence detection generally employs deep CNN to mechanically extract
+the characteristics of vehicles’ objects. And, the vehicle identification task is afterwards
+eventually categorized to significantly decrease the computation time for such a method
+and eventually obtain good accuracy with routing protocol optimization. Qu et al. [49]
+proposed a multi-scale SPP approach for vehicle detection, which would acquire the input
+images’ aspects of various dimensions. Liu et al. [50] proposed a method based on detection
+in two-stage to achieve better segmentation results during the first phase. The second phase
+uses multiple linear preservation networks to retrieve the geographical configurations of
+elements in the region of interest (ROI).
+YOLO and Deep SORT are used together in many MOT applications such as fruit
+detection [19], traffic [51], crowd control [52], and obstacle detection and tracking [53].
+Object tracking deals with the motion of an object frame by frame. Single-object tracking
+(SOT) and multiple object tracking (MOT) are the two types of objects tracking Kalman
+filtering, and particle filtering is based on SOT. Deep SORT and SORT are two state-of-theart MOT-based algorithms. Li, D. et al. [54] introduced Deep SORT for virtual lines and
+multi-vehicle tracking. However, the vehicle movement direction was not considered to
+obtain the traffic flow. A comparison of existing research studies is illustrated in Table 1.
+Table 1. Comparison of the existing research study.
+Authors
+
+Year
+
+Technique
+Used
+
+Description
+
+Advantage
+
+Limitation
+
+Accuracy
+
+Highly accurate
+detection
+
+Computationally
+intensive and
+slower
+inference times
+
+High
+
+Ren et al. [12]
+
+2015
+
+Faster R-CNN
+
+Region-based
+convolutional
+neural
+networks
+
+Redmon et al. [29]
+
+2016
+
+YOLO
+
+Real-time object
+detection
+
+Real-time
+detection and
+tracking
+
+May sacrifice
+accuracy for
+speed
+
+Moderate to
+high
+
+SiamRPN
+
+Siamese
+network-based
+visual tracking
+
+Accurate and
+robust tracking
+across various
+scenarios
+
+May require
+significant
+computational
+resources
+
+High
+
+DeepSORT
+
+Deep
+learning-based
+tracking with
+ID association
+
+Accurate
+tracking with
+ID association
+
+Requires high
+computational
+resources
+
+High
+
+SORT
+
+Deep
+learning-based
+object tracking
+
+Accurate and
+robust tracking
+across various
+scenarios
+
+May require
+significant
+computational
+resources
+
+High
+
+HOG with SVM
+
+Pedestrian
+detection using
+histogram of
+oriented
+gradients
+
+Effective for
+pedestrian
+detection
+
+Can be
+sensitive to
+lighting and
+scale variations
+
+Moderate to
+high
+
+Haar cascades
+
+Real-time face
+detection using
+integral images
+
+Fast and
+efficient
+
+May struggle
+with complex
+backgrounds
+and occlusions
+
+Moderate
+
+Li, Y et al. [32]
+
+Wojke et al. [40]
+
+Bewley, A. et al. [43]
+
+Zhang et al. [46]
+
+Latif et al. [48]
+
+2022
+
+2017
+
+2016
+
+2015
+
+2022
+
+Sustainability 2023, 15, 16869
+
+7 of 24
+
+Table 1. Cont.
+Authors
+
+Year
+
+Technique Used
+
+Description
+
+Advantage
+
+Limitation
+
+Accuracy
+
+Liu et al. [50]
+
+2016
+
+SSD
+
+Single-shot
+multibox detector
+
+Good balance
+between accuracy
+and speed
+
+Can struggle with
+detecting small
+objects or
+occlusions
+
+Moderate to high
+
+Effective in
+handling motion
+prediction
+
+Prone to errors in
+occluded or
+non-linear
+scenarios
+
+Moderate
+
+Wu, W. et al. [51]
+
+2006
+
+Kalman filter
+
+Bayesian filtering
+and prediction
+
+Qiu, Z. et al. [53]
+
+2020
+
+Particle filter
+
+Sequential Monte
+Carlo method
+
+Robust in
+handling
+non-linear motion
+and occlusion
+
+Requires careful
+tuning for
+optimal
+performance
+
+Moderate to high
+
+Proposed work
+
+2023
+
+Yolov5, Deep Sort
+
+Vehicle detection
+and tracking
+
+Working on
+real-time traffic
+management
+System
+
+Occlusions, low
+Illumination
+
+92.18%
+
+2.4. Key Consideration
+The proposed scheme has several key considerations for our research paper is as
+vehicle detection and vehicle tracking.
+
+•
+
+•
+
+•
+
+•
+
+•
+
+Accuracy of vehicle detection: Accuracy is crucial in vehicle detection. Ensure that the
+detection algorithm/model is able to accurately detect vehicles in various scenarios,
+including different vehicle types, lighting conditions, weather conditions, and occlusion situations. Evaluate the detection accuracy using appropriate metrics such as the
+precision, recall, and F1 score.
+Accurate and consistent vehicle tracking: Vehicle tracking should provide accurate
+and consistent results over time. The tracking algorithm should be able to associate
+detected vehicles across frames and maintain their identities, even in situations with
+occlusions or appearance changes. Consider the use of techniques like Deep SORT or
+Kalman filtering to improve the tracking performance.
+Multi-object tracking: Consider the ability of the system to track multiple vehicles
+simultaneously. This is especially important in scenarios with heavy traffic or crowded
+scenes. The tracking algorithm should handle multiple objects and maintain their
+identities correctly, without confusing or swapping identities.
+Adaptability to different environments: Consider the adaptability of the system to
+different environments or domains. A robust vehicle detection and tracking system
+should be able to generalize well and perform effectively in various scenarios, such as
+urban environments, highways, or off-road situations.
+Limitations and future directions: Discuss the limitations of the proposed system for
+vehicle detection and tracking and outline potential areas for improvement. Highlight
+any challenges faced during the development of the system and propose future research directions, such as exploring advanced algorithms, incorporating contextual
+information, or addressing specific use cases.
+
+3. Proposed Vehicle Detection and Tracking Scheme
+An effective method for vehicle detection and tracking based on YOLOv5 with Deep
+SORT is proposed to improve the real-time detection and tracking accuracy. This proposed
+method was re-implemented with open CV, Tensor Flow, and PyTorch available in an
+open source machine learning library. Vehicle detection has advanced with emerging
+deep-learning technology. It makes the detection process easier for vehicles using a series
+of YOLO models. To achieve better accuracy in detection and tracking, YOLOv5 is the
+best choice for detecting vehicles in real time. But still, it is a challenging task to track the
+vehicle due to occlusions, flickering, blur, camera movement, and false detection while
+
+Sustainability 2023, 15, 16869
+
+SORT is proposed to improve the real-time detection and tracking accuracy. This proposed method was re-implemented with open CV, Tensor Flow, and PyTorch available in
+an open source machine learning library. Vehicle detection has advanced with emerging
+deep-learning technology. It makes the detection process easier for vehicles using a series
+of YOLO models. To achieve better accuracy in detection and tracking, YOLOv5 is the best
+8 of 24
+choice for detecting vehicles in real time. But still, it is a challenging task to track the vehicle due to occlusions, flickering, blur, camera movement, and false detection while receiving the bounding box from YOLOv5. The Deep SORT algorithm is integrated with the
+receiving model
+the bounding
+box these
+from YOLOv5.
+The Deep
+SORT algorithm
+is integrated
+with the
+YOLOv5
+to address
+issues. Figure
+1 illustrates
+the proposed
+vehicle detection
+YOLOv5
+model
+to
+address
+these
+issues.
+Figure
+1
+illustrates
+the
+proposed
+vehicle
+detection
+and tracking system, incorporating YOLOv5 and the Deep SORT algorithm.
+and tracking system, incorporating YOLOv5 and the Deep SORT algorithm.
+
+Figure 1. Proposed scheme for detecting and tracking vehicles in real-time using YOLOv5 and the
+Figure 1. Proposed scheme for detecting and tracking vehicles in real-time using YOLOv5 and the
+Deep SORT algorithm.
+Deep SORT algorithm.
+
+3.1. Overview of Proposed Work
+3.1. Overview of Proposed Work
+In this section, the YOLOv5 object detection model and Deep SORT object tracking
+In this
+section,
+the YOLOv5
+object
+detection
+model
+and
+Deep
+SORT objecttotracking
+method
+have
+been explored.
+These
+methods
+were
+taken
+into
+consideration
+further
+method
+have
+been
+explored.
+These
+methods
+were
+taken
+into
+consideration
+to
+further
+exexplore vehicle detection and vehicle tracking in our study. These methods are more effecplore
+vehicle
+detection
+and
+vehicle
+tracking
+in
+our
+study.
+These
+methods
+are
+more
+eﬀective and efficient as compared to the existing methods discussed above. Deep SORT was
+tive
+and eﬃcient
+as compared
+thevehicle
+existing
+DeepConsidering
+SORT was
+deployed
+with YOLOv5
+to tracktothe
+formethods
+countingdiscussed
+with moreabove.
+accuracy.
+deployed
+with
+YOLOv5
+to track
+the vehicle
+for counting
+with more
+accuracy.
+Considering
+the benefits
+of these
+methods
+in vehicle
+detection
+and tracking,
+these
+algorithms
+are more
+the
+benefits of
+methods
+in vehicle
+detection
+and tracking,
+these algorithms
+arein
+more
+appropriate
+forthese
+obtaining
+better
+performance
+results.
+These methods
+are explored
+the
+appropriate
+for Data
+obtaining
+better performance
+results.
+These methods
+explored
+in the
+below section.
+association
+in the context
+of YOLOv5
+and Deepare
+SORT
+for vehicle
+below
+section.
+Data association
+the contextthe
+of YOLOv5
+Deep
+SORT forby
+vehicle
+dedetection
+and tracking
+involvesinassociating
+boundingand
+boxes
+generated
+YOLOv5
+tection
+and
+tracking
+involves
+associating
+the
+bounding
+boxes
+generated
+by
+YOLOv5
+with
+with unique track identities maintained by Deep SORT. An overview of how this process is
+unique
+identities
+maintained
+by Deep SORT. An overview of how this process is
+typicallytrack
+performed
+is given
+as follows:
+typically
+performed
+is
+given
+as
+follows:
+1.
+Object detection with YOLOv5:
+
+•
+•
+2.
+
+YOLOv5 is employed for real-time object detection, including vehicles, in each
+frame of a video or a sequence of images.
+The output of YOLOv5 includes bounding boxes around detected objects along
+with class labels and confidence scores.
+
+Feature extraction and data association with Deep SORT:
+
+•
+•
+
+Deep Simple Online and Realtime Tracking (SORT) is utilized for object tracking
+and maintaining unique track identities across frames.
+Features, such as appearance and motion information, are extracted from the
+bounding boxes generated by YOLOv5.
+
+Sustainability 2023, 15, 16869
+
+9 of 24
+
+•
+•
+3.
+
+Updating Track Information:
+
+•
+•
+
+4.
+
+The Kalman filter is employed to predict the next location of each track based on
+its historical motion.
+The Hungarian algorithm is often used for data association, associating the
+predicted tracks with the newly detected bounding boxes.
+The association step helps link the detected bounding boxes with existing tracks,
+updating the track information with the latest detection.
+Tracks that are not associated with any new detection for a certain period may be
+considered as finished tracks, while new detections that are not associated with
+any existing track may result in the creation of new tracks.
+
+Handling occlusions and ambiguities:
+
+•
+•
+
+Deep SORT is designed to handle challenges such as occlusions, where a vehicle
+may be temporarily hidden from view by another object.
+The combination of YOLOv5’s real-time detection and Deep SORT’s tracking
+helps maintain track identities even when vehicles are temporarily obscured.
+
+3.2. YOLOv5 Model Overview
+The most effective object identification model was created by 58 open source contributors over the course of continuous development, and it is called YOLOv5 [55] to achieve
+a higher detection accuracy and a higher speed than all the earlier versions of the YOLO
+model. There are several improvements with this model compared to the other YOLO
+models. First, it supports PyTorch than PJ Reddie’s Darknet used in the previous version
+of this model. The configuration of the Darknet with an earlier variant of YOLO is much
+more challenging and less productive due to the smaller community of users. In YOLOv5,
+the support and deployment are much easier. Second, compared with YOLOv4 50 Frames
+per second, it can achieve 140 frames per second (FPS) [36]. The foremost advantage of
+selecting the YOLOv5 model for real-time vehicle detection is its superior detection accuracy compared to all the previous versions of the YOLO model. [54]. Fourth, the size of the
+weight file is much smaller in YOLOv5 (27 megabytes) compared to the YOLOv4 weight file
+(244 megabytes), which is approximately 90 percent bigger than YOLOv5. YOLOv5 mainly
+uses three basic components, namely YOLOv5 Backbone, YOLOv5 Neck, and YOLOv5
+Head. YOLOv5 Backbone uses the CSP Darknet as the foundation for obtaining features
+from images formed up of cross-stage partial networks. When YOLOv5 Neck aggregates
+features using PANet, it creates a feature pyramids network and sends it to the head for
+prediction. For object detection, the YOLOv5 head predicts based on the anchor boxes.
+YOLOv4 and YOLOv5 implement the CSP Bottleneck to develop image features for the
+CNN backbone [55]. The CSP has addressed the same gradient problems in other more
+extensive convolutional neural network (ConvNet) backbones, resulting in fewer parameters [56] and fewer FLOPS for practically identical significance. For example, DenseNet
+uses the CSP model to connect layers in convolutional neural networks to bolster the feature propagation and alleviate the vanishing gradient problem. The YOLOv5 additionally
+utilizes the leaky ReLU and Sigmoid for activation. It also makes use of SGD and ADAM
+to perform optimization.
+In autonomous vehicles, object detection is crucial to identify and localize objects
+within a scene, thereby enabling the detection and tracking of their presence and location. The CNN-based high-speed object detection method YOLOv5 leverages a regression
+problem to provide class probabilities [36]. It has since been revised in certain ways. One
+forward propagation pass through the CNN is all that is needed for YOLO to make predictions. Following that, it produces objects with the corresponding bounding boxes. It
+is frequently used in autonomous vehicles to find items in the environment. The primary
+goal of object detection is to identify an object’s class and determine its location using the
+bounding box. Therefore, the YOLOv5 model is selected to detect vehicles due to its high
+accuracy, performance, and the small size of weight file. First, the bounding box image is
+
+Sustainability 2023, 15, 16869
+
+problem to provide class probabilities [36]. It has since been revised in certain ways. One
+forward propagation pass through the CNN is all that is needed for YOLO to make predictions. Following that, it produces objects with the corresponding bounding boxes. It is
+frequently used in autonomous vehicles to find items in the environment. The primary
+goal of object detection is to identify an object’s class and determine its location using the
+10 of 24
+bounding box. Therefore, the YOLOv5 model is selected to detect vehicles due to its high
+accuracy, performance, and the small size of weight file. First, the bounding box image is
+obtained by applying the YOLOv5 model [36] on an input image. Then, at that point, it
+obtainedthe
+byvehicle’s
+applyinglocation
+the YOLOv5
+model
+[36]
+on an
+image.
+Then, at that
+denotes
+for that
+frame,
+stores
+theinput
+location
+information,
+and point,
+assignsit
+denotes
+the
+vehicle’s
+location
+for
+that
+frame,
+stores
+the
+location
+information,
+and
+assigns
+the detection ID. Then, the detection result is fed into the Deep SORT to track the vehicle’s
+the
+detection
+ID.
+Then,
+the
+detection
+result
+is
+fed
+into
+the
+Deep
+SORT
+to
+track
+the
+vehicle’s
+location. The methodological flow of the YOLOv5-based model is illustrated in Figure 2.
+location. The methodological flow of the YOLOv5-based model is illustrated in Figure 2.
+
+Figure 2. Methodological flow of the YOLOv5-based proposed model.
+Figure 2. Methodological flow of the YOLOv5-based proposed model.
+
+3.3. Deep SORT Algorithm for Vehicle Tracking
+3.3. Deep SORT Algorithm for Vehicle Tracking
+The tracking process in Deep SORT involves three main steps: detection, feature
+The tracking
+process
+in Deep
+SORT
+involves
+three
+main steps:
+detection,
+feature
+exextraction,
+and data
+association.
+First,
+object
+detection
+is generated
+using
+an object
+detection
+traction,
+and
+data
+association.
+First,
+object
+detection
+is generated
+using an
+object
+algorithm
+like
+YOLOv5.
+Then,
+deep
+feature
+descriptors
+are extracted
+from
+thedetection
+detected
+algorithm
+like aYOLOv5.
+Then,
+deep
+feature
+descriptors
+are extracted
+from
+detected
+objects using
+pre-trained
+deep
+neural
+network
+like ResNet.
+Finally,
+datathe
+association
+objects
+using
+a
+pre-trained
+deep
+neural
+network
+like
+ResNet.
+Finally,
+data
+association
+is performed to associate the detected objects across the frames, using a combination is
+of
+performed
+associate and
+the detected
+objects acrossThe
+theobtained
+frames, using
+combination
+appearancetosimilarity
+motion information.
+resultaof
+YOLOv5 is of
+fedapto
+pearance
+and motion
+information.
+The obtained
+of YOLOv5
+fed to the
+the Deep similarity
+SORT algorithm
+for tracking
+the vehicles.
+Initially,result
+the Kalman
+filter is applied
+in
+Deep
+algorithm
+fortrajectories
+tracking the
+vehicles.by
+Initially,
+thethe
+Kalman
+filter
+is applied
+in
+Deep SORT to
+predict the
+of vehicles
+analyzing
+previous
+frames.
+Second,
+Deep
+SORT to algorithm
+predict the
+trajectories
+vehicles
+by analyzing
+frames.
+the Hungarian
+was
+applied toof
+perform
+cascade
+matchingthe
+andprevious
+intersection
+over
+union (IOU) matching for the predicted trajectories of vehicles with the detected vehicles
+in the current frame, facilitating the accurate association and tracking of the vehicles.
+After matching the results of predicted trajectories with the detected vehicles, the object
+prediction in the current frame by the Hungarian algorithm is the same as the object in the
+previous frame. Later, it is used to perform association and assign IDs for vehicle tracking.
+Finally, the Kalman filter can be updated using Equations (1)–(5) for predictions [55,56].
+my = u − Vm0x
+
+(1)
+
+where my represents the predicted measurement or observation in the y direction; u stands
+for the true or actual measurement in the y direction; V denotes a matrix that relates the
+
+Sustainability 2023, 15, 16869
+
+11 of 24
+
+state m0x to the measurement my ; and m0x represents the predicted state of the system in the
+x direction.
+G = VL0 V T
+(2)
+where G represents the covariance matrix of the measurement noise; V represents the
+matrix that relates the predicted state to the measurement; and L0 is the transpose of the
+covariance matrix of the predicted state.
+K = L 0 V T G −1
+
+(3)
+
+where K denotes the Kalman gain, determining the amount of correction applied to the
+predicted state; L0 denotes the transpose of the covariance matrix of the predicted state; V T
+denotes the transpose of the matrix relating the predicted state to the measurement; and
+G −1 denotes the inverse of the covariance matrix of the measurement noise.
+m x = m0x +Kmy
+
+(4)
+
+where m x represents the corrected state of the system in the x direction
+L = (I − KV) L0
+
+(5)
+
+where L denotes the covariance matrix of the corrected state; I denotes the identity matrix; K denotes the Kalman gain; V denotes the matrix relating the predicted state to the
+measurement; L0 denotes the transpose of the covariance matrix of the predicted state; m
+represents the corrected state of the system after incorporating the measurements; and m0
+denotes the predicted state of the system before considering the measurements.
+In Equations (1)–(5), L represents the covariance of the matrix, and (m x , my ) denotes
+the
+bounding
+box of the target vehicle.
+Sustainability 2023, 15, x FOR PEER REVIEW
+12 of 25
+Deep SORT [40] helps to calculate the similarities among the motion features of
+vehicles in adjacent frames and apparent features, linking the vehicles of the same category,
+assigning
+unique(𝑚
+IDs, 𝑚to);different
+vehicles, and
+then tracking
+the objects
+the
+box coordinates
+and the covariance
+represents
+the uncertainty
+of the throughout
+target povideos.
+Figure
+3
+represents
+the
+Deep
+SORT
+algorithm-based
+vehicle
+tracking.
+sition.
+
+Figure
+DeepSORT
+SORTalgorithm-based
+algorithm-based vehicle
+tracking.
+Figure
+3. 3.Deep
+vehicle
+tracking.
+Algorithm 1: Kalman filter algorithm for vehicle detection-tracking.
+
+Input: A bounding box on YOLO’s detected matrix along with aspect ratio and height
+of the bounding box
+
+Sustainability 2023, 15, 16869
+
+12 of 24
+
+The above method first initializes the state vector, covariance matrix, and the measurement matrix. Then, it predicts the next state based on the previous state by updating the
+covariance matrix. Finally, this algorithm computes the Kalman gain by estimating the
+states to track the vehicles. The Kalman filter algorithm (Algorithm 1) provides an effective
+framework for vehicle detection and tracking by combining prediction and measurement
+updates to accurately estimate the state of vehicles over time. Here, M denotes the state
+vector representing the target, which includes the target position (m x , my ), aspect ratio a,
+and height h.
+m x , my , a, h denote the initial values of the target position, aspect ratio, and height
+obtained from YOLO’s detected matrix, respectively. M [m0x , m0y , a0 , h0 ] is initially set to [0, 0,
+0, 0]. x denotes the track mean value at time t − 1; F denotes the state transmission matrix;
+T denotes the noise matrix; d denotes the current frame and previous frame difference in F;
+L denotes the covariance matrix; Mean represents the target position of the bounding box
+coordinates (m x , my ); and the covariance represents the uncertainty of the target position.
+Algorithm 1: Kalman filter algorithm for vehicle detection-tracking.
+Input: A bounding box on YOLO’s detected matrix along with aspect ratio and height of the bounding box
+Output: Current frame prediction based on previous position of the target
+1.
+2.
+3.
+4.
+5.
+6.
+
+initialization:
+M ← (m x , my , a, h, m0x , m0y , a0 , h0 )
+m x , my ← target position of the bounding box
+a ← aspect ratio
+h ← height of the bounding box
+h
+i
+M m0x , m0y , a0 , h0 ← [0,0,0,0]
+
+7.
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+16.
+17.
+18.
+19.
+
+x ← track mean value at time t − 1
+F ← state transmission matrix
+T ← noise matrix
+d ← current frame and previous frame difference in F
+L ← covariance matrix
+Mean ← target position of the bounding box coordinates (m x , my )
+Covariance ← uncertainty of the target position
+begin:
+Compute initial mean and variance through Kalman filter before building a new track.
+Predict the target position of the track at time t − 1 and compute x 0 = F(x)
+m0x = m x + dm0x
+m0y = my + dm0y , where new position=original position + displacement, displacement = time × speed.
+Calculate updated covariance matrix at time t
+L0 = FLF 0 + T
+
+20.
+21.
+22.
+23.
+
+Compute gate_function_matrix A = [bmx ,my ]
+Compute gate_function_matrix B = [cmx ,my ]
+Kalman filter update using Equations (1)–(5).
+end
+
+The assignment problem, which involves matching the predicted trajectories with
+detected vehicles, is often addressed using the Hungarian algorithm (Algorithm 2), which
+is also referred to as the Munkres algorithm. This includes the task of matching unmatched
+detections to existing tracked objects. The objective is to identify possible associations
+between the unmatched detections and the existing tracked objects based on a cost or
+similarity metric. The Hungarian algorithm ensures that each detection is assigned to the
+most suitable existing tracked object based on the cost or similarity metric. By iteratively
+updating the assignment matrix, the algorithm finds the optimal assignments that minimize
+the total cost or dissimilarity. Here, A denotes the unmatched detections; B denotes the
+unmatched trackers; t denotes the detection list; t − 1 denotes the tracking list from the
+previous frame; i denotes the tracking variable; j denotes the detection variable; IOU_max
+denotes the maximum IOU threshold for matching; IOU_other denotes the IOU threshold
+for handling unmatched cases; IOU_matrix denotes the matrix storing the IOU scores;
+Matched_id(x) denotes the result of the linear assignment algorithm applied to the IOU
+
+Sustainability 2023, 15, 16869
+
+13 of 24
+
+matrix; trackers denotes the list of trackers with associated IDs; detections denotes the list
+of detections with associated IDs; unmatched_trackers denotes the trackers that do not
+have a corresponding match; unmatched_detections denotes the detections that do not
+have a corresponding match; and Matches denotes the list to store matched pairs.
+Algorithm 2: Hungarian algorithm for unmatched detection and tracking.
+Input: n by n square matrix, Detection A, Detection B, Detection C,. . . . . . . . . . . . ., IDs: 0,1,2,. . . . . . . . . .)
+Output: (Unmatched detections, Unmatched tracking)
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+16.
+17.
+18.
+19.
+20.
+21.
+22.
+23.
+24.
+25.
+26.
+27.
+28.
+29.
+30.
+31.
+32.
+33.
+
+Initialization:
+A ← Unmatched_detections
+B ← Unmatched_tracker’s
+t ← detection list
+t − 1 ← tracking list
+i ← tracking variable
+j ← detection variable
+begin:
+Set IOU_max ← 1
+Set IOU_other ← 0
+Computer IOU and convolutional score
+Stores the IOU score in a matrix.
+Matched_id (x) = linear-assignment (IOU_matrix)
+A,B = [], []
+for t, i in trackers do
+if t not in matched_id (x) then
+append t to unmatched_trackers
+end
+end
+for d, j in detections do
+if d not in matched_id (x) then
+append d to unmatched_detections
+end
+end
+Create a list: Matches = []
+for m in matched_id (x) do
+if IOU_mat [m[0],m[1] < IOU_thrd then
+add m[0] to unmatched_trackers
+add m[1] to unmatched_detections
+else
+Add m.reshape (1,2) to matches
+end
+end
+
+IOU tracking (Algorithm 3) effectively handles situations where objects undergo various transformations, such as scale changes, occlusions, or partial visibility. IOU tracking can
+maintain object identities and track objects through time by comparing the spatial overlap
+between bounding boxes across frames. The intersection over union (IOU) metric quantifies
+the overlap between two bounding boxes by calculating the ratio of their intersection area
+to their union area. This measures the spatial overlap between detections and serves as a
+similarity metric for tracking associations. Here, Tl denotes the low detection threshold; Th
+denotes the high detection threshold; Tiou denotes the IOU threshold; mintrack_size denotes
+the minimum track size in frames; Track a denoes the activated tracks; Track f denotes the
+finishing tracks; f denotes the frame variable; d denotes the detection variable; detections
+denotes the list of detections; Track_u denotes the unmatched tracks; ti denotes the iteration variable for activated tracks; biou denotes the maximum IOU value; bbox denotes the
+bounding box associated with the maximum IOU; max_score denotes the maximum score
+associated with a bounding box; class denotes the class of the bounding box; and new_track
+denotes the newly created track from a detection.
+
+Sustainability 2023, 15, 16869
+
+14 of 24
+
+Algorithm 3: Cascade matching and IOU tracking.
+Input: Trackers (detections, Tl , Th , Tiou , mintrack_size )
+Output: Vehicle tracking and assigning ID’s
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+16.
+17.
+18.
+19.
+20.
+21.
+22.
+23.
+24.
+25.
+26.
+27.
+28.
+29.
+
+Initialization
+SET Tl ← low detection threshold
+SET Th ← high detection threshold
+SET Tiou ← IOU threshold
+SET mintrack_size ← minimum track size in frames
+SET Track a ← [ ]
+//activating the tracks
+SET Track f ← [ ]
+// finishing tracks
+f ← frame variable
+d ← detection variable
+begin:
+for f, d in detections do
+d ← filter for d with score >= Tl
+SET Tracku ← [ ]
+for ti in Ta do
+if not empty (d) then
+biou , bbox ← find max_iou box (tail box(ti ),d)
+if biou ← Tiou then
+append new detection (ti , bbox )
+SET max score (ti , box score (bbox ))
+SET class (ti , box class (bbox ))
+Tracku ← append (tu , ti )
+remove (d, bbox )))
+if empty (Tracku ) or ti is not last (Tracku )) then
+if get max score (ti ) >= Th or size (ti ) >= mintrack_size then
+Track f ← append (Track f , ti )
+Tracknew_track ← new tracks from d
+Track a ← Tracku + Tracknew_track
+return Track f
+end
+
+3.4. Methodological Flow of Proposed Work
+Figure 1 shows the proposed scheme of vehicle detection and vehicle tracking, which
+basically works in two phases: first, the vehicle detection with YOLOv5 by generating
+the bounding box for each vehicle, and second, vehicle tracking with Deep SORT to track
+the detected vehicles by YOLOv5. The YOLOv5 algorithm detects vehicles in each frame
+of the video or image sequence (Algorithm 4). YOLOv5 is an object detection algorithm
+that directly generates predictions for the object’s bounding boxes and their corresponding
+class labels in the input [56,57]. It extracts appearance features from the detected vehicles
+using a pre-trained deep neural network, such as ResNet or VGG. These features will be
+used for matching and association in the tracking phase. The proposed method performs
+online tracking by associating the detected vehicles across frames using the Deep SORT
+algorithm. Deep SORT combines the appearance features extracted in the previous step
+with the motion information to associate and track the vehicles over time. The tracker
+updates the vehicle tracks and estimates their positions and velocities using a Kalman filter.
+The proposed method for vehicle detection and tracking operates in two phases.
+Firstly, it utilizes the YOLOv5 algorithm to identify the bounding boxes of vehicles in the
+target image. These perform the feature extraction and data aggregation using CSPNet and
+PANet, respectively, to enhance the object detection results. The output of the YOLOv5 is
+the bounding boxes, which will be the input to the Deep SORT for predicting the trajectories
+of the vehicles, where xi , y j are the coordinates of the input image; p is the class probability;
+c is the confidence score; bbox is the bounding box; r is the region; zi is the input image; and
+n is the number of images in the set.
+
+Sustainability 2023, 15, 16869
+
+15 of 24
+
+Algorithm 4: Vehicle detection and tracking with YOLOv5 and Deep SORT.
+Input: Set of images or videos
+Output: Target position of the bounding box (m x , my ) by YOLOv5 and tracking for counting vehicles by Deep
+SORT.
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+16.
+17.
+18.
+19.
+20.
+21.
+22.
+23.
+24.
+25.
+26.
+
+Initialization
+xi , y j ← coordinate of the input image
+p ← class probability
+c ← confidence score
+bbox ← bounding box
+r ← region
+begin:
+for i=1 to n do
+Read input images zi = (xi , y j )
+Apply YOLOv5 object detection for finding the bounding box.
+Perform the feature extraction and data aggregation using CSPNet and PANet, respectively.
+if (p > c):
+Calculate the bounding box with class label.
+nested if (bbox < not in class label)
+Go to to step no. 12.
+Else if (r > bbox ):
+Vehicle detected if class = 1
+Vehicle not detected if class = 0
+End
+end
+Draw the bounding box for input data using region of interest
+end
+Apply Kalman filter to predict trajectories of the vehicles based on previous frame.
+Use Hungarian algorithm to perform cascade matching and IOU matching for prediction of trajectories.
+Kalman filter update to predict the next frame.
+end
+
+3.5. Vehicle Identification and Vehicle Tracking
+In this process, YOLOv5 is applied to identify the objects from the input videos in
+every frame and calculate the bounding box. YOLOv5 first identifies the object and then it
+gives the label to the bounding box of every vehicle. The results of YOLOv5 in terms of
+the bounding box of every vehicle are given to Deep SORT. In the process of employing
+deep learning for vehicle detection and classification, the algorithm systematically processes vision data within individual frames, primarily focusing on generating information
+regarding the types of vehicles present, such as cars, trucks, and buses. For vehicle-type
+identification, the data obtained from YOLOv5 is directly utilized, supplemented by additional independent training using target site data to enhance the accuracy of vehicle-type
+classification. Vehicle location information is derived from the details of each vertex and
+the center point of the bounding box. These data are then transformed into longitude
+and latitude coordinates, utilizing the vehicle’s bottom center point as a reference. The
+vehicle’s location information, extracted from each image frame, is extended to form a
+continuous frame, facilitating the extraction of vehicle trajectory information for location
+correction purposes.
+In video images captured by a camera, the algorithm employs the similarity between
+the feature information of the objects in successive image frames to track their changing
+locations. The tracking process involves comparing the location and size of the vehicle in
+the current frame with those detected in the previous frame. Consequently, the vehicle
+with the largest intersection over union (IOU) is identified as the same vehicle from the
+preceding frame, enabling the continuous tracking of its movement. Additionally, if no
+intersection over union is detected within a specified frame duration (0.2 s), indicating no
+overlap in location and size with the previous frame, the object is recognized as a new
+vehicle, and a unique tracking ID is assigned.
+
+Sustainability 2023, 15, 16869
+
+16 of 24
+
+3.6. Vehicle Tracking with Virtual Lines and Hot Zones
+The input of the Deep SORT algorithm is the bounding box calculated by the YOLOv5
+for tracking the vehicles. The Kalman filter is used for identifying the current frame of
+the vehicles based on the previous frame knowledge prediction. Then, the Hungarian
+algorithm uses cascade matching and IOU matching. Finally, the Kalman filter updates
+the predictions. The traffic flow is calculated in a lane by drawing the virtual lines. If the
+vehicle passes through the hot zone and virtual lines, it is counted once, and if any vehicle
+changes into another lane in the same direction while passing through the virtual lines, it is
+also only counted once.
+3.7. Enhancing the Detection and Tracking of Small Objects Using YOLOv5 and Deep SORT
+In the process of enhancing the detection and tracking of small objects, we employed
+a comprehensive approach by leveraging the capabilities of YOLOv5 and Deep SORT. The
+YOLOv5 architecture inherently incorporates advanced features such as feature pyramid
+networks (FPN) for multi-scale feature extraction, intersection over union (IoU) filtering,
+and confidence thresholding to refine detections. Furthermore, data augmentation techniques have been applied during training to augment the dataset, enabling the model to
+more effectively handle variations in object sizes. Attention mechanisms are integrated
+to focus on critical details in the input image, while Kalman filtering and smoothing techniques contribute to improved object tracking. Additionally, the use of higher resolution
+input images and post-processing techniques, including non-maximum suppression (NMS),
+further enhances the algorithm’s capacity to detect and track small objects with accuracy
+and robustness.
+4. Evaluation and Performance Results
+The proposed algorithm for vehicle detection and tracking used the BDD100K dataset [58]
+and auxiliary PASCAL VOC dataset [24] for validation and testing. The performance of this
+proposed work was evaluated based on the metrics used in the PASCAL VOC dataset [24].
+The performance metrics of the parameters are listed in Table 2.
+Table 2. Metrics of performance evaluation parameters.
+Performance Metrics
+area of overlap
+
+Intersection Over Union (IOU) = area of union
+Recall (R) = TP TP
++ FN
+False Negative Rate (FNR) = 1.00 − R
+Precision (P) = TP TP
++ FP
+False Positive Rate (FPR) = 1.00 − P
+F1score = P2PR
++R
+
+1 i=1
+Mean Average Precision (mAP) = N
+∑N APi
+
+The true positives, false positives, and false negatives were firstly evaluated for the
+evaluation of the performance metrics. TP correctly represents detected objects in the
+image. FP represents the object detected in the image which does not exist in the image.
+FN represents the non-detected object but exists in the image. The performance metrics
+parameters can be derived after calculating the true positives, false positives, and false
+negatives. To compare the performance evaluation of accuracy on the BDD100K validation
+sets for the three methods, the results are shown in Table 3. Moreover, the comparisons
+between accuracy performances on the PASCAL VOC datasets are shown in Table 4.
+
+Sustainability 2023, 15, 16869
+
+17 of 24
+
+Table 3. Comparisons on the BDD100K validation set.
+Methods
+
+Precision
+
+Recall
+
+mAP
+
+FPS
+
+YOLOv5s [18]
+AFFB_YOLOv5s
+YOLOv5 + Deep SORT
+
+32.5
+[17] 33.0
+34.7
+
+57.7
+58.3
+59.3
+
+50.6
+51.5
+51.7
+
+45
+52
+58
+
+Table 4. Comparisons on the PASCAL VOC datasets.
+Methods
+
+Precision
+
+Recall
+
+mAP
+
+FPS
+
+YOLOv5s [18]
+AFFB_YOLOv5s
+YOLOv5 + Deep SORT
+
+60.3
+[17] 63.4
+65.7
+
+82.3
+82.9
+83.4
+
+79.4
+80.8
+81.2
+
+48
+50
+57
+
+4.1. Results Discussion
+To assess the impact and resilience of the algorithm in vehicle tracking under occlusion
+scenarios, YOLOv5s_DSC is utilized as a detector in conjunction with Deep SORT. Figure 4
+illustrates the tracking boxes of various vehicle types, each represented by distinct colors.
+Each tracking box not only includes category and category confidence information, but
+also incorporates a tracking ID. In the hardware environment outlined in Table 3, the
+YOLOv5s_DSC + Deep SORT algorithm achieves a processing speed of 58 FPS.
+To further evaluate the algorithm’s robustness, occlusion scenes are considered. Two
+occlusion situations are examined: (1) the target is obscured by foreign objects; and (2) the
+targets are obscured by each other. Initially, the algorithm’s robustness is verified when
+the target is concealed by external objects. The algorithm’s ability to recognize and retrack
+targets after they reappear is tested using a traffic video obstructed by a pillar. Figure 5
+displays four consecutive images wherein the dark car with a tracking ID of 3 re-emerges
+after being blocked by a pillar, demonstrating the algorithm’s strong resilience and accuracy
+in occluded scenes.
+The algorithm’s performance is further evaluated in scenarios where targets are occluded by other targets. Specifically, the algorithm’s capability to track targets that are
+partially concealed by other targets is assessed. A video sequence is selected in which a bus
+partially obscures a car that is being tracked. As depicted in Figure 6, despite the occlusion,
+the tracking ID for the car (ID 4) remains unchanged. This demonstrates that the proposed
+algorithm adeptly handles partial occlusions between targets, showcasing its effectiveness
+in practical applications of target tracking.
+4.2. Vehicle Detection Result Analysis
+The accuracy of vehicle detection and classification is achieved through the proposed
+model that employs YOLOv5, trained with the MS COCO dataset and picture datasets. The
+model can identify all vehicles on the road and accurately classify them. Figures 4–6 depict
+the visual representation of the results obtained from the proposed algorithm for vehicle
+detection and the assignment of the ID to each vehicle for tracking their locations.
+
+Sustainability 2023, 15, 16869
+Sustainability 2023, 15, x FOR PEER REVIEW
+
+18 of 24
+19 of 25
+
+(a)
+
+(b)
+
+(c)
+
+(d)
+
+Figure 4. (a–d) Results of vehicle detection using YOLOv5.
+Figure 4. (a–d) Results of vehicle detection using YOLOv5.
+
+Sustainability 2023, 15, 16869
+Sustainability 2023, 15, x FOR PEER REVIEW
+
+19 of 24
+20 of 25
+
+(a)
+
+(b)
+
+(c)
+Figure 5. (a–c) ID assignment to each vehicle for tracking.
+Figure 5. (a–c) ID assignment to each vehicle for tracking.
+
+Sustainability
+Sustainability 2023,
+2023, 15,
+15, 16869
+x FOR PEER REVIEW
+
+(a)
+
+of 25
+24
+2120of
+
+(b)
+
+Figure
+Figure 6.
+6. (a,b)
+(a,b) Assigning
+Assigning the
+the IDs
+IDs to
+to each
+each vehicle
+vehicle for
+for tracking.
+tracking.
+
+Vehicle Counting
+Counting and Tracking Result Analysis
+4.3. Vehicle
+are incorporated
+incorporated
+To enhance the capabilities of the system, virtual lines and hot zones are
+on both
+both the
+the left
+leftand
+andright
+rightsides
+sidesofofthe
+theroad.
+road.
+These
+additional
+features
+help
+improve
+These additional features help improve
+the
+the
+accuracy
+of
+vehicle
+detection
+and
+tracking
+by
+providing
+reference
+boundaries
+and
+accuracy of vehicle detection and tracking by providing reference boundaries and focal
+focal areas
+for analysis.
+The vehicle
+is tracked
+accurately
+it enters
+hot zones.
+By
+areas
+for analysis.
+The vehicle
+is tracked
+accurately
+when when
+it enters
+hot zones.
+By using
+using virtual
+lines, vehicles
+can be counted
+to estimate
+the flow
+flow
+virtual
+lines, vehicles
+can be counted
+to estimate
+the flow rate.
+The rate.
+traﬃcThe
+flowtraffic
+rate refers
+rate
+refers
+to the
+vehicles
+passing
+through
+a specific
+within
+to
+the
+number
+of number
+vehicles of
+passing
+through
+a specific
+point
+withinpoint
+a given
+unitaofgiven
+time unit
+and
+of
+time
+and
+during
+any
+interval.
+The
+vehicle
+count,
+which
+corresponds
+to
+the
+number
+during any interval. The vehicle count, which corresponds to the number of vehicles passof vehicles
+through
+line,
+is determined
+by utilizing
+hotlines.
+zones
+and
+ing
+throughpassing
+a designated
+line,aisdesignated
+determined
+by utilizing
+hot zones
+and virtual
+These
+virtual
+lines.
+These
+elements
+aid
+in
+accurately
+detecting
+and
+tracking
+vehicles
+as
+they
+elements aid in accurately detecting and tracking vehicles as they cross the specified line,
+cross the the
+specified
+line,
+enabling of
+thethe
+accurate
+of the
+vehiclepasses
+count.through
+When aa
+enabling
+accurate
+calculation
+vehiclecalculation
+count. When
+a vehicle
+vehicle
+passes
+through
+a
+line,
+it
+counts
+once.
+Figure
+7
+shows
+the
+vehicle
+detection
+results
+line, it counts once. Figure 7 shows the vehicle detection results with the bounding
+box
+with
+the
+bounding
+box
+regression.
+Table
+5
+presents
+a
+comprehensive
+comparison
+of
+the
+regression. Table 5 presents a comprehensive comparison of the proposed method with
+proposed
+method
+with
+other
+state-of-the-art
+techniques,
+evaluating
+their
+performance.
+other state-of-the-art techniques, evaluating their performance. Figure 8 illustrates a comFigure 8 analysis
+illustrates
+comparative
+analysiswith
+of the
+proposed
+with existing
+deep
+parative
+of athe
+proposed methods
+existing
+deepmethods
+learning-based
+approaches.
+learning-based approaches.
+
+Sustainability 2023, 15, x FOR PEER REVIEW
+
+22 of 25
+
+Sustainability
+Sustainability 2023,
+2023, 15,
+15, 16869
+x FOR PEER REVIEW
+
+21 of
+of 24
+22
+25
+
+(a)
+
+(b)
+
+Figure
+7. (a,b) Vehicle tracking and counting in the proposed system.
+(a)
+(b)
+Figure 7.
+7. (a,b)
+tracking and
+and counting
+counting in
+in the
+the proposed
+proposed system.
+system.
+Figure
+(a,b) Vehicle
+Vehicleoftracking
+Table
+5. Comparison
+the performance
+parameters
+used for vehicle detection and tracking.
+Table 5. Comparison of the performance
+parameters used Recall
+for vehicle detection and
+tracking.
+Precisionparameters
+mAP@0.5
+Table 5.Methods
+Comparison of the performance
+used for vehicle detection and
+tracking.
+
+YOLOv4-3SPP
+88.6%
+Methods [6]
+Precision
+Methods
+Precision
+YOLOv5s
+[18]
+80.3%
+YOLOv4-3SPP [6]
+88.6%
+YOLOv5
+[36]
+83.83%
+YOLOv4-3SPP
+YOLOv5s
+[18] [6]
+80.3% 88.6%
+YOLOv5s
+[18]
+80.3%
+YOLOv3
++
+Deep
+YOLOv5
+[36] [36]
+83.83%
+91% 83.83%
+YOLOv5
+SORT [59]
+YOLOv3
++ Deep
+DeepSORT [59]
+YOLOv3 +
+91%
+91%
+YOLOV5
++ Deep
+YOLOV5
++ Deep SORT
+SORT [59]
+91.25% 91.25%
+SORT
+YOLOV5
++ Deep
+91.25%
+SORT
+
+82.4%
+Recall
+89% Recall
+82.4%
+91.48%
+89% 82.4%
+89%
+
+91.48%
+90%91.48%
+90%
+
+86.5%
+mAP@0.5
+mAP@0.5
+90.5%
+86.5%
+86.75%
+86.5%
+90.5%
+90.5%
+86.75%
+84.76%
+86.75%
+84.76%
+
+90%
+93.52%
+93.52%
+
+84.76%
+92.18%
+92.18%
+
+93.52%
+
+92.18%
+
+Figure 8.
+8. Performance
+Performance analysis
+analysis of
+of the
+the proposed
+proposed work
+work for
+for vehicle
+vehicle detection
+detection and tracking.
+Figure
+
+Figure 8. Performance analysis of the proposed work for vehicle detection and tracking.
+
+Sustainability 2023, 15, 16869
+
+22 of 24
+
+5. Conclusions and Future Work
+In conclusion, our proposed fusion of Deep SORT and YOLOv5 presents a highly
+effective solution for real-time vehicle detection and tracking in traffic management systems. This integration addresses key challenges such as vehicle detection, vehicle tracking,
+occlusions, varying illumination conditions, and the accurate tracking of unique vehicle
+IDs. This paper presents vehicle detection and tracking methods to achieve high accuracy
+and better performance in terms of precision, recall, and mAP than existing algorithms in
+real-time. The Deep SORT algorithm is integrated with YOLOv5 to reduce the false detection and missed detections due to occlusions, illumination, and counting unique IDs for
+tracking vehicles and other external factors. This proposed model improves the detection
+accuracy rate in videos. The results of our study demonstrate superior performance, with
+a mean average precision (mAP) of 92.18% and precision and recall rates of 91.25% and
+93.52%, respectively, surpassing our existing methods.
+As we move forward, our focus will be on advancing the capabilities of our proposed
+system. We plan to explore advanced combinations of deep learning methodologies to
+further refine the accuracy of vehicle detection and tracking. Individual optimizations for
+YOLOv5 and Deep SORT will be undertaken to independently enhance their performance.
+Moreover, we aim to integrate the sustainability aspects into the system, aligning these
+with environmental considerations and energy efficiency. The continuous refinement of
+our approach will contribute to the development of intelligent transportation systems that
+are not only effective in real-time traffic management but also sustainable in the broader
+context. Through ongoing research and development, we anticipate making significant
+strides in the intersection of cutting-edge technology and sustainable traffic solutions.
+Author Contributions: Writing—review and editing, S.K. and S.K.S.; Writing—original draft, S.K.
+and S.K.S.; Methodology, S.K., S.K.S. and S.V.; Implementation, S.K.; Validation, S.K. and S.V.; Resources, S.S., P.K. and S.K.S.; Visualization, S.K. and S.S.; Formal analysis, S.S. and S.K.S.; Supervision,
+S.K.S., S.S., P.K., B.-G.K. and I.-H.R.; Project administration, S.K., S.K.S., S.S., P.K., B.-G.K. and I.-H.R.;
+Funding acquisition, S.S. and I.-H.R. All authors have read and agreed to the published version of
+the manuscript.
+Funding: This work was supported in part by the National Research Foundation of Korea (NRF)
+Grant from the Korean Government through the Ministry of Science and ICT (MSIT) under Grant
+2021R1A2C2014333. The work is also supported by the Woosong University Academic Research
+Fund in 2023. This research was also supported by the Research Seed Grant funded by the Marwadi
+University, Rajkot, Gujrat (MU/R&D/22-23/MRP/FT13).
+Institutional Review Board Statement: Not applicable.
+Informed Consent Statement: Not applicable.
+Data Availability Statement: Data are contained within the article.
+Conflicts of Interest: The authors declare no conflict of interest. The funders had no role in the design
+of the study; in the collection, analyses, or interpretation of data; in the writing of the manuscript; or
+in the decision to publish the results.
+
+References
+1.
+2.
+3.
+4.
+5.
+
+Xu, P.; Tan, Q.; Zhang, Y.; Zha, X.; Yang, S.; Yang, R. Research on maize seed classification and recognition based on machine
+vision and deep learning. Agriculture 2022, 12, 232. [CrossRef]
+Cao, J.; Song, C.; Song, S.; Peng, S.; Wang, D.; Shao, Y.; Xiao, F. Front vehicle detection algorithm for smart car based on improved
+SSD model. Sensors 2020, 20, 4646. [CrossRef] [PubMed]
+Ali, S.M.; Appolloni, A.; Cavallaro, F.; D’Adamo, I.; Di Vaio, A.; Ferella, F.; Gastaldi, M.; Ikram, M.; Kumar, N.M.; Martin, M.A.;
+et al. Development Goals towards Sustainability. Sustainability 2023, 15, 9443. [CrossRef]
+Le, N.; Rathour, V.S.; Yamazaki, K.; Luu, K.; Savvides, M. Deep reinforcement learning in computer vision: A comprehensive
+survey. Artif. Intell. Rev. 2022, 55, 2733–2819. [CrossRef]
+Kuswantori, A.; Suesut, T.; Tangsrirat, W.; Schleining, G.; Nunak, N. Fish Detection and Classification for Automatic Sorting
+System with an Optimized YOLO Algorithm. Appl. Sci. 2023, 13, 3812. [CrossRef]
+
+Sustainability 2023, 15, 16869
+
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+16.
+17.
+18.
+19.
+20.
+21.
+22.
+23.
+24.
+25.
+26.
+27.
+28.
+
+29.
+30.
+
+31.
+32.
+33.
+34.
+35.
+
+23 of 24
+
+Qiu, Z.; Bai, H.; Chen, T. Special Vehicle Detection from UAV Perspective via YOLO-GNS Based Deep Learning Network. Drones
+2023, 7, 117. [CrossRef]
+Wu, Z.; Sang, J.; Zhang, Q.; Xiang, H.; Cai, B.; Xia, X. Multi-scale vehicle detection for foreground-background class im-balance
+with improved YOLOv2. Sensors 2019, 19, 3336. [CrossRef]
+Li, X.-Q.; Song, L.-K.; Choy, Y.-S.; Bai, G.-C. Multivariate ensembles-based hierarchical linkage strategy for system reliability
+evaluation of aeroengine cooling blades. Aerosp. Sci. Technol. 2023, 138, 108325. [CrossRef]
+Redmon, J.; Farhadi, A. YOLO9000: Better, faster, stronger. In Proceedings of the 2017 IEEE Conference on Computer Vision and
+Pattern Recognition (CVPR), Honolulu, HI, USA, 21–26 July 2017.
+Redmon, J.; Farhadi, A. YOLOv3: An Incremental Improvement. arXiv 2018, arXiv:1804.02767.
+Zhao, Z.-Q.; Zheng, P.; Xu, S.-T.; Wu, X. Object detection with deep learning: A review. IEEE Trans. Neural Netw. Learn. Syst. 2019,
+30, 3212–3232. [CrossRef]
+Ren, S.; He, K.; Girshick, R.; Sun, J. Faster R-CNN: Towards real-time object detection with region proposal networks. arXiv 2015,
+arXiv:1506.01497. [CrossRef]
+Kumar, S.; Jailia, M.; Varshney, S.; Pathak, N.; Urooj, S.; Elmunim, N.A. Robust vehicle detection based on improved you look
+only once. Comput. Mater. Contin. 2023, 74, 3561–3577. [CrossRef]
+Okafor, E.; Udekwe, D.; Ibrahim, Y.; Mu’Azu, M.B.; Okafor, E.G. Heuristic and deep reinforcement learning-based PID control of
+trajectory tracking in a ball-and-plate system. J. Inf. Telecommun. 2021, 5, 179–196. [CrossRef]
+He, K.; Gkioxari, G.; Dollár, P.; Girshick, R. Mask R-CNN. arXiv 2017, arXiv:1703.06870.
+Kumar, S.; Jailia, M.; Varshney, S. An efficient approach for highway lane detection based on the Hough transform and Kalman
+filter. Innov. Infrastruct. Solut. 2022, 7, 290. [CrossRef]
+Song, S.; Li, Y.; Huang, Q.; Li, G. A new real-time detection and tracking method in videos for small target traffic signs. Appl. Sci.
+2021, 11, 3061. [CrossRef]
+Malta, A.; Mendes, M.; Farinha, T. Augmented reality maintenance assistant using YOLOv5. Appl. Sci. 2021, 11, 4758. [CrossRef]
+Parico, A.I.B.; Ahamed, T. Real time pear fruit detection and counting using YOLOv4 models and Deep SORT. Sensors 2021, 21,
+4803. [CrossRef]
+Kumar, S.; Jailia, M.; Varshney, S. Improved YOLOv4 approach: A real time occluded vehicle detection. Int. J. Comput. Digit. Syst.
+2022, 12, 489–497. [CrossRef] [PubMed]
+Xue, Z.; Xu, R.; Bai, D.; Lin, H. YOLO-Tea: A tea disease detection model improved by YOLOv5. Forests 2023, 14, 415. [CrossRef]
+Kim, J.-H.; Kim, N.; Park, Y.W.; Won, C.S. Object detection and classification based on YOLO-V5 with improved maritime dataset.
+J. Mar. Sci. Eng. 2022, 10, 377. [CrossRef]
+He, K.; Zhang, X.; Ren, S.; Sun, J. Spatial pyramid pooling in deep convolutional networks for visual recognition. IEEE Trans.
+Pattern Anal. Mach. Intell. 2015, 37, 1904–1916. [CrossRef] [PubMed]
+Everingham, M.; Van Gool, L.; Williams, C.K.I.; Winn, J.; Zisserman, A. The pascal visual object classes (VOC) challenge. Int. J.
+Comput. Vis. 2010, 88, 303–338. [CrossRef]
+Singh, S.K.; Yang, L.T.; Park, J.H. FusionFedBlock: Fusion of blockchain and federated learning to preserve privacy in industry
+5.0. Inf. Fusion 2023, 90, 233–240. [CrossRef]
+Pan, Q.; Zhang, H. Key Algorithms of video target detection and recognition in intelligent transportation systems. Int. J. Pattern
+Recognit. Artif. Intell. 2020, 34, 2055016. [CrossRef]
+Li, X.-Q.; Song, L.-K.; Bai, G.-C. Deep learning regression-based stratified probabilistic combined cycle fatigue damage evaluation
+for turbine bladed disks. Int. J. Fatigue 2022, 159, 106812. [CrossRef]
+Ge, W.; Yang, S.; Yu, Y. Multi-evidence filtering and fusion for multi-label classification, object detection and semantic segmentation
+based on weakly supervised learning. In Proceedings of the 2018 IEEE/CVF Conference on Computer Vision and Pattern
+Recognition (CVPR), Salt Lake City, UT, USA, 18–23 June 2018; pp. 1277–1286.
+Russakovsky, O.; Deng, J.; Su, H.; Krause, J.; Satheesh, S.; Ma, S.; Huang, Z.; Karpathy, A.; Khosla, A.; Bernstein, M.; et al.
+ImageNet large scale visual recognition challenge. Int. J. Comput. Vis. 2015, 115, 211–252. [CrossRef]
+Wang, C.-Y.; Liao, H.-Y.M.; Wu, Y.-H.; Chen, P.-Y.; Hsieh, J.-W.; Yeh, I.-H. CSPNet: A New Backbone that can Enhance Learning
+Capability of CNN. In Proceedings of the 2020 IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops
+(CVPRW), Seattle, WA, USA, 14–19 June 2020.
+Bochkovskiy, A.; Wang, C.-Y.; Liao, H.-Y.M. YOLOv4: Optimal speed and accuracy of object detection. arXiv 2020,
+arXiv:2004.10934.
+Li, Y.; Zhang, X.; Shen, Z. YOLO-Submarine Cable: An improved YOLO-V3 network for object detection on submarine cable
+images. J. Mar. Sci. Eng. 2022, 10, 1143. [CrossRef]
+Yue, X.; Li, H.; Shimizu, M.; Kawamura, S.; Meng, L. YOLO-GD: A deep learning-based object detection algorithm for empty-dish
+recycling robots. Machines 2022, 10, 294. [CrossRef]
+Huang, Z.; Wang, J.; Fu, X.; Yu, T.; Guo, Y.; Wang, R. DC-SPP-YOLO: Dense connection and spatial pyramid pooling based YOLO
+for object detection. Inf. Sci. 2020, 522, 241–258. [CrossRef]
+Liu, Y.; Lu, B.; Peng, J.; Zhang, Z. Research on the use of YOLOv5 object detection algorithm in mask wearing recognition. World
+Sci. Res. J. 2020, 6, 276–284.
+
+Sustainability 2023, 15, 16869
+
+36.
+37.
+38.
+39.
+40.
+41.
+42.
+43.
+44.
+45.
+
+46.
+47.
+48.
+49.
+50.
+51.
+52.
+53.
+54.
+55.
+
+56.
+57.
+58.
+
+59.
+
+24 of 24
+
+Yan, B.; Fan, P.; Lei, X.; Liu, Z.; Yang, F. A real-time apple targets detection method for picking robot based on improved YOLOv5.
+Remote Sens. 2021, 13, 1619. [CrossRef]
+Reid, D.B. An algorithm for tracking multiple targets. IEEE Trans. Automat. Contr. 1979, 24, 843–854. [CrossRef]
+Fortmann, T.; Bar-Shalom, Y.; Scheffe, M. Sonar tracking of multiple targets using joint probabilistic data association. IEEE J.
+Ocean. Eng. 1983, 8, 173–184. [CrossRef]
+Wojke, N.; Bewley, A.; Paulus, D. Simple online and realtime tracking with a deep association metric. In Proceedings of the 2017
+IEEE International Conference on Image Processing (ICIP), Beijing, China, 17–20 September 2017; pp. 3645–3649.
+Kalman, R.E. A new approach to linear filtering and prediction problems. J. Basic Eng. 1960, 82, 35–45. [CrossRef]
+Kuhn, H.W. The Hungarian method for the assignment problem. Nav. Res. Logist. Q. 1955, 2, 83–97. [CrossRef]
+Bewley, A.; Ge, Z.; Ott, L.; Ramos, F.; Upcroft, B. Simple Online and Realtime Tracking. arXiv 2016, arXiv:1602.0076.
+Teoh, S.S.; Bräunl, T. Symmetry-based monocular vehicle detection system. Mach. Vis. Appl. 2012, 23, 831–842. [CrossRef]
+Xiaoyong, W.; Bo, W.; Lu, S. Real-time on-road vehicle detection algorithm based on monocular vision. In Proceedings of the 2012
+2nd International Conference on Computer Science and Network Technology, Changchun, China, 29–31 December 2012.
+Yunzhou, Z.; Pengfei, S.; Jifan, L.; Lei, M. Real-time vehicle detection in highway based on improved Adaboost and image
+segmentation. In Proceedings of the 2015 IEEE International Conference on CYBER Technology in Automation, Control, and
+Intelligent Systems (CYBER), Shenyang, China, 8–12 June 2015; pp. 2006–2011.
+Kim, J.; Baek, J.; Kim, E. A Novel On-Road Vehicle Detection Method Using pi HOG. IEEE Trans. Intell. Transp. Syst. 2015, 16,
+3414–3429. [CrossRef]
+Latif, G.; Bouchard, K.; Maitre, J.; Back, A.; Bédard, L.P. Deep-learning-based automatic mineral grain segmentation and
+recognition. Minerals 2022, 12, 455. [CrossRef]
+Qu, T.; Zhang, Q.; Sun, S. Vehicle detection from high-resolution aerial images using spatial pyramid pooling-based deep
+convolutional neural networks. Multimed. Tools Appl. 2017, 76, 21651–21663. [CrossRef]
+Liu, W.; Liao, S.; Hu, W. Towards accurate tiny vehicle detection in complex scenes. Neurocomputing 2019, 347, 24–33. [CrossRef]
+Wu, W.; Gao, Y.; Bienenstock, E.; Donoghue, J.P.; Black, M.J. Bayesian population decoding of motor cortical activity using a
+Kalman filter. Neural Comput. 2006, 18, 80–118. [CrossRef]
+Punn, N.S.; Sonbhadra, S.K.; Agarwal, S.; Rai, G. Monitoring COVID-19 social distancing with person detection and tracking via
+fine-tuned YOLO v3 and Deepsort techniques. arXiv 2020, arXiv:2005.01385.
+Qiu, Z.; Zhao, N.; Zhou, L.; Wang, M.; Yang, L.; Fang, H.; He, Y.; Liu, Y. Vision-based moving obstacle detection and tracking in
+paddy field using improved Yolov3 and deep SORT. Sensors 2020, 20, 4082. [CrossRef] [PubMed]
+Li, D.; Ahmed, F.; Wu, N.; Sethi, A.I. YOLO-JD: A deep learning network for jute diseases and pests detection from images. Plants
+2022, 11, 937. [CrossRef]
+Kang, H.; Chen, C. Fast implementation of real-time fruit detection in apple orchards using deep learning. Comput. Electron. Agric.
+2020, 168, 105108. [CrossRef]
+Simon, M.; Amende, K.; Kraus, A.; Honer, J.; Samann, T.; Kaulbersch, H.; Milz, S.; Michael Gross, H. Complexer-yolo: Real-time
+3d object detection and tracking on semantic point clouds. In Proceedings of the IEEE/CVF Conference on Computer Vision and
+Pattern Recognition Workshops, Long Beach, CA, USA, 16–17 June 2019.
+Biffi, L.J.; Mitishita, E.; Liesenberg, V.; dos Santos, A.A.; Gonçalves, D.N.; Estrabis, N.V.; Silva, J.d.A.; Osco, L.P.; Ramos, A.P.M.;
+Centeno, J.A.S.; et al. ATSS Deep Learning-based approach to detect apple fruits. Remote Sens. 2020, 13, 54. [CrossRef]
+Singh, S.K.; Park, J.H.; Sharma, P.K.; Pan, Y. BIIoVT: Blockchain-based secure storage architecture for intelligent internet of
+vehicular things. IEEE Consum. Electron. Mag. 2022, 11, 75–82. [CrossRef]
+Yu, F.; Chen, H.; Wang, X.; Xian, W.; Chen, Y.; Liu, F.; Madhavan, V.; Darrell, T. BDD100K: A diverse driving dataset for
+heterogeneous multitask learning. In Proceedings of the 2020 IEEE/CVF Conference on Computer Vision and Pattern Recognition
+(CVPR), Seattle, WA, USA, 13–19 June 2020.
+Lian, J.; Yin, Y.; Li, L.; Wang, Z.; Zhou, Y. Small object detection in traffic scenes based on attention feature fusion. Sensors 2021,
+21, 3031. [CrossRef] [PubMed]
+
+Disclaimer/Publisher’s Note: The statements, opinions and data contained in all publications are solely those of the individual
+author(s) and contributor(s) and not of MDPI and/or the editor(s). MDPI and/or the editor(s) disclaim responsibility for any injury to
+people or property resulting from any ideas, methods, instructions or products referred to in the content.
+
+

@@ -5,145 +5,142 @@
 - **Venue**: Proceedings of the IEEE
 
 ## Resumen
-Este artículo presenta una revisión exhaustiva y detallada de la evolución de la detección de objetos a lo largo de un período de un cuarto de siglo (desde finales de la década de 1990 hasta 2022). La detección de objetos es un pilar fundamental en la visión por computadora que busca responder a la pregunta fundamental de qué objetos de interés están en qué lugares de la imagen digital. El artículo divide la historia del área en dos eras principales: la era de la detección tradicional basada en características artesanales (antes de 2014) y la era del aprendizaje profundo (después de 2014). A través de esta taxonomía, los autores discuten hitos clave (como Viola-Jones, HOG, DPM, R-CNN, YOLO y DETR), examinan conjuntos de datos icónicos (PASCAL VOC, ImageNet, MS COCO y Open Images) y analizan críticamente la evolución técnica en la escala espacial, la incorporación de contexto, la minería de ejemplos negativos difíciles, las funciones de pérdida y las estrategias de post-procesamiento (NMS). Asimismo, se ofrece una revisión detallada de las tecnologías de aceleración para despliegues eficientes en tiempo real y una proyección hacia las direcciones futuras del área.
+Este artículo presenta una revisión exhaustiva del estado del arte y la evolución técnica de la detección de objetos en un lapso temporal de más de un cuarto de siglo (desde la década de 1990 hasta el año 2022). La historia de la detección de objetos se divide en dos grandes épocas: el periodo de detección tradicional basada en características artesanales (antes de 2014) y el periodo de aprendizaje profundo (después de 2014). Los autores trazan una hoja de ruta técnica que detalla detectores históricos fundamentales (Viola-Jones, HOG, DPM, R-CNN, Faster R-CNN, YOLO, SSD, CornerNet, CenterNet y DETR), analiza las métricas y bases de datos más relevantes (PASCAL VOC, ImageNet, MS COCO, Open Images) y desglosa los bloques constructivos esenciales del detector (multiescala, contexto, minería de negativos, funciones de pérdida y NMS). También se realiza un análisis profundo sobre los métodos de aceleración del procesamiento (poda de redes, cuantificación, convoluciones ligeras y aceleración en hardware) y se identifican las principales tendencias recientes de investigación, tales como detectores basados en transformadores (transformers), detección en 3D, videos y aprendizaje de dominio abierto.
 
 ## Secciones y Subsecciones
 
-### I. Introduction
-Se presenta una introducción general a la detección de objetos y su papel como base para tareas visuales más complejas (segmentación de instancias, subtitulado de imágenes y seguimiento). Define las métricas principales de desempeño: velocidad y precisión.
-* **Problemas atacados**: Identificar y clasificar de forma automatizada múltiples objetos en imágenes digitales, superando retos como oclusiones, variaciones extremas de escala e iluminación y cambios de orientación.
-* **Limitaciones de ese entonces**: Históricamente, las soluciones carecían de generalización, sufriendo cuellos de botella severos cuando el entorno de la imagen variaba levemente.
-* **Soluciones alcanzadas**: Sistematización de la evolución tecnológica y establecimiento de este survey como una hoja de ruta conceptual para investigadores y desarrolladores que aborda la historia, aceleración y fronteras de la detección.
+### I. Introducción
+Define la tarea de la detección de objetos enfocado en resolver dos preguntas fundamentales: "¿Qué objetos están dónde?". Establece las dos métricas centrales del rendimiento: precisión (clasificación y localización) y velocidad de inferencia.
+* **Problemas atacados**: Variabilidad extrema en el punto de vista, la iluminación, la rotación de los objetos, oclusión, detección de objetos pequeños y la necesidad de procesar en tiempo real.
+* **Limitaciones de ese entonces**: Dificultad para novices en la comprensión de la vasta cantidad de técnicas de detección y la desconexión histórica entre los conceptos de la visión tradicional y los modelos profundos contemporáneos.
+* **Soluciones alcanzadas**: Elaboración de un survey unificado con un enfoque en la evolución histórica, estructurado en pasado (tradicional), presente (aprendizaje profundo y aceleración) y futuro (direcciones abiertas).
 
-### II. Object Detection in 20 Years
-Estudio cronológico y técnico de los hitos algorítmicos, bases de datos y métricas que marcaron la historia de la detección de objetos en las últimas dos décadas.
-* **Problemas atacados**: Organizar la vasta literatura del área en una estructura temporal y evolutiva clara, destacando las ideas fundamentales detrás de los saltos de rendimiento.
-* **Limitaciones de ese entonces**: Las revisiones bibliográficas previas solían centrarse en detalles específicos de implementación de modelos concretos, ignorando la evolución conceptual de los componentes modulares.
-* **Soluciones alcanzadas**: División formal en la "Era Tradicional" y la "Era del Aprendizaje Profundo" (Fig. 2), detallando las tecnologías que impulsaron la precisión en benchmarks clave (Fig. 3).
+### II. Detección de Objetos en 20 Años
+Trazado cronológico del desarrollo metodológico agrupándolo por periodos clave e hitos de arquitectura.
 
-#### A. A Road Map of Object Detection
-Descripción detallada del camino evolutivo y los modelos hitos en la detección de objetos.
-* **Problemas atacados**: Categorizar el progreso desde algoritmos con ventanas deslizantes manuales hasta modelos basados en transformadores sin anclajes.
-* **Limitaciones de ese entonces**: Falta de representaciones de características genéricas capaces de capturar la semántica de múltiples clases simultáneamente.
-* **Soluciones alcanzadas**: Agrupación analítica de los detectores en tradicionales, de dos etapas (two-stage) y de una sola etapa (one-stage), proporcionando sus pautas de diseño y contribuciones.
+* **Problemas atacados**: Comprensión holística de cómo los avances de hardware y representación guiaron el salto de rendimiento.
+* **Limitaciones de ese entonces**: La investigación previa se enfocaba en mejoras aisladas de precisión sin examinar cómo los bloques de construcción individuales (ej. NMS o anclas) evolucionaban colectivamente.
+* **Soluciones alcanzadas**: Construcción de mapas de ruta detallados para detectores, datasets y evoluciones de diseño.
 
-##### 1) Milestones: Traditional Detectors
-* **Problemas atacados**: Procesamiento en tiempo real bajo severas restricciones de cómputo y el modelamiento de la deformabilidad de los objetos.
-* **Limitaciones de ese entonces**: Falta de aceleradores de hardware y de descriptores robustos. El Viola-Jones (VJ, 2001) resolvió la lentitud de la ventana deslizante mediante imágenes integrales, cascadas de rechazo y selección por AdaBoost. HOG (2005) representó la forma peatonal de manera densa pero sufría ante deformaciones severas del cuerpo.
-* **Soluciones alcanzadas**: Consolidación del modelo DPM (Deformable Part-based Model, 2008) como el estándar de oro tradicional, el cual implementa el concepto de "divide y vencerás" mapeando objetos como conjuntos de partes interconectadas mediante resortes virtuales (star model y mixture model) e introduce la regresión de cajas y minería de negativos difíciles.
+#### II.A Una Hoja de Ruta para la Detección de Objetos
+Divide los hitos entre detectores tradicionales, de dos etapas y de una etapa.
+* **Problemas atacados**: Evolución de la precisión en los conjuntos de datos de referencia (Figura 3).
+* **Limitaciones de ese entonces**: Los detectores tradicionales tenían precisión baja y saturada debido al coste de diseñar a mano los descriptores visuales.
+* **Soluciones alcanzadas**: Clasificación conceptual de los modelos clave en las últimas dos décadas.
 
-##### 2) Milestones: CNN based Two-stage Detectors
-* **Problemas atacados**: Superar la saturación de los descriptores artesanales (HOG, LBP) integrando representaciones de aprendizaje profundo y optimizando la velocidad de dos etapas.
-* **Limitaciones de ese entonces**: R-CNN (2014) revolucionó el área usando propuestas de región y CNNs pero era extremadamente lento (14s por imagen) ya que extraía características redundantes para más de 2000 propuestas de forma aislada.
-* **Soluciones alcanzadas**: Evolución secuencial: 1) SPPNet (2014) introduce la capa de pooling espacial piramidal que permite procesar la imagen completa una sola vez. 2) Fast R-CNN (2015) unifica la clasificación y regresión de cajas bajo una pérdida conjunta entrenable extremo a extremo. 3) Faster R-CNN (2015) introduce el Region Proposal Network (RPN) sustituyendo algoritmos externos de propuesta y 4) FPN (2017) introduce la pirámide de características semánticas por conexiones laterales.
+##### Milestones: Traditional Detectors (Hitos: Detectores Tradicionales)
+* **Problemas atacados**: Detección en tiempo real con CPU y modelado de la deformación interna de los objetos.
+* **Limitaciones de ese entonces**: La capacidad de procesamiento limitada de las computadoras de los años 2000 impedía ejecutar búsquedas densas por ventana deslizante.
+* **Soluciones alcanzadas**: 1) Viola-Jones (VJ, 2001) para rostros, implementando la imagen integral, selección Haar mediante Adaboost y cascadas de decisión para descartar fondos rápido. 2) HOG (2005) para peatones, introduciendo el Histograma de Gradientes Orientados normalizado por bloques. 3) DPM (2008), adoptando la filosofía de "divide y vencerás" al modelar objetos como un conjunto de partes interconectadas (star-model y mixture-model), introduciendo bounding box regression y hard negative mining.
 
-##### 3) Milestones: CNN based One-stage Detectors
-* **Problemas atacados**: Lograr inferencia en tiempo real en una sola etapa sin sacrificar severamente la precisión en objetos pequeños y densos.
-* **Limitaciones de ese entonces**: YOLOv1 (2015) era veloz (45 FPS) pero sufría de baja precisión de localización en objetos agrupados. SSD (2015) mejoró la escala evaluando múltiples capas de resolución pero no solucionaba el problema de desbalance extremo entre fondo y primer plano.
-* **Soluciones alcanzadas**: 1) RetinaNet (2017) introduce Focal Loss resolviendo el desbalance de clases de detectores densos. 2) CornerNet (2018) y CenterNet (2019) formulan la tarea como detección de puntos clave (esquinas y centros), eliminando la dependencia de anclajes (anchors). 3) DETR (2020) introduce Transformers con correspondencia de conjuntos bipartitos eliminando anclajes y NMS en inferencia.
+##### Milestones: CNN-based Two-stage Detectors (Hitos: Detectores de Dos Etapas Basados en CNN)
+* **Problemas atacados**: Superar el cuello de botella de los descriptores artesanales explotando representaciones profundas.
+* **Limitaciones de ese entonces**: R-CNN clásico (2014) requería procesar individualmente más de 2000 propuestas de región por imagen mediante CNN, causando extrema lentitud (14s/imagen).
+* **Soluciones alcanzadas**: 1) SPPNet (2014), que introduce la capa de Spatial Pyramid Pooling para procesar el mapa de características global una sola vez, logrando aceleraciones de 20x. 2) Fast R-CNN (2015), que integra clasificación y regresión de cajas bajo una pérdida multitarea unificada de entrenamiento extremo a extremo. 3) Faster R-CNN (2015), que incorpora el Region Proposal Network (RPN) para generar candidatos casi gratis. 4) FPN (2017), que introduce la pirámide de características con conexiones laterales para resolver la invariancia a la escala.
 
-#### B. Object Detection Datasets and Metrics
-Análisis de los conjuntos de datos que han guiado la investigación y los estándares de evaluación.
-* **Problemas atacados**: Estandarizar la medición del rendimiento y la robustez de los algoritmos de detección.
-* **Limitaciones de ese entonces**: Benchmarks tempranos medían la tasa de fallos sobre ventanas de prueba aisladas (FPPW), lo cual era defectuoso y no predecía el desempeño real sobre imágenes completas.
-* **Soluciones alcanzadas**: Adopción de la métrica de Precisión Promedio (AP) al umbral IoU=0.5 introducida en PASCAL VOC y, posteriormente, del AP promedio ponderado en múltiples umbrales (0.5 a 0.95) en MS COCO que exige una alta exactitud espacial de localización.
+##### Milestones: CNN-based One-stage Detectors (Hitos: Detectores de Una Etapa Basados en CNN)
+* **Problemas atacados**: Eliminación del paso de propuestas de región para lograr inferencias en tiempo real y dispositivos móviles.
+* **Limitaciones de ese entonces**: Los detectores de una sola etapa iniciales (ej. YOLOv1) sufrían de menor precisión de localización y problemas graves al detectar objetos pequeños y agrupados en comparación con redes R-CNN.
+* **Soluciones alcanzadas**: 1) YOLO (2015), mapeando las detecciones directamente en una sola cuadrícula de inferencia. 2) SSD (2015), introduciendo la predicción multireferencia sobre mapas multiresolución en diferentes profundidades. 3) RetinaNet (2017), solucionando el desbalance de clases fondo/objeto mediante la pérdida Focal Loss. 4) CornerNet (2018) y CenterNet (2019), proponiendo la detección libre de anclas (anchor-free) tratando cajas como puntos clave. 5) DETR (2020) y Deformable DETR (2021), eliminando la dependencia de anclas y NMS mediante transformadores y predicción de conjuntos.
 
-##### 1) Datasets
-* **Problemas atacados**: Minimizar el sesgo de los conjuntos de datos y entrenar redes con alta capacidad de generalización.
-* **Limitaciones de ese entonces**: Datasets iniciales (como VOC07/12) eran pequeños (menos de 11k imágenes) y limitados a pocas clases.
-* **Soluciones alcanzadas**: Creación de bases de datos masivas multisectoriales (Table I) como ImageNet (200 clases), MS COCO (80 clases, segmentación de instancias) y Open Images (600 clases, 15 millones de cajas), permitiendo la transición a modelos de alta escala.
+#### II.B Conjuntos de Datos y Métricas para la Detección de Objetos
+Analiza el impacto y tamaño de los datasets históricos (Tabla I).
+* **Problemas atacados**: Estandarización y reducción de sesgos en la evaluación de detectores.
+* **Limitaciones de ese entonces**: Los primeros datasets eran pequeños o se evaluaban mediante métricas defectuosas a nivel de ventana (como FPPW) que no reflejaban el mAP en imágenes globales reales.
+* **Soluciones alcanzadas**: Estandarización del Average Precision (AP) con IoU $\ge$ 0.5 (introducido en PASCAL VOC07) y la métrica promediada en rango de IoU 0.5 a 0.95 de MS COCO para incentivar la localización precisa.
 
-##### 2) Metrics
-* **Problemas atacados**: Medir con precisión la fidelidad geométrica y la coincidencia de las detecciones de la red.
-* **Limitaciones de ese entonces**: Métricas FPPW obsoletas.
-* **Soluciones alcanzadas**: Estandarización de la métrica mAP combinada con el umbral IoU (Intersection over Union). La adopción del AP ponderado de MS COCO impulsó la precisión de localización en aplicaciones críticas (robótica, conducción autónoma).
+#### II.C Evolución Técnica en la Detección de Objetos
+Detalla el progreso tecnológico de los 5 subcomponentes clave del detector.
 
-#### C. Technical Evolution in Object Detection
-Análisis temático y detallado del desarrollo evolutivo de los componentes modulares clave de los detectores.
-* **Problemas atacados**: Comprender cómo el área ha resuelto históricamente los cinco retos principales: escala, contexto, desbalance de muestras, optimización de pérdidas y post-procesamiento.
-* **Limitaciones de ese entonces**: Falta de análisis unificado de estos cinco módulos, lo cual fragmentaba el entendimiento conceptual del diseño de detectores.
-* **Soluciones alcanzadas**: Mapeo y análisis de la evolución técnica individual de cada componente para guiar el desarrollo de detectores modernos.
+* **Problemas atacados**: Desajustes en los algoritmos internos de los detectores en el transcurso del tiempo.
+* **Limitaciones de ese entonces**: Falta de claridad en cómo el contexto, la minería de negativos y las pérdidas evolucionaban para mitigar los sesgos espaciales.
+* **Soluciones alcanzadas**: Análisis históricos de evolución representados en diagramas de hitos (Figuras 5 a 8).
 
-##### 1) Technical Evolution of Multi-Scale Detection
-* **Problemas atacados**: Detectar de forma simultánea objetos diminutos (autos lejanos) y gigantes (edificios o puentes).
-* **Limitaciones de ese entonces**: El escalado tradicional de imágenes y ventanas de deslizamiento es lento y consume gran memoria.
-* **Soluciones alcanzadas**: Transición conceptual en 5 períodos (Fig. 5): 1) pirámides de imágenes con ventanas deslizantes, 2) propuestas de objetos agnósticas de clase, 3) regresión directa profunda libre de anclajes (YOLO), 4) detección multirreferencia (anchors de Faster R-CNN) y 5) detección multirresolución utilizando pirámides de características en la red (SSD, FPN, Cascade R-CNN).
+##### Evolución Técnica de la Detección Multiescala
+* **Problemas atacados**: Robustez ante objetos con ratios de aspecto y tamaños sumamente divergentes.
+* **Limitaciones de ese entonces**: Deslizar ventanas fijas es computacionalmente prohibitivo para múltiples relaciones de aspecto.
+* **Soluciones alcanzadas**: Transición desde pirámides de imágenes + ventana deslizable hacia propuestas de objetos bottom-up (Selective Search), regresión directa profunda, detección multiresolución en mapas de características (FPN/SSD), y finalmente predicción libre de anclas basada en esquinas o puntos representativos (CornerNet/Reppoints).
 
-##### 2) Technical Evolution of Context Priming
-* **Problemas atacados**: Aprovechar las relaciones semánticas del entorno para mejorar la clasificación y localización de objetos difíciles.
-* **Limitaciones de ese entonces**: Detectores tradicionales solo evaluaban la ventana local del objeto, perdiendo valiosas asociaciones de contexto terrestre.
-* **Soluciones alcanzadas**: Evolución en 3 etapas (Fig. 6): 1) Contexto Local: ampliar el campo de visión del RoI (GBDNet, CoupleNet), 2) Contexto Global: resúmenes estadísticos de escena (Gist) o convoluciones deformables y mapas de atención total (Non-local, DETR) y 3) Interacciones de Contexto: modelar las relaciones inter-objeto mediante redes de relación recurrentes o de grafos (RelationNet, RescoringNet).
+##### Evolución Técnica del Cebado de Contexto (Context Priming)
+* **Problemas atacados**: Explotar la información del entorno circundante para guiar la detección.
+* **Limitaciones de ese entonces**: Modelar el contexto global con descriptores estadísticos simples (como Gist) perdía resolución espacial local.
+* **Soluciones alcanzadas**: Evolución desde el uso de bordes de contorno local (Sinha y Torralba) hacia la integración de contexto global mediante convoluciones dilatadas/deformables de gran receptive field y, recientemente, mecanismos de atención global (Non-Local, Transformers) que calculan relaciones entre todos los píxeles de la imagen.
 
-##### 3) Technical Evolution of Hard Negative Mining
-* **Problemas atacados**: Superar el desbalance extremo de muestras en detectores densos donde la proporción de fondo a objetos puede ser de $10^7 : 1$.
-* **Limitaciones de ese entonces**: El cálculo ingenuo sobre todo el fondo inunda el gradiente con ejemplos fáciles que ahogan el aprendizaje de características discriminativas.
-* **Soluciones alcanzadas**: Transición histórica (Fig. 7): 1) Bootstrap tradicional: iniciar con un conjunto pequeño e incorporar iterativamente falsos positivos detectados en DPM. 2) Descarte temporal en CNNs (2014-2016) confiando en pesos equilibrados simples y 3) Re-introducción avanzada después de 2016 mediante OHEM (Online Hard Example Mining) y el diseño de pérdidas dedicadas como Focal Loss.
+##### Evolución Técnica de la Minería de Ejemplos Negativos Difíciles (Hard Negative Mining)
+* **Problemas atacados**: Manejar el desbalance extremo de muestras clase/fondo (que llega hasta ratios de $10^7:1$).
+* **Limitaciones de ese entonces**: En las primeras etapas de las CNNs profundas (2014-2016), el bootstrap se descartó debido a la alta capacidad de cómputo, provocando que redes como YOLO sufrieran con fondos complejos.
+* **Soluciones alcanzadas**: Reintroducción de la selección interactiva de muestras (OHEM, RefineDet) y la optimización directa mediante funciones de pérdida que penalizan ejemplos difíciles (Focal Loss).
 
-##### 4) Technical Evolution of Loss Function
-* **Problemas atacados**: Definir la supervisión óptima para la clasificación categórica y la coincidencia de las coordenadas de las cajas.
-* **Limitaciones de ese entonces**: El uso de pérdidas MSE (L2) para la localización trata los cuatro componentes $(x, y, w, h)$ como independientes, ignorando su alta correlación física.
-* **Soluciones alcanzadas**: 1) Clasificación: paso de pérdidas MSE a Entropía Cruzada y Focal Loss. 2) Localización: desarrollo de pérdidas Smooth L1 y, posteriormente, pérdidas basadas en IoU (IoU loss, GIoU, DIoU, CIoU) que optimizan de forma unificada la coincidencia de área, la distancia de centros y la relación de aspecto.
+##### Evolución Técnica de la Función de Pérdida
+* **Problemas atacados**: Optimizar de forma diferenciable la clasificación y la localización de cajas.
+* **Limitaciones de ese entonces**: Las pérdidas L2 de coordenadas tratan el centro y tamaño del cuadro como variables independientes, lo que no correlaciona directamente con el IoU final de evaluación.
+* **Soluciones alcanzadas**: Transición de pérdidas cuadráticas de regresión hacia Smooth L1 y, posteriormente, pérdidas formuladas directamente sobre el IoU (IoU loss, GIoU, DIoU, CIoU) que optimizan simultáneamente el solapamiento, distancia de centros y la relación de aspecto.
 
-##### 5) Technical Evolution of Non-Maximum Suppression
-* **Problemas atacados**: Eliminar las detecciones redundantes y superpuestas sobre el mismo objeto físico.
-* **Limitaciones de ese entonces**: El NMS tradicional por selección codiciosa (greedy) aplica un umbral estricto que elimina objetos verdaderos adyacentes en zonas muy congestionadas y no suprime falsos positivos sistemáticos.
-* **Soluciones alcanzadas**: Evolución en 4 corrientes (Fig. 8): 1) Selección Codiciosa con mejoras: decaimiento suave de confianza (Soft-NMS, Softer-NMS) o umbrales adaptativos (Adaptive-NMS). 2) Agregación de Cajas: fusionar cajas traslapadas mediante clustering (VJ, Overfeat, WBF). 3) NMS por Aprendizaje: redes entrenadas para suprimir duplicados (RelationNet, LearnNMS) y 4) Detectores libres de NMS: correspondencia de un solo objeto a una sola predicción (CenterNet, DETR).
+##### Evolución Técnica de la Supresión de No Máximos (NMS)
+* **Problemas atacados**: Eliminar detecciones duplicadas en objetos adyacentes.
+* **Limitaciones de ese entonces**: El NMS codicioso (Greedy) con un umbral estricto elimina detecciones válidas en zonas de oclusión densa.
+* **Soluciones alcanzadas**: Evolución desde Greedy NMS simple hacia agrupación de cajas (Bounding Box Aggregation en VJ y Overfeat), variantes de atenuación suave de confianza (Soft-NMS, Adaptive-NMS), redes entrenadas para suprimir (Learning to NMS) y detectores puramente libres de NMS mediante emparejamiento uno a uno (DETR, CenterNet).
 
-### III. Speed-Up of Detection
-Revisión detallada de las tecnologías y metodologías para acelerar el procesamiento de los detectores a nivel de pipeline, arquitectura y cómputo numérico.
-* **Problemas atacados**: Viabilizar el despliegue de detectores complejos en plataformas embebidas y dispositivos móviles en tiempo real.
-* **Limitaciones de ese entonces**: La alta profundidad de los backbones y la redundancia computacional en múltiples etapas limitaban la adopción en ingeniería práctica.
-* **Soluciones alcanzadas**: Clasificación de las técnicas de aceleración en cuatro pilares principales (Fig. 9): computación compartida, cascadas de descarte, optimización numérica e ingeniería de red ligera.
+### III. Aceleración de la Detección
+Clasifica los métodos de aceleración en tres niveles: nivel de pipeline de detección, nivel de columna vertebral (backbone) y nivel numérico.
 
-#### A. Feature Map Shared Computation
-* **Problemas atacados**: Eliminar la redundancia al extraer características de cientos de RoIs superpuestos.
-* **Limitaciones de ese entonces**: R-CNN requería miles de pasadas por la CNN por cada imagen, saturando las capacidades de hardware.
-* **Soluciones alcanzadas**: Compartir el mapa de características calculando la CNN sobre la imagen completa una sola vez (SPPNet, Fast R-CNN), acelerando la inferencia cientos de veces.
+* **Problemas atacados**: Alta latencia e ineficiencia computacional en dispositivos con recursos limitados.
+* **Limitaciones de ese entonces**: Los detectores precisos no podían ejecutarse en tiempo real en sistemas embebidos de bajo consumo.
+* **Soluciones alcanzadas**: 1) Compartir mapas de características (cómputo unificado). 2) Detección en cascada para filtrar fondos rápidamente. 3) Poda de pesos innecesarios en la CNN (network pruning) y cuantificación de variables a valores binarios. 4) Diseño de capas convolucionales optimizadas: convolución agrupada (Group Conv), convolución separable en profundidad (Depth-wise Separable Conv de MobileNet) y compresión de cuello de botella (Bottleneck). 5) Aceleración matemática de bajo nivel usando imágenes integrales para HOG, convolución en dominio de frecuencia (FFT/IFFT) y cuantización vectorial.
 
-#### B. Cascaded Detection
-* **Problemas atacados**: Procesar de manera eficiente escenas grandes que contienen objetos pequeños y dispersos.
-* **Limitaciones de ese entonces**: Evaluar redes densas sobre zonas vacías gigantescas desperdicia recursos.
-* **Soluciones alcanzadas**: Uso del enfoque de cascada (VJ detector, face detectors recientes) que descarta rápidamente regiones de fondo simple usando subredes ligeras y reserva los cómputos complejos solo para candidatos difíciles.
+### IV. Avances Recientes en la Detección de Objetos
+Analiza los progresos técnicos en los últimos años del periodo de deep learning.
 
-#### C. Network Pruning and Quantification
-* **Problemas atacados**: Comprimir el peso físico de las redes y reducir los tiempos de ciclo de reloj en CPU/GPU.
-* **Limitaciones de ese entonces**: Modelos con millones de parámetros de punto flotante de 32 bits (FP32) son demasiado grandes para chips embebidos.
-* **Soluciones alcanzadas**: 1) Poda de Red: eliminar de forma iterativa pesos o canales de convolución poco importantes. 2) Cuantización: convertir parámetros FP32 a formatos de baja precisión (INT8 o variables binarias INT1) para acelerar operaciones a nivel lógico básico.
+* **Problemas atacados**: Consolidar y fusionar aproximaciones dispares de aprendizaje para mejorar la robustez geométrica y la supervisión.
+* **Limitaciones de ese entonces**: La detección clásica se limitaba a supervisión fuerte de cajas horizontales sin adaptación de dominio.
+* **Soluciones alcanzadas**: Agrupación de las tendencias en 8 categorías de frontera.
 
-#### D. Lightweight Network Design
-Diseño de bloques de convolución compactos optimizados para alta eficiencia.
-* **Problemas atacados**: Diseñar arquitecturas de red ligeras desde su concepción geométrica.
-* **Limitaciones de ese entonces**: Las convoluciones bidimensionales tradicionales de gran tamaño (p. ej. $7 \times 7$ o $5 \times 5$) tienen costos de cómputo inaceptables en dispositivos móviles.
-* **Soluciones alcanzadas**: Implementación de cuatro estrategias fundamentales de diseño que se detallan a continuación.
+#### IV.A Más allá de la Detección por Ventana Deslizante
+* **Problemas atacados**: Superar el paradigma de cuadrícula y ventana.
+* **Limitaciones de ese entonces**: La regresión rígida de cajas con anclas introduce exceso de hiperparámetros manuales de inicialización.
+* **Soluciones alcanzadas**: Modelar objetos como puntos clave individuales (CenterNet) o conjuntos libres de NMS basados en transformadores (DETR).
 
-##### 1) Factorizing Convolutions
-* **Problemas atacados**: Reducir el número de parámetros convolucionales manteniendo el mismo campo receptivo.
-* **Limitaciones de ese entonces**: Convoluciones pesadas con alta cantidad de parámetros redundantes.
-* **Soluciones alcanzadas**: Factorización espacial: descomponer un filtro de $7 \times 7$ en tres filtros de $3 \times 3$ conectados en serie, reduciendo drásticamente los parámetros manteniendo el mismo campo visual.
+#### IV.B Detección Robusta ante Cambios de Rotación y Escala
+* **Problemas atacados**: Variabilidad de la orientación y escala de los objetos.
+* **Limitaciones de ese entonces**: La pooling convolucional tradicional en coordenadas cartesianas no es invariante a la rotación.
+* **Soluciones alcanzadas**: 1) En rotación: aumento de datos masivo, pérdidas invariantes rotacionales, pooling en coordenadas polares. 2) En escala: técnicas de entrenamiento adaptativo multiescala (SNIP, SNIPER) que filtran gradientes fuera del rango óptimo de escala, y reescalado de imágenes basado en la distribución de escala predicha.
 
-##### 2) Group Convolution
-* **Problemas atacados**: Dividir el flujo de procesamiento de canales convolucionales.
-* **Limitaciones de ese entonces**: Operaciones densas que conectan todos los canales de entrada con todos los canales de salida.
-* **Soluciones alcanzadas**: Convolución por grupos: dividir los canales en $m$ grupos independientes para realizar operaciones por separado, reduciendo teóricamente el costo de cómputo a $1/m$.
+#### IV.C Detección con Mejores Extractores de Características (Backbones)
+* **Problemas atacados**: Capturar relaciones semánticas de largo alcance.
+* **Limitaciones de ese entonces**: El campo receptivo local de las CNNs limita la comprensión contextual global de la escena.
+* **Soluciones alcanzadas**: Adopción de arquitecturas Transformer (como Swin Transformer) que superan ampliamente a las CNNs clásicas en la curva precisión/velocidad de MS COCO.
 
-##### 3) Depth-wise Separable Convolution
-* **Problemas atacados**: Minimizar la carga de cómputo dividiendo la convolución espacial de la convolución de canales.
-* **Limitaciones de ese entonces**: Convoluciones estándar que mezclan dimensiones espaciales y de canal simultáneamente.
-* **Soluciones alcanzadas**: Bloques de convolución separable profunda (implementados en MobileNet): combinación de una convolución por canal (depth-wise) seguido de una convolución de punto $1 \times 1$ (point-wise), bajando el costo computacional hasta en un 90%.
+#### IV.D Mejoras en la Localización
+* **Problemas atacados**: Refinar bordes y reportar incertidumbre de localización.
+* **Limitaciones de ese entonces**: El NMS tradicional falla cuando no dispone de una medida de confianza sobre la precisión de la caja predicha.
+* **Soluciones alcanzadas**: Refinamiento iterativo de cajas y el modelado probabilístico de la regresión de coordenadas prediciendo la distribución de probabilidad espacial de las esquinas.
 
-##### 4) Channel Shuffle
-* **Problemas atacados**: Superar la falta de comunicación entre canales generada al usar convoluciones por grupo.
-* **Limitaciones de ese entonces**: Bloques agrupados que aíslan la información e impiden la mezcla de características semánticas de diferentes canales.
-* **Soluciones alcanzadas**: Mecanismo de barajado de canales (Channel Shuffle en ShuffleNet) que mezcla y redistribuye activamente los canales entre grupos para preservar la riqueza semántica de la red.
+#### IV.E Aprendizaje con Pérdida de Segmentación
+* **Problemas atacados**: Guía de entrenamiento mediante pérdidas secundarias de segmentación (multi-task learning).
+* **Limitaciones de ese entonces**: La anotación a nivel de píxel es costosa y ralentiza la inferencia si la rama semántica se mantiene activa en test.
+* **Soluciones alcanzadas**: Entrenamiento conjunto con una rama de segmentación que se descarta durante la inferencia, guiando las características del backbone sin añadir velocidad de cómputo en test.
 
-### IV. State-of-the-Art Detection Methods in the Recent Three Years
-Análisis de las tendencias de investigación de vanguardia más recientes hasta 2022.
-* **Problemas atacados**: Incorporar transformaciones de atención profunda y optimizar la precisión espacial a nivel industrial.
-* **Limitaciones de ese entonces**: Las CNNs sufren para modelar relaciones globales de larga distancia por el tamaño limitado de su núcleo convolucional.
-* **Soluciones alcanzadas**: Transición hacia detectores basados en Transformers de visión (como Swin Transformer y variantes de DETR) y la optimización de detectores de un solo disparo comerciales (YOLOv4, YOLOv7) mediante reparametrización estructural en inferencia y asignación dinámica de etiquetas en entrenamiento.
+#### IV.F Entrenamiento Adversarial
+* **Problemas atacados**: Detección de objetos ocluidos y extremadamente pequeños.
+* **Limitaciones de ese entonces**: Generar imágenes de súper-resolución en espacio de píxeles es lento y costoso.
+* **Soluciones alcanzadas**: Redes GAN que operan directamente sobre el espacio de características, super-resolviendo descriptores de objetos pequeños o inyectando máscaras de oclusión para forzar la robustez del detector.
 
-### V. Conclusion and Future Research Directions
-Síntesis final del survey y proyección de los retos abiertos en la visión por computadora.
-* **Problemas atacados**: Identificar las fronteras científicas de la detección de objetos para los próximos años.
-* **Limitaciones de ese entonces**: Falta de pautas sobre cómo integrar modelos de detección con inteligencia artificial generalizada y aprendizaje continuo.
-* **Soluciones alcanzadas**: Definición de 7 líneas prioritarias de investigación futura: 1) detección bajo supervisión débil o nula (zero-shot/few-shot), 2) detección de objetos en vídeo en tiempo real, 3) detección multimodal de lenguaje e imagen, 4) modelos de visión unificados (Unified Vision Models), 5) optimización de arquitecturas basadas en Transformers, 6) detección 3D y espacial y 7) aprendizaje continuo sobre flujos de datos sin olvido catastrófico.
+#### IV.G Detección de Objetos Débilmente Supervisada (WSOD)
+* **Problemas atacados**: Entrenar detectores sin disponer de cajas delimitadoras anotadas.
+* **Limitaciones de ese entonces**: Detección imprecisa de límites de objetos al entrenar solo con etiquetas de nivel de imagen.
+* **Soluciones alcanzadas**: Uso de Aprendizaje por Instancias Múltiples (MIL) considerando candidatos de imagen como sacos con etiquetas, y el mapeo de activación de clases (CAM) para localizar regiones de interés intrínsecas a la clasificación profunda.
+
+#### IV.H Detección con Adaptación de Dominio
+* **Problemas atacados**: Resolver la detección sobre datos i.i.d. y reducir el dominio shift.
+* **Limitaciones de ese entonces**: Los detectores sufren degradación de mAP masiva cuando se evalúan en condiciones climáticas o entornos geográficos diferentes al entrenamiento.
+* **Soluciones alcanzadas**: Uso de regularizadores de características y entrenamiento adversarial a nivel de imagen, clase y objeto, así como traducción de imágenes mediante CycleGAN.
+
+### V. Conclusión y Direcciones Futuras
+Identifica los 7 campos de vanguardia que definirán el futuro de la detección de objetos.
+* **Lightweight object detection**: Diseñar detectores ultra-ligeros capaces de procesar imágenes de alta resolución en dispositivos de bajo consumo para ciudades inteligentes y vehículos autónomos.
+* **End-to-End object detection**: Perfeccionar modelos que eliminen por completo las heurísticas de NMS sin perder precisión ni velocidad.
+* **Small object detection**: Detección de objetos pequeños en grandes entornos, crucial en cartografía por satélite y rescate.
+* **3D object detection**: Estimación exacta de la localización y pose en el espacio tridimensional combinando RGB con nubes de puntos Lidar.
+* **Detection in videos**: Explotar la correlación espacio-temporal continua entre fotogramas de vídeo para mejorar la robustez a bajo coste computacional.
+* **Cross-modality detection**: Fusión de sensores que integran audio, vídeo, texto y mapas térmicos para emular la percepción humana.
+* **Towards open-world detection**: Detección en un mundo abierto donde los algoritmos identifiquen instancias de categorías desconocidas y actualicen incrementalmente sus parámetros sin sufrir olvido catastrófico (catastrophic forgetting).
