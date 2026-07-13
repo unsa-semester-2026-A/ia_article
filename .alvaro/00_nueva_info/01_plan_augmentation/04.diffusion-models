@@ -1,0 +1,116 @@
+"Diffusion Models in Low-Level Vision: A Survey",
+"Denoising diffusion models have proven effective in low-level vision tasks, producing high-quality images with intricate texture details.",
+"Chunming He, Yuqi Shen, Chengyu Fang, Fengyang Xiao, Longxiang Tang, Yulun Zhang, Wangmeng Zuo, Z. Guo, Xiu Li",
+2024,
+140,
+"Deep generative models have gained considerable attention in low-level vision tasks due to their powerful generative capabilities. Among these, diffusion model-based approaches, which employ a forward diffusion process to degrade an image and a reverse denoising process for image generation, have become particularly prominent for producing high-quality, diverse samples with intricate texture details. Despite their widespread success in low-level vision, there remains a lack of a comprehensive, insightful survey that synthesizes and organizes the advances in diffusion model-based techniques. To address this gap, this paper presents the first comprehensive review focused on denoising diffusion models applied to low-level vision tasks, covering both theoretical and practical contributions. We outline three general diffusion modeling frameworks and explore their connections with other popular deep generative models, establishing a solid theoretical foundation for subsequent analysis. We then categorize diffusion models used in low-level vision tasks from multiple perspectives, considering both the underlying framework and the target application. Beyond natural image processing, we also summarize diffusion models applied to other low-level vision domains, including medical imaging, remote sensing, and video processing. Additionally, we provide an overview of widely used benchmarks and evaluation metrics in low-level vision tasks. Our review includes an extensive evaluation of diffusion model-based techniques across six representative tasks, with both quantitative and qualitative analysis. Finally, we highlight the limitations of current diffusion models and propose four promising directions for future research. This comprehensive review aims to foster a deeper understanding of the role of denoising diffusion models in low-level vision.",
+
+"literature review",
+"IEEE Transactions on Pattern Analysis and Machine Intelligence",
+"1",
+"10.1109/tpami.2025.3545047",
+"https://consensus.app/papers/diffusion-models-in-lowlevel-vision-a-survey-he-shen/cacf4e2efbf556e1ac5e64f55c7d4c8b/"
+
+
+
+
+
+
+
+
+
+
+
+
+"Deep Learning-Based Image and Video Inpainting: A Survey","Deep learning-based methods have significantly improved image and video inpainting, with improvements in perceptional similarity and real-world applications.","Weize Quan, Jiaxi Chen, Yanli Liu, Dong-Ming Yan, Peter Wonka",2024,93,"Image and video inpainting is a classic problem in computer vision and computer graphics, aiming to fill in the plausible and realistic content in the missing areas of images and videos. With the advance of deep learning, this problem has achieved significant progress recently. The goal of this paper is to comprehensively review the deep learning-based methods for image and video inpainting. Specifically, we sort existing methods into different categories from the perspective of their high-level inpainting pipeline, present different deep learning architectures, including CNN, VAE, GAN, diffusion models, etc., and summarize techniques for module design. We review the training objectives and the common benchmark datasets. We present evaluation metrics for low-level pixel and high-level perceptional similarity, conduct a performance evaluation, and discuss the strengths and weaknesses of representative inpainting methods. We also discuss related real-world applications. Finally, we discuss open challenges and suggest potential future research directions.","","International Journal of Computer Vision","1","10.1007/s11263-023-01977-6","https://consensus.app/papers/deep-learningbased-image-and-video-inpainting-a-survey-quan-chen/774bb269d88756c384b36117ad38b291/"
+
+
+
+
+
+
+
+
+
+
+"MMGInpainting: Multi-Modality Guided Image Inpainting Based on Diffusion Models","The MMGInpainting approach, using both image and text guidance, improves image inpainting efficiency and produces faithful results while enhancing computational efficiency.","Conglang Zhang, Wenxia Yang, Xin Li, Huan Han",2024,39,"Proper inference of semantics is necessary for realistic image inpainting. Most image inpainting methods use deep generative models, which require large image datasets to predict and generate content. However, predicting the missing regions and generating coherent content is difficult due to limited control. Existing approaches include image-guided or text-guided image inpainting, but none of them has taken both image and text as the guidance signals, as far as we know. To fill this gap, we propose a multi-modality guided (MMG) image inpainting approach based on the diffusion model. This MMGInpainting method uses both image and text as guidance for generating content within the target area for inpainting, effectively integrating the semantic information conveyed by the guiding image or text into the content of the inpainted region. To construct MMGInpainting, we start by enhancing the U-Net backbone with a customized Nonlinear Activation Free Network (NAFNet). This adapted NAFNet incorporates an Anchored Stripe Attention mechanism, which utilizes anchor points to effectively model global contextual dependencies. To regulate inpainting, we use a Semantic Fusion Encoder to guide the inverse process of the diffusion model. The process is iteratively executed to denoise and generate the desired inpainting result. Additionally, we explore how different modes of meaning interact and coordinate to offer users useful guidance for a more manageable inpainting procedure. Experimental results demonstrate that our approach produces faithful results adhering to the guiding information, while significantly improving computational efficiency.","theoretical, modeling, or simulation study","IEEE Transactions on Multimedia","1","10.1109/tmm.2024.3382484","https://consensus.app/papers/mmginpainting-multimodality-guided-image-inpainting-zhang-yang/ec25a33e62c957b88d654d5b8277d2a9/"
+
+
+
+
+
+
+
+
+
+
+
+"Exploiting Generative Diffusion Prior With Latent Low-Rank Regularization for Image Inpainting","Our unsupervised diffusion model with latent low-rank regularization improves image restoration by guiding reserve sampling, resulting in high-quality images with fine-grained textures and fewer artifacts.","Zhentao Zou, Lin Chen, Xue Jiang, A. Zoubir",2024,5,"Generative diffusion models have recently shown impressive results in image restoration. However, the predicted noise from existing diffusion-based methods may be inaccurate, especially when the noise amplitude is small, thereby leading to sub-optimal results. In this letter, an unsupervised diffusion model with latent low-rank regularization is proposed to alleviate this challenge. In particular, we first create a latent low-rank space using self-supervised learning for each degraded images, from which we derive corresponding latent low-rank regularization. This regularization, combining with observed prior information and smoothness regularization, guides the reserve sampling process, resulting in the generation of high-quality images with fine-grained textures and fewer artifacts. In addition, by utilizing the pre-trained unconditional diffusion model, the proposed model reconstructs the missing pixels in a zero-shot manner, which does not need any reference images for additional training. Extensive experimental results demonstrate that our proposed method is superior to the self-supervised tensor completion methods and representative diffusion model-based image restoration methods.","theoretical, modeling, or simulation study","IEEE Signal Processing Letters","1","10.1109/lsp.2024.3453665","https://consensus.app/papers/exploiting-generative-diffusion-prior-with-latent-zou-chen/10e7418327215e76ad682a92624d27e6/"
+
+
+
+
+
+
+
+
+
+
+"Advances in diffusion models for image data augmentation: a review of methods, models, evaluation metrics and future research directions","Diffusion Models (DMs) are a powerful tool for image data augmentation, enhancing diversity and quality of training datasets, and can be used for context- and semantics-aware editing of images.","Panagiotis Alimisis, Ioannis Mademlis, Panagiotis I. Radoglou-Grammatikis, Panagiotis G. Sarigiannidis, Georgios Th. Papadopoulos",2025,32,"Image data augmentation constitutes a critical methodology in modern computer vision tasks, since it can facilitate towards enhancing the diversity and quality of training datasets; thereby, improving the performance and robustness of machine learning models in downstream tasks. In parallel, augmentation approaches can also be used for editing/modifying a given image in a context- and semantics-aware way. Diffusion Models (DMs), which comprise one of the most recent and highly promising classes of methods in the field of generative Artificial Intelligence (AI), have emerged as a powerful tool for image data augmentation, capable of generating realistic and diverse images by learning the underlying data distribution. The current study realizes a systematic, comprehensive and in-depth review of DM-based approaches for image augmentation, covering a wide range of strategies, tasks and applications. In particular, a comprehensive analysis of the fundamental principles, model architectures and training strategies of DMs is initially performed. Subsequently, a taxonomy of the relevant image augmentation methods is introduced, focusing on techniques regarding semantic manipulation, personalization and adaptation, and application-specific augmentation tasks. Then, performance assessment methodologies and respective evaluation metrics are analyzed. Finally, current challenges and future research directions in the field are discussed.","literature review","Artificial Intelligence Review","1","10.1007/s10462-025-11116-x","https://consensus.app/papers/advances-in-diffusion-models-for-image-data-augmentation-a-alimisis-mademlis/1f044d3dbde2532791c3bbedfd8aee77/"
+
+
+
+
+
+
+
+
+
+
+
+"Synthetic Scientific Image Generation with VAE, GAN, and Diffusion Model Architectures","GANs, particularly StyleGAN, produce high-quality scientific images, while diffusion-based models like DALL-E 2 struggle to balance visual fidelity with scientific accuracy.","Zineb Sordo, Eric Chagnon, Zixi Hu, Jeffrey J. Donatelli, Peter F. Andeer, Peter S. Nico, T. Northen, Daniela Ushizima",2025,29,"Generative AI (genAI) has emerged as a powerful tool for synthesizing diverse and complex image data, offering new possibilities for scientific imaging applications. This review presents a comprehensive comparative analysis of leading generative architectures, ranging from Variational Autoencoders (VAEs) to Generative Adversarial Networks (GANs) on through to Diffusion Models, in the context of scientific image synthesis. We examine each model's foundational principles, recent architectural advancements, and practical trade-offs. Our evaluation, conducted on domain-specific datasets including microCT scans of rocks and composite fibers, as well as high-resolution images of plant roots, integrates both quantitative metrics (SSIM, LPIPS, FID, CLIPScore) and expert-driven qualitative assessments. Results show that GANs, particularly StyleGAN, produce images with high perceptual quality and structural coherence. Diffusion-based models for inpainting and image variation, such as DALL-E 2, delivered high realism and semantic alignment but generally struggled in balancing visual fidelity with scientific accuracy. Importantly, our findings reveal limitations of standard quantitative metrics in capturing scientific relevance, underscoring the need for domain-expert validation. We conclude by discussing key challenges such as model interpretability, computational cost, and verification protocols, and discuss future directions where generative AI can drive innovation in data augmentation, simulation, and hypothesis generation in scientific research.","literature review","Journal of Imaging","2","10.3390/jimaging11080252","https://consensus.app/papers/synthetic-scientific-image-generation-with-vae-gan-and-sordo-chagnon/786afd1dc6f15b32900f10f8cb059619/"
+
+
+
+
+
+
+
+
+
+
+"Diffusion Model-Based Image Editing: A Survey","Diffusion models effectively generate high-quality images by learning to reverse the process of gradually adding noise to images, enabling various image generation and editing tasks.","Yi Huang, Jiancheng Huang, Yifan Liu, Mingfu Yan, Jiaxi Lv, Jianzhuang Liu, Wei Xiong, He Zhang, Shifeng Chen, Liangliang Cao",2024,269,"Denoising diffusion models have emerged as a powerful tool for various image generation and editing tasks, facilitating the synthesis of visual content in an unconditional or input-conditional manner. The core idea behind them is learning to reverse the process of gradually adding noise to images, allowing them to generate high-quality samples from a complex distribution. In this survey, we provide an exhaustive overview of existing methods using diffusion models for image editing, covering both theoretical and practical aspects in the field. We delve into a thorough analysis and categorization of these works from multiple perspectives, including learning strategies, user-input conditions, and the array of specific editing tasks that can be accomplished. In addition, we pay special attention to image inpainting and outpainting, and explore both earlier traditional context-driven and current multimodal conditional methods, offering a comprehensive analysis of their methodologies. To further evaluate the performance of text-guided image editing algorithms, we propose a systematic benchmark, EditEval, featuring an innovative metric, LMM Score. Finally, we address current limitations and envision some potential directions for future research.","literature review","IEEE Transactions on Pattern Analysis and Machine Intelligence","1","10.1109/tpami.2025.3541625","https://consensus.app/papers/diffusion-modelbased-image-editing-a-survey-huang-huang/29974ec03a0959d4821d7f2c0aa1692b/"
+
+
+
+
+
+
+
+
+
+
+"Marigold: Affordable Adaptation of Diffusion-Based Image Generators for Image Analysis","Marigold adapts pretrained latent diffusion models for dense image analysis tasks, achieving state-of-the-art zero-shot generalization and minimal modification of the model's architecture.","Bingxin Ke, Kevin Qu, Tianfu Wang, Nando Metzger, Shengyu Huang, Bo Li, Anton Obukhov, Konrad Schindler",2025,74,"The success of deep learning in computer vision over the past decade has hinged on large labeled datasets and strong pretrained models. In data-scarce settings, the quality of these pretrained models becomes crucial for effective transfer learning. Image classification and self-supervised learning have traditionally been the primary methods for pretraining CNNs and transformer-based architectures. Recently, the rise of text-to-image generative models, particularly those using denoising diffusion in a latent space, has introduced a new class of foundational models trained on massive, captioned image datasets. These models' ability to generate realistic images of unseen content suggests they possess a deep understanding of the visual world. In this work, we present Marigold, a family of conditional generative models and a fine-tuning protocol that extracts the knowledge from pretrained latent diffusion models like Stable Diffusion and adapts them for dense image analysis tasks, including monocular depth estimation, surface normals prediction, and intrinsic decomposition. Marigold requires minimal modification of the pre-trained latent diffusion model's architecture, trains with small synthetic datasets on a single GPU over a few days, and demonstrates state-of-the-art zero-shot generalization. Project page: https://marigoldcomputervision.github.io.","theoretical, modeling, or simulation study","IEEE transactions on pattern analysis and machine intelligence","1","10.48550/arxiv.2505.09358","https://consensus.app/papers/marigold-affordable-adaptation-of-diffusionbased-image-ke-qu/5d10818fa73f5837b2e1195d5211f076/"
+
+
+
+
+
+
+
+
+
+
+"Comprehensive exploration of diffusion models in image generation: a survey","Diffusion models in image generation have potential social impacts, including data privacy, security, and artistic ethics, but require careful consideration of social issues like data leakage and copyright protection.","Hang Chen, Qian Xiang, Jiaxi Hu, M. Ye, Chao Yu, Hao Cheng, Lei Zhang",2025,56,"The rapid development of deep learning technology has led to the emergence of diffusion models as a promising generative model with diverse applications. These include image generation, audio and video synthesis, molecular design, and text generation. The distinctive generation mechanism and exceptional generation quality of diffusion models have made them a valuable tool in these diverse fields. However, with the extensive deployment of diffusion models in the domain of image generation, concerns pertaining to data privacy, data security, and artistic ethics have emerged with increasing prominence. Given the accelerated pace of development in the field of diffusion models, the majority of extant surveys are deficient in two respects: firstly, they fail to encompass the latest advances in diffusion-based image synthesis; and secondly, they seldom consider the potential social implications of diffusion models. In order to address these issues, this paper presents a comprehensive survey of the most recent applications of diffusion models in the field of image generation. Furthermore, it provides an in-depth analysis of the potential social impacts that may result from their use. Firstly, this paper presents a systematic survey of the background principles and theoretical foundations of diffusion models. Subsequently, this paper provides a detailed examination of the most recent applications of diffusion models across a range of image generation subfields, including style transfer, image completion, image editing, super-resolution, and beyond. Finally, we present a comprehensive examination of these social issues, addressing data privacy concerns, such as the potential for data leakage and the implementation of protective measures during model training. We also analyse the risk of malicious exploitation of the model and the defensive strategies employed to mitigate such risks. Additionally, we examine the implications of the authenticity and originality of generated images on artistic creativity and copyright protection.","","Artificial Intelligence Review","1","10.1007/s10462-025-11110-3","https://consensus.app/papers/comprehensive-exploration-of-diffusion-models-in-image-chen-xiang/e0cbde0ed7d35276b984b6b084be9654/"
+
+
+
+
+
+
+
+
+
+
+"VmambaIR: Visual State Space Model for Image Restoration","VmambaIR achieves state-of-the-art performance in image restoration tasks with fewer computational resources and parameters, offering a promising alternative to transformer and CNN architectures for next-generation low-level visual tasks.","Yuan Shi, Bin Xia, Xiaoyu Jin, Xing Wang, Tianyu Zhao, X. Xia, Xuefeng Xiao, Wenming Yang",2024,195,"Image restoration is a critical task in low-level computer vision, aiming to restore high-quality images from degraded inputs. Various models, such as convolutional neural networks (CNNs), generative adversarial networks (GANs), transformers, and diffusion models (DMs), have been employed to address this problem with significant impact. However, CNNs have limitations in capturing long-range dependencies. DMs require large prior models and computationally intensive denoising steps. Transformers have powerful modeling capabilities but face challenges due to quadratic complexity with input image size. To tackle these challenges, we propose VmambaIR, one of the first works to introduce State Space Models (SSMs) with linear complexity into comprehensive image restoration tasks. Specifically, we utilize a Unet architecture to stack our proposed Omni Selective Scan (OSS) blocks, consisting of an OSS module and an Efficient Feed-Forward Network (EFFN). Our proposed omni selective scan mechanism overcomes the unidirectional modeling limitation of SSMs by efficiently modeling image information flows in all six directions to better exploit surrounding restoration information. Furthermore, we conducted a comprehensive evaluation of our VmambaIR across multiple image restoration tasks, including image deraining, single image super-resolution, and real-world image super-resolution. Extensive experimental results demonstrate that our proposed VmambaIR achieves state-of-the-art (SOTA) performance with much fewer computational resources and parameters. Our research highlights the potential of state space models as promising alternatives to the transformer and CNN architectures in serving as foundational frameworks for next-generation low-level visual tasks.","theoretical, modeling, or simulation study","IEEE Transactions on Circuits and Systems for Video Technology","1","10.1109/tcsvt.2025.3530090","https://consensus.app/papers/vmambair-visual-state-space-model-for-image-restoration-shi-xia/dd33491ca9a959a19d95862e971c61fe/"
+
