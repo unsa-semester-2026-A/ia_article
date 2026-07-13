@@ -1,0 +1,3288 @@
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+1
+
+Marigold: Affordable Adaptation of Diffusion-Based
+Image Generators for Image Analysis
+
+arXiv:2505.09358v1 [cs.CV] 14 May 2025
+
+Bingxin Ke∗ , Kevin Qu∗ , Tianfu Wang∗ , Nando Metzger∗ , Shengyu Huang, Bo Li,
+Anton Obukhov†,∗ , Konrad Schindler†
+
+We present Marigold, a fine-tuning protocol for various image analysis tasks, and a family of associated diffusion models. Without loss of
+generality, these include monocular depth estimation, surface normals prediction, and intrinsic image decomposition. Its core principle is to
+leverage the rich visual knowledge stored in modern generative image models. As a generative model derived from Stable Diffusion and
+fine-tuned with synthetic data, Marigold can zero-shot transfer to unseen datasets, offering state-of-the-art results. The visualizations above
+demonstrate the strong out-of-distribution performance: without observing a single image other than synthetic rooms and dashboard views,
+Marigold can extract pixel-perfect depth maps, surface normals, and intrinsic decomposition of images, ready for downstream tasks.
+Abstract—The success of deep learning in computer vision
+over the past decade has hinged on large labeled datasets and
+strong pretrained models. In data-scarce settings, the quality of
+these pretrained models becomes crucial for effective transfer
+learning. Image classification and self-supervised learning have
+traditionally been the primary methods for pretraining CNNs and
+transformer-based architectures. Recently, the rise of text-to-image
+generative models, particularly those using denoising diffusion in
+a latent space, has introduced a new class of foundational models
+trained on massive, captioned image datasets. These models’
+ability to generate realistic images of unseen content suggests
+they possess a deep understanding of the visual world. In this
+work, we present Marigold, a family of conditional generative
+models and a fine-tuning protocol that extracts the knowledge
+from pretrained latent diffusion models like Stable Diffusion
+and adapts them for dense image analysis tasks, including
+monocular depth estimation, surface normals prediction, and
+intrinsic decomposition. Marigold requires minimal modification
+Work done at the Photogrammetry and Remote Sensing Laboratory, ETH
+Zürich, Switzerland. * denotes equal technical contribution. † denotes equal
+supervision. Corresponding author: Konrad Schindler (schindler@ethz.ch).
+
+of the pre-trained latent diffusion model’s architecture, trains
+with small synthetic datasets on a single GPU over a few days,
+and demonstrates state-of-the-art zero-shot generalization. Project
+page: https://marigoldcomputervision.github.io.
+Index Terms—Denoising diffusion, image analysis, image
+generation, foundational models, transfer learning.
+
+I. I NTRODUCTION
+
+T
+
+HE introduction of ImageNet [1] laid the foundation for
+training deep Convolutional Neural Networks (CNNs),
+such as AlexNet [2], catalyzing further advances in the
+computer vision field: in data acquisition, neural architectures,
+and training techniques. With the advent of VGG [3] and
+ResNet [4] architectures, transfer learning [5] became essential
+for training high-performance computer vision models and
+reducing training time of semantic segmentation [6], depth
+prediction [7], and other downstream tasks. In many cases,
+training a neural network from random weight initialization is
+
+0000–0000/00$00.00 © 2021 IEEE
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+2
+
+claimed not feasible [6]. Modern deep learning frameworks [8] an LDM allows for multiple plausible interpretations of the
+have since made it easy to use pretrained models by allowing input. This ability is essential for solving ill-posed problems,
+practitioners to load pretrained weights with a simple setting as there may be no single correct output due to over-exposed
+like pretrained=True during model creation.
+input, blur, ambiguities of transparent objects, etc. Obtaining
+The rise of large text-to-image generative models [9] and samples from the conditional distribution with Marigold is
+denoising diffusion approaches [10], [11] has opened new as simple as starting the diffusion process from different
+opportunities for leveraging the rich priors embedded in noise samples given the same input. Multiple such predictions
+foundational models. A breakthrough in this area came with can be ensembled to approximate the mode of a conditional
+the introduction of Latent Diffusion Models (LDMs), a class distribution. Ensembling is required to evaluate prediction
+of models exemplified by the widely known Stable Diffusion quality in standard benchmarks comprised of image-depth
+(SD) [12]. These models operate in the compressed latent ground truth pairings, an established evaluation protocol [20],
+space of a pretrained Variational Autoencoder (VAE), enabling [21]. Additionally, computing predictive uncertainty becomes
+significant resource savings in both training and inference. tractable given such an ensemble.
+Trained on the internet-scale LAION-5B dataset of captioned
+The multi-step inference and the computational redundancy
+images [13], Stable Diffusion excels in realism and diversity. of the ensembling typically result in many function evaluations
+Its open-source availability, low computational requirements (NFEs), which slow down inference speed – initially, a major
+for inference, and integration with toolkits like diffusers [14] point of criticism of the original Marigold-Depth [18]. To this
+have enabled widespread experimentation by researchers and end, we explored Latent Consistency Distillation [22] to reduce
+artists. The abundance of customization recipes [15]–[17] has the number of sampling steps arbitrarily low, even to just one.
+prompted many notable extensions that focus on enhancing Simultaneously, several works explored other techniques to
+the controllability of the original image generation task.
+bring sampling steps down. Some preserved the generative
+Repurposing text-to-image LDMs from image generation to nature of the model [23]–[25]. Additionally, [23] and [26]
+image analysis is a recent development in generative imaging. showed the possibility of scoring high in the said benchmarks
+The motivation is simple: if a diffusion model demonstrates a by re-casting Marigold as an end-to-end network, effectively
+deep understanding of the visual world through high-quality yielding just one function evaluation. In this paper, we continue
+image generation, that same understanding can be leveraged focusing on the generative formulation.
+to derive a versatile regression model for image analysis. To
+Notably, Garcia et al. [23] discovered sub-optimal settings
+this end, in our recent work [18], we introduced Marigold- in the diffusion scheduler of the original Marigold-Depth [18]
+Depth, an LDM-based state-of-the-art zero-shot affine-invariant and proposed a correction, leading to significant improvement
+monocular depth estimator, along with a simple and resource- of that exact model’s performance in the same benchmarks in
+efficient fine-tuning protocol for Stable Diffusion.
+the few-step inference regime. We gratefully incorporated this
+Marigold-Depth proposed several key novelties unlocking observation and integrated this regime into our study. With
+the potential of LDMs for image understanding:
+single-step inference and technical enhancements such as using
+(1) reusing the LDM’s VAE to encode not just the input image a lightweight compatible VAE [27] and low-precision weight
+but also the output modality into the latent space;
+quantization, Marigold can now produce predictions in under
+(2) using only high-quality synthetic data;
+100ms on most commodity hardware.
+(3) short resource-efficient fine-tuning protocol;
+In this paper, we follow up on the initial body of work [18],
+(4) generative modeling of a conditional distribution rather
+recap it in Sec. III, and extend our study with several dense
+than predicting its mode as end-to-end approaches do.
+image analysis tasks [28] having a long history in computer
+Some of these properties are organically entangled. graphics: surface normals prediction in Sec. IV and intrinsic
+(1↔2): Encoding the modality into latent space is only possible image decomposition in Sec. V. Additionally, we introduce a
+when it is noise-free and pixel-complete – rarely the case with protocol for distilling Marigold models into Latent Consistency
+the real depth ground truth. (2↔3): A short fine-tuning protocol Models (LCMs) in Sec. VI and the new High-Resolution (HR)
+preserves prior knowledge. It requires diverse, consistently model and inference strategy in Sec. VII.
+labeled, and noise-free data to reduce noise in weight updates,
+To summarize, our contributions are:
+which are satisfiable with synthetic data. (1↔3): Operation in
+(1) Marigold – a simple and resource-efficient fine-tuning
+latent space ensures affordable fine-tuning and inference on a
+protocol to convert a foundational LDM image generator
+single consumer Graphics Processing Unit (GPU), empowering
+into a zero-shot generative image analysis model with
+research even outside large labs.
+robust in-the-wild generalization capability. Training a
+The importance of synthetic data and strong prior for
+Marigold takes less than 3 GPU-days and can be accomdepth estimation have been subsequently confirmed in Depth
+plished with most commodity hardware;
+Anything V2 [19]. Although their end-to-end model achieves
+(2) A comprehensive study of training diffusion models with
+impressive performance in zero-shot benchmarks, it involves a
+Marigold for monocular depth estimation, surface normal
+3-stage training procedure, a teacher-student separation, and
+prediction, and intrinsic image decomposition tasks;
+generating 62M pseudo labels; both do not fit the bill of a
+(3) Fast (sub-100ms) few- or single-step inference;
+simple and affordable transfer learning recipe.
+For the property (4), as shown in [18], modeling the
+(4) Overcoming the resolution bias of the base model, endistribution of depth conditioned on the input image with
+abling high-resolution inference.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+II. R ELATED W ORK
+
+3
+
+performance, as evidenced by DPT (MiDaS v3) [61]. Depth
+Anything
+[62] took data scaling to the next level by relying
+A. Diffusion Models
+on DINOv2 [63] foundational model prior trained on 142M
+Denoising Diffusion Probabilistic Models (DDPMs) [10], images with self-supervision and subsequent training with 62M
+[29] generate data by reversing a Gaussian noise diffusion pseudo-labels, 1M real depth annotations, and 0.5M synthetic
+process. Denoising Diffusion Implicit Models (DDIMs) [30] ones. Several methods [42], [42], [64], [65] proposed using
+extend this by introducing a non-Markovian shortcut for DDPMs and LDMs for depth estimation. However, they either
+faster sampling at inference time. Latent Consistency Models train models from scratch, use Stable Diffusion [12] as a
+(LCMs) [22], [31] distill DDPM models into consistency func- feature extractor, resort to custom latent spaces, operate in pixel
+tions that map points on the diffusion ODE trajectory [32] to the space, or require extensive training. Our previous work [18]
+same output, thereby introducing a different parameterization proposed fine-tuning a generative text-to-image LDM such as
+and reducing inference time. In the realm of image generation, Stable Diffusion, trained with LAION-5B [13], a dataset of
+Rombach et al. [12] have revolutionized generative modeling 2.3B image-text pairs, towards affine-invariant depth using just
+with their Stable Diffusion model, trained with LAION-5B [13] 74K samples from the HyperSim [66] and Virtual KITTI [67]
+dataset of 2.3B text-image pairs. The cornerstone of their synthetic datasets. Marigold demonstrated impressive zero-shot
+approach is an LDM, where the denoising process is run in an generalization both in benchmarks and “in the wild”.
+efficient latent space, drastically reducing the complexity of the
+Since uploading [18], Depth Anything V2 [19] confirmed our
+learned mapping. This model holds rich visual priors, providing findings about the role of synthetic data in the task and retired
+a solid foundation for our generalizable image analysis models real data from their pipeline, achieving impressive performance
+and a base for our transfer learning approach.
+gains. E2E-FT [23] and GenPercept [26] performed endto-end fine-tuning. The former also proposed a fix for a
+few-step DDIM scheduler inference regime. E2E-FT also
+B. Foundation Models
+Vision Foundation Models (VFMs) are large neural networks demonstrated that end-to-end networks can score higher in
+trained on internet-scale data. The extreme scaling leads to zero-shot benchmarks than the similar generative model. Two
+the emergence of high-level visual understanding, such that more works kept the generative nature of the base model:
+the model can then be used as is [33] or fine-tuned to a Lotus [25] switched to predicting the target using exactly one
+wide range of downstream tasks with minimal effort [34]. step; DepthFM [24] adopted flow matching [68] at training.
+Prompt tuning methods [35]–[37] can efficiently adapt VFMs GeoWizard [69] proposed to estimate the depth and surface
+towards dedicated scenarios by designing suitable prompts. normals jointly, although using privileged information about
+Feature adaptation methods [38]–[42] can further pivot VFMs scene type. BetterDepth [70] introduced a Marigold-based
+towards different tasks. Direct tuning enables more flexible refiner for coarse depth inputs. SteeredMarigold [71] used
+adaptation, especially in few-shot customization scenarios like Marigold as a generative prior in order to perform depth
+DreamBooth [17]. As we show in this paper, Marigold can densification. Robustness under challenging conditions [72] was
+be interpreted as an instance of this type of tuning, where tackled through depth-conditioned generation of training data,
+Stable Diffusion [12] plays the role of the foundation model an approach similar to DGInStyle [73]. ChronoDepth [74] and
+for multiple image analysis tasks. Our models exhibit strong DepthCrafter [75] address the temporal consistency of depth
+in-the-wild performance thanks to the foundational prior and prediction in the video domain by performing Marigold-like
+fine-tuning of video diffusion models.
+efficient fine-tuning protocol (cf . the teaser figure).
+We stick to the generative formulation of Marigold, incorporate the DDIM fix [23], and recap the method [18] (Sec. III).
+C. Monocular Depth Estimation
+The pioneering work [7] introduced an end-to-end trainable D. Monocular Surface Normals Prediction
+network and showed that metric depth for a dataset can be
+Early monocular surface normals estimation methods often
+recovered with a single sensor. Successive improvements have employed CNNs consisting of a feature extractor backbone
+come from various fronts, including various parameterizations followed by a prediction head [76]–[79]. Over time, various
+(ordinals, bins, planar maps, CRFs, etc.) [43]–[50] and switch- improvements have been proposed. Bae et al. [80] suggested
+ing CNN backbones to vision transformers [51]–[54]. A class of estimating aleatoric uncertainty and using uncertainty-guided
+works [55]–[57] relies on privileged information fed alongside sampling during training to enhance prediction quality for small
+input, such as camera intrinsics. Estimating depth “in the structures and object boundaries. Omnidata v2 [81] introduced
+wild” or “out-of-distribution” refers to methods with robustness a transformer-based model trained on 12M images, applying
+across a wide range of possibly unfamiliar settings where sophisticated 3D data augmentation and enforcing cross-task
+no privileged information is available. MegaDepth [58] and consistency. DSINE [82] identified and incorporated inductive
+DiverseDepth [59] utilize extensive internet photo collections to biases tailored for surface normals estimation. It leverages the
+train models that can adapt to unseen data, while MiDaS [60] per-pixel ray direction coupled with a ray-based activation
+achieves generality by training on a mixture of multiple datasets. function and learns the relative rotation between neighboring
+To unify representations across datasets, MiDaS estimates surface normals.
+affine-invariant depth – up to unknown shift and scale. The
+Since uploading [18], several papers have repurposed diffustep from CNNs to vision transformers has further boosted sion models to surface normals estimation. GeoWizard [69]
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+4
+
+jointly estimates depth and surface normals, although it uses non-diffuse shading, and a residual diffuse component. We
+privileged information about scene type. Shortly after, we re- compare our models to IID-Diffusion [96], RGB↔X [97] and
+leased Marigold-Normals v0.1, a preview model for monocular Careaga et al. [90] in their respective domains on the Interiorsurface normals estimation trained similarly to Marigold-Depth, Verse [99] and HyperSim [66] datasets. Our simpler models
+albeit just on HyperSim. GenPercept [26] treats the denoising U- achieve highly competitive performance in both quantitative
+Net as a deterministic backbone and employs one-step inference. and qualitative evaluations (Sec. V).
+StableNormal [83] aims to reduce the inherent stochasticity of
+diffusion models by using a two-stage coarse-to-fine strategy. F. High-Resolution Estimation
+A single-step surface normals estimator first produces an initial
+Models fine-tuned from Stable Diffusion [12] usually exhibit
+coarse estimate, followed by a refinement process that recovers resolution bias towards the original resolution used to train the
+finer geometric details, semantically guided by DINOv2 [63] text-to-image LDM. The same applies to all Marigold models:
+features. Lotus [25] directly predicts annotations instead of their processing resolution defaults to the recommended value
+noise and reformulates the multi-step diffusion into a single-step of 768 inherited from the base model, which should correspond
+procedure. Garcia et al. [23] proposed a single-step inference to the longest side of the input image. As a result, large
+fix for Marigold’s DDIM scheduler to enhance inference speed. resolutions suffer a major loss of details during downsampling
+Additionally, they reframe a single-step generative predictor to the processing resolution and upsampling output to the
+into an end-to-end network based on the same architecture.
+original size (see the teaser figure). This issue prompted us
+In what follows, we continue developing the ideas behind to investigate approaches to high-resolution inference with
+Marigold-Normals and arrive at v1.1. We demonstrate that a Marigold. Although the study is centered around Marigoldcareful curation of synthetic fine-tuning datasets together with Depth, the findings apply to other modalities.
+the vanilla Marigold protocol without any other foundational
+BoostingDepth [100] fuses local patches into a global canvas
+models, multi-task aggregation, privileged information, or through an additional GAN network. PatchFusion [101] introrefinement stages achieves the best performance in most duces a tile-based framework that combines globally consistent
+evaluation datasets, compared to the other recent diffusion- coarse features with finer local features using a patch-wise
+based surface normals estimation methods (Sec. IV).
+fusion network. Moreover, it ensures consistency across patches
+during training without post-processing. PatchRefiner [102]
+performs high-resolution depth estimation by refining predicE. Intrinsic Image Decomposition (IID)
+tions with a pseudo-labeling strategy. MultiDiffusion [103]
+Intrinsic image decomposition aims to recover the intrinsic is an inference protocol for pre-trained diffusion models that
+properties of objects in an image, including albedo (surface generates high-resolution outputs by performing diffusion over
+reflectance), shading, and Bidirectional Reflectance Distribution overlapping tiles in an interleaved fashion. While it has been
+Function (BRDF) parameters, such as roughness and metal- used in generative tasks like semantic segmentation [73], it
+licity. It was introduced by Horn [28] and later studied by has not been applied yet to enhance the resolution of image
+Barrow et al. [84]. The theory evolved from early prior-based analysis tasks. Depth Pro [104] proposed concurrently a multiapproaches, such as the retinex theory, to modern deep learning- scale vision transformer trained on tens of datasets, capable of
+based methods. First, deep learning approaches typically predicting metric depth for HD images in a split second.
+utilized a feed-forward convolutional network [85]–[88] or a
+Our Marigold-HR inference strategy attains competitive or
+transformer [89] to predict pixel-level intrinsic decomposition better performance compared to these other methods (Sec. VII).
+channels from the input image. Careaga et al. [90] proposed
+a multi-step approach that first predicts initial albedo and
+III. BASE M ODEL : M ARIGOLD -D EPTH
+grayscale shading maps using an off-the-shelf network [91], and
+In this section, we recap the details of our fine-tuning
+then progressively refines them. With the recent advent of vision
+protocol
+in the context of monocular depth estimation [18].
+foundation models, especially generative models, alternative
+solutions have shown success by utilizing StyleGAN [92], [93]
+or diffusion models [94]–[97]. DMP [95] learns a deterministic A. Generative Formulation
+mapping between an input and the IID task (albedo and shading)
+We pose monocular depth estimation as a conditional
+through a low-rank adaptation of text-to-image models. IID- denoising diffusion generation task and train Marigold to model
+Diffusion [96] uses a custom latent encoder and CLIP [98] the conditional distribution D(d | x) over depth d ∈ RW ×H ,
+features to guide the fine-tuned Stable Diffusion [12] on where the condition x ∈ RW ×H×3 is an RGB image.
+In the forward process, which starts at d0 := d from the
+InteriorVerse [99] decomposition into albedo and material
+properties: roughness and metallicity. RGB↔X [97] learns conditional distribution, Gaussian noise is gradually added at
+a bijection between input images and various modalities, levels t ∈ {1, ..., T } to obtain noisy samples dt as
+√
+√
+including the ones used in IID-Diffusion. Their model, based
+dt = ᾱt d0 + 1 − ᾱt ϵ
+(1)
+on the pretrained Stable Diffusion, has a similar architecture
+Qt
+to Marigold, yet uses the text encoder to switch between pre- where ϵ ∼ N (0, I), ᾱt := s=1 1−βs , and {β1 , . . . , βT } is
+defined modalities.
+the variance schedule of a process with T steps. In the reverse
+We train two Marigold-IID models: one that predicts albedo, process, the denoising model ϵθ (·) parameterized with learned
+roughness, and metallicity, and another that estimates albedo, parameters θ gradually removes noise from dt to obtain dt−1 .
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+data range of the depth data plays a significant role in enabling
+affine-invariance. We discuss our normalization approach in
+Sec. III-C. We verified that without any modification of the VAE
+or the latent space structure, the depth map can be reconstructed
+from the encoded latent code with a negligible error, i.e.,
+d ≈ D(E(d)). This is the first check to be performed when
+following the Marigold fine-tuning protocol for a new modality.
+At inference time, the depth latent code is decoded once at the
+end of diffusion, and the average of three channels is taken
+as the predicted depth map. Extending Marigold to another
+modality with a different number of channels may prompt
+allocating new latent space for each triplet of channels.
+
+ 
+
+ 
+
+*)'*&(
+
+ 
+
+ 
+
+
+ 
+
+C
+
+ 
+
+
+
+5
+
+  0 
+-   0,+/.
+
+%$ #
+
+
+Fig. 1: Overview of the Marigold fine-tuning protocol. StartAdapted denoising U-Net. To implement the conditioning
+ing from a pretrained Stable Diffusion, we encode the image
+(d)
+of the latent denoiser ϵθ (zt , z(x) , t) on input image x, we
+x and depth d into the latent space using the original Stable
+concatenate the image and depth latent codes into a single
+Diffusion VAE. We fine-tune just the U-Net by optimizing the
+(d) (x)
+standard diffusion objective relative to the depth latent code. input zt = cat(zt , z ) along the feature dimension. The
+Image conditioning is achieved by concatenating the two latent input channels of the latent denoiser are then doubled to
+codes before feeding them into the U-Net. The first layer of accommodate the expanded input zt . To prevent inflation of
+the U-Net is modified to accept concatenated latent codes. See activations magnitude of the first layer and keep the pre-trained
+structure as faithfully as possible, we duplicate the weight
+details in Sec. III-B and Sec. III-C.
+tensor of the input layer and divide its values by two. A
+similar conditioning mechanism, except for the zero weights
+At training time, parameters θ are updated by taking a initialization, was previously used in InstructPix2Pix [15].
+data pair (x, d) from the training set, noising d with sampled
+noise ϵ at a random timestep t, computing the noise estimate
+ϵ̂ = ϵθ (dt , x, t) and minimizing one of the denoising diffusion
+objective functions. The canonical standard noise objective L
+is given as follows [29]:
+2
+
+L = Ed0 ,ϵ∼N (0,I),t∼U (T ) ∥ϵ − ϵ̂∥2 .
+
+(2)
+
+At inference time, d := d0 is reconstructed starting from a
+normally-distributed variable dT , by iteratively applying the
+learned denoiser ϵθ (dt , x, t).
+We consider the latent space formed in the bottleneck of a
+VAE, trained independently of the denoiser, to enable latent
+space compression and perceptual alignment with the data
+space. To translate our formulation into the latent space, for a
+given depth map d, the corresponding latent code is given by
+the encoder E: z(d) = E(d). Given a depth latent code, a depth
+map can be recovered with the decoder D: d̂ = D(z(d) ). The
+conditioning image x is also naturally translated into the latent
+space as z(x) = E(x). The denoiser is henceforth trained in the
+(d)
+latent space: ϵθ (zt , z(x) , t). The adapted inference procedure
+involves one extra step – the decoder D reconstructing the data
+(d)
+(d)
+d̂ from the estimated clean latent z0 : d̂ = D(z0 ).
+B. Network Architecture
+We base our model on a pretrained text-to-image LDM
+Stable Diffusion v2 [12]. With minimal changes to the model,
+we turn it into a conditional depth map generator (Fig. 1).
+Depth encoder and decoder. We take the frozen VAE to
+encode both the image and its corresponding depth map into a
+latent space for training our conditional denoiser. Given that
+the encoder, which is designed for 3-channel (RGB) inputs,
+receives a single-channel depth map, we replicate the depth map
+into three channels to simulate an RGB image. At this point, the
+
+C. Fine-Tuning for Depth Estimation
+Affine-invariant depth normalization. For the ground truth
+depth maps d, we implement a linear normalization such that
+the depth primarily falls in the value range [−1, 1], to match
+the designed input value range of the VAE. Such normalization
+serves two purposes. First, it is the convention for working
+with the original Stable Diffusion VAE. Second, it enforces
+a canonical affine-invariant depth representation independent
+of the data statistics – any scene must be bounded by near
+and far planes with extreme depth values. The normalization
+is achieved through an affine transformation computed as
+
+
+d − d2
+d̃ =
+− 0.5 × 2,
+(3)
+d98 − d2
+where d2 and d98 correspond to the 2% and 98% percentiles
+of individual depth maps. This normalization allows Marigold
+to focus on pure affine-invariant depth estimation.
+Training on synthetic data. Real depth datasets suffer from
+missing depth values caused by the physical constraints of
+the capture rig and the physical properties of the sensors.
+Specifically, the disparity between cameras and reflective
+surfaces diverting LiDAR laser beams are inevitable sources of
+ground truth noise and missing pixels [105], [106]. In contrast
+to prior work that utilized diverse real datasets to achieve
+generalization [60], [107], we train exclusively with synthetic
+depth datasets. As with the depth normalization rationale, this
+decision has two objective reasons. First, synthetic depth is
+inherently dense and complete, meaning that every pixel has a
+valid ground truth depth value, allowing us to feed such data
+into the VAE, which can not handle data with invalid pixels.
+Second, synthetic depth is the cleanest possible form of depth,
+which is guaranteed by the rendering pipeline. It provides the
+cleanest examples and reduces noise in gradient updates during
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+ 
+
+ 
+
+ 
+
+
+
+  
+
+
+&%#&"$
+
+ 
+,+ 0
+)( 
+
+ 
+
+6
+
+
+where the binominal coefficient b = N2 represents the number
+of possible combinations of image pairs from N images. After
+the iterative optimization for spatial alignment, the merged
+depth m is taken as our ensembled prediction. Note that
+this ensembling step requires no ground truth for aligning
+independent predictions. This scheme enables a flexible tradeoff between computation efficiency and prediction quality by
+choosing N accordingly.
+
+E. Implementation
+Fig. 2: Overview of the Marigold inference scheme. Given
+We use Stable Diffusion v2 [12] as base LDM, following the
+an image x, we encode it with the original Stable Diffusion
+original
+pre-training setup with a v-objective [108]. We disable
+VAE into the latent code z(x) , and concatenate with the depth
+text conditioning and perform steps outlined in Sec. III-B.
+(d)
+latent zt before giving it to the modified fine-tuned U-Net During training, we apply the DDPM noise scheduler [29]
+on every denoising iteration. After executing the schedule of T with 1000 diffusion steps. At inference time, we apply DDIM
+(d)
+steps, the resulting depth latent z0 is decoded into an image scheduler [30] and sample between 1 and 50 steps. To
+whose 3 channels are averaged to get the final estimation d̂. approximate the mode of conditional distribution and increase
+See Sec. III-D for details.
+quality, we ensemble 10 predictions from different initial noise.
+Training takes 18K iterations using a batch size of 32. To fit one
+GPU, we use a real batch size of 2 and accumulate gradients 16
+the short fine-tuning protocol. Thus, the remaining concern is times. We use the Adam optimizer with a 3 · 10−5 learning rate.
+the sufficient diversity or domain gaps between synthetic and Additionally, we apply random horizontal flipping augmentation
+real data, which sometimes limits generalization ability. As to the training data. Training our method to convergence takes
+demonstrated in our experiments across modalities, our choice approximately 2.5 days on a single Nvidia RTX 4090 GPU card.
+of synthetic datasets leads to impressive zero-shot transfer.
+Unlike the 10×50 zero-shot evaluation protocol, inference with
+one ensemble member and one diffusion step 1 × 1 produces
+sufficiently good results fast, often sharper than the ensembled
+D. Inference
+prediction. Coupled with model weight quantization and smaller
+Latent diffusion denoising. The overall inference pipeline
+compatible VAEs, such as TAESD [27], the 1 × 1 prediction
+is presented in Fig. 2. We encode the input image into the
+takes less than 100ms on most hardware.
+latent space, initialize depth latent as standard Gaussian noise,
+and progressively denoise it with the same schedule as during
+fine-tuning. We use DDIM [30] to perform non-Markovian F. Evaluation
+sampling with re-spaced steps for accelerated inference. The Training datasets. We employ two synthetic datasets covfinal depth map is decoded from the latent code using the VAE ering both indoor and outdoor scenes. HyperSim [66] is a
+decoder and postprocessed by averaging channels.
+photorealistic dataset with 461 indoor scenes. We use the
+Test-time ensembling. The stochastic nature of the inference official split for training, with around 54K samples from 365
+pipeline leads to varying predictions depending on the initial- scenes, filtering out incomplete samples. RGB images and depth
+(d)
+ization noise in zT . Capitalizing on that, we propose the maps are resized to 480 × 640 resolution. Depth is normalized
+following test-time ensembling scheme, capable of combining with the dataset statistics. Additionally, we transform distances
+multiple inference passes over the same input. For each input relative to the focal point into depth values relative to the focal
+sample, we can run inference N times. To aggregate these plane. The second dataset, Virtual KITTI [67], is a synthetic
+affine-invariant depth predictions {d̂1 , . . . , d̂N }, we jointly street-scene dataset featuring 5 scenes with diverse weather
+estimate the corresponding scale ŝi and shift t̂i , relative and camera perspectives. We crop the images to the KITTI
+to some canonical scale and range, in an iterative manner. resolution [111] and set the far plane to 80 meters. New in
+The proposed objective minimizes the distances between Marigold-Depth v1.1: (1) the training data is augmented with
+each pair of scaled and shifted predictions (d̂′ i , d̂′ j ), where flipping, blurring, and color jitter; (2) DDIM timesteps are set
+d̂′ = d̂ × ŝ + t̂. In each optimization step, we calculate to “trailing” and zero SNR is enabled [23] before fine-tuning.
+the merged depth map m by the taking pixel-wise median Evaluation datasets. We evaluate Marigold-Depth on 5
+m(x, y) = median(d̂′ 1 (x, y), . . . , d̂′ N (x, y)). An extra regu- real datasets not seen during training. NYUv2 [21] and
+larization term R = |min(m)| + |1 − max(m)|, is added to ScanNet [112] are both indoor scene datasets captured with an
+prevent collapse to the trivial solution and enforce the unit RGB-D Kinect sensor. For NYUv2, we utilize the designated
+scale of m. Thus, the objective function can be written as test split, comprising 654 images. In the case of the ScanNet
+follows:
+dataset, we randomly sampled 800 images from the 312 official
+v
+!
+u N −1 N
+validation scenes for testing. KITTI [111] is a street-scene
+u1 X X
+t
+min
+∥d̂′ i − d̂′ j ∥22 + λR
+(4) dataset with sparse metric depth captured by a LiDAR sensor.
+s1 ,...,sN
+b
+We employ the Eigen test split [7] made of 652 images.
+t1 ,...,tN
+i=1 j=i+1
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+7
+
+TABLE I: Quantitative comparison of Marigold-Depth with SOTA affine-invariant depth estimators on several zero-shot
+benchmarks1 . In the 1st section, we list methods citing our approach [18] as well as methods that require more than 2M
+samples for fine-tuning (denoted by gray). We compare methods from the 2nd section with flavors of Marigold-Depth v1.0
+(ours, CVPR’2024) from the 3rd section and Marigold-Depth v1.1 (ours, this paper) in the 4th section. Legend: All metrics are
+presented in percentage terms; bold numbers are the best, underscored second best; NFEs is the number of function evaluations
+required to obtain the prediction – ensemble × steps for diffusion models and 1 for end-to-end networks. Marigold outperforms
+other methods in this low-data regime on indoor and outdoor scenes without access to real depth samples.
+Method
+
+NFEs
+
+Omnidata [107]
+Metric3D [55]2
+Metric3D v2 [56]2
+DepthAnything [62]
+DepthAnything v2 [19]
+DepthFM [24]
+GeoWizard [69]2
+GenPercept [26]
+Lotus-G [25]
+Lotus-D [25]
+E2E-FT [23]
+E2E-FT [23]
+
+Prior
+
+Data
+Prior Generated Real Synthetic
+
+NYUv2
+AbsRel ↓ δ1 ↑
+
+KITTI
+AbsRel ↓ δ1 ↑
+
+ETH3D
+AbsRel ↓ δ1 ↑
+
+ScanNet
+AbsRel ↓ δ1 ↑
+
+DIODE
+AbsRel ↓ δ1 ↑
+
+1 ImageNet
+1 ImageNet
+1 DINOv2
+1 DINOv2
+1 DINOv2
+? × 1 SD v2.1
+10 × 50 SD v2.0
+1 SD v2.1
+1 × 1 SD v2.0
+1 SD v2.0
+1 Marigold
+1 SD v2.0
+
+14M
+14M
+142M
+142M
+142M
+2.3B
+2.3B
+2.3B
+2.3B
+2.3B
+2.3B
+2.3B
+
+—
+—
+—
+62M
+62M
+—
+—
+—
+—
+—
+—
+—
+
+12M
+8M
+16M
+1M
+—
+—
+51K
+—
+—
+—
+—
+—
+
+310K
+—
+91K
+524K
+595K
+63K
+227K
+74K
+59K
+59K
+74K
+74K
+
+7.4
+5.8
+4.3
+4.3
+4.4
+6.5
+5.2
+5.6
+5.4
+5.3
+5.2
+5.4
+
+94.5
+96.3
+98.1
+98.1
+97.9
+95.6
+96.6
+96.0
+96.6
+96.7
+96.6
+96.5
+
+14.9
+5.3
+4.4
+7.6
+7.5
+8.3
+9.7
+9.9
+11.3
+9.3
+9.6
+9.6
+
+83.5
+96.5
+98.2
+94.7
+94.8
+93.4
+92.1
+90.4
+87.7
+92.8
+91.9
+92.1
+
+16.6
+6.4
+4.2
+12.7
+13.2
+—
+6.4
+6.2
+6.2
+6.8
+6.2
+6.4
+
+77.8
+96.5
+98.3
+88.2
+86.2
+—
+96.1
+95.8
+96.1
+95.3
+95.9
+95.9
+
+7.5
+7.4
+2.2
+4.2
+—
+—
+6.1
+—
+6.0
+6.0
+5.8
+5.8
+
+93.6
+94.2
+99.4
+98.0
+—
+—
+95.3
+—
+96.0
+96.3
+96.2
+96.5
+
+33.9
+21.1
+13.6
+27.7
+6.5
+22.5
+29.7
+35.7
+—
+—
+30.2
+30.3
+
+74.2
+82.5
+89.5
+75.9
+95.4
+80.0
+79.2
+75.6
+—
+—
+77.9
+77.6
+
+1 ImageNet
+1 ImageNet
+1 ImageNet
+1 ImageNet
+1 ImageNet
+
+1M
+1M
+1M
+14M
+14M
+
+—
+—
+—
+—
+—
+
+320K
+2M
+300K
+300K
+1.2M
+
+—
+—
+54K
+—
+188K
+
+11.7
+11.1
+9.0
+6.9
+9.8
+
+87.5
+88.5
+91.6
+94.8
+90.3
+
+19.0
+23.6
+14.9
+11.5
+10.0
+
+70.4
+63.0
+78.4
+86.7
+90.1
+
+22.8
+18.4
+17.1
+12.1
+7.8
+
+69.4
+75.2
+77.7
+83.3
+94.6
+
+10.9
+12.1
+9.1
+8.0
+8.2
+
+88.2
+84.6
+91.7
+93.9
+93.4
+
+37.6
+33.2
+27.1
+24.6
+18.2
+
+63.1
+71.5
+76.6
+78.0
+75.8
+
+1 × 1 SD v2.0
+10 × 1 SD v2.0
+1 × 1 SD v2.0
+10 × 1 SD v2.0
+10 × 50 SD v2.0
+
+2.3B
+2.3B
+2.3B
+2.3B
+2.3B
+
+—
+—
+—
+—
+—
+
+—
+—
+—
+—
+—
+
+74K
+74K
+74K
+74K
+74K
+
+5.9
+5.8
+5.7
+5.7
+5.5
+
+96.0
+96.1
+96.2
+96.2
+96.4
+
+12.2
+10.1
+11.0
+10.9
+9.9
+
+86.2
+90.9
+89.1
+89.2
+91.6
+
+7.5
+6.6
+6.9
+6.8
+6.5
+
+94.4
+95.8
+95.5
+95.6
+96.0
+
+6.7
+6.6
+6.6
+6.5
+6.4
+
+95.0
+95.0
+95.2
+95.3
+95.1
+
+31.7
+30.5
+31.2
+31.0
+30.8
+
+75.6
+77.2
+76.6
+76.7
+77.3
+
+Marigold v1.13 w/ TAESD [27] (fp16) 1 × 1 SD v2.0
+Marigold v1.13 (fp16)
+1 × 1 SD v2.0
+Marigold v1.13
+1 × 1 SD v2.0
+Marigold v1.13
+10 × 1 SD v2.0
+Marigold v1.13
+1 × 4 SD v2.0
+Marigold v1.13
+10 × 4 SD v2.0
+
+2.3B
+2.3B
+2.3B
+2.3B
+2.3B
+2.3B
+
+—
+—
+—
+—
+—
+—
+
+—
+—
+—
+—
+—
+—
+
+74K
+74K
+74K
+74K
+74K
+74K
+
+6.1
+5.8
+5.9
+5.8
+5.7
+5.5
+
+95.8
+96.1
+96.1
+96.1
+96.2
+96.4
+
+12.4
+11.0
+11.0
+10.9
+10.8
+10.5
+
+85.0
+88.8
+88.8
+89.0
+89.6
+90.2
+
+7.6
+7.0
+7.0
+6.9
+7.2
+6.9
+
+94.3
+95.5
+95.5
+95.7
+95.3
+95.7
+
+6.8
+6.6
+6.6
+6.5
+6.0
+5.8
+
+95.1
+95.3
+95.3
+95.4
+96.0
+96.3
+
+31.1
+30.4
+30.4
+30.3
+30.1
+29.8
+
+75.9
+77.3
+77.3
+77.3
+77.9
+78.2
+
+DiverseDepth [59]
+MiDaS [60]
+LeReS [109]
+HDN [110]
+DPT [61]
+Marigold v1.03 w/ TAESD [27]
+Marigold v1.0 LCM
+Marigold v1.03
+Marigold v1.03
+Marigold v1.0
+
+1
+
+2
+3
+
+Metrics in the 1st section are sourced from the respective papers. Metrics in the 2nd section are sourced from Metric3D [55], except the ScanNet benchmark. For ScanNet,
+Metric3D used a different random split that is not publicly accessible. Therefore, we re-ran baseline methods on our split. We additionally took numbers from Metric3D for
+HDN [110] on ScanNet benchmark due to unavailable source code.
+Privileged information used by methods: Metric3D and Metric3D v2 require camera intrinsics; GeoWizard requires choosing between indoor and outdoor regimes.
+These Marigold variants are evaluated using the trailing timestamps setting of the DDIM scheduler.
+
+TABLE II: Inference time of Marigold-Depth and other
+methods on a 768 × 768 image using an RTX 3090 GPU.
+Method
+DPT
+DepthAnything v2
+Metric3D v2
+Marigold v1.1 (1×1)
+Marigold v1.1 (1×1) (fp16)
+Marigold v1.1 (1×1) w/ TAESD (fp16)
+
+Time (sec)
+0.158
+0.289
+0.386
+0.568
+0.274
+0.082
+
+ETH3D [113] and DIODE [114] are two high-resolution
+datasets, both featuring depth maps derived from LiDAR sensor
+measurements. For ETH3D, we incorporate all 454 samples
+with available ground truth depth maps. For DIODE, we use the
+entire validation split, which encompasses 325 indoor samples
+and 446 outdoor samples.
+Evaluation protocol. Following the protocol of affine-invariant
+depth evaluation [60], we first align the estimated merged
+prediction m to the ground truth d with the least squares fitting.
+This step gives us the metric depth map a = m × s + t in the
+same units as the ground truth. Next, we apply two metrics [55],
+[60], [61], [109] for assessing quality of depth estimation. The
+first is P
+Absolute Mean Relative Error (AbsRel ↓), calculated
+M
+1
+as: M
+i=1 |ai − di |/di , where M is the total number of
+pixels. The second, Threshold Accuracy (δ1 ↑), measures the
+
+proportion of pixels satisfying max(ai /di , di /ai ) < 1.25.
+Comparison with other methods. We compare MarigoldDepth to 5 zero-shot baselines in Tab. I. We filtered baselines
+based on the affordability of the training protocol (at most
+2M training samples) and temporal relevance. Marigold-Depth,
+built upon the Stable Diffusion prior and a small set of synthetic
+samples, outperforms prior work and remains competitive with
+methods that rely on larger training sets.
+Although trained exclusively on synthetic depth datasets, the
+model generalizes well to a wide range of real-world scenes.
+For visual assessment, we present a qualitative comparison
+and 3D visualizations of surface normals reconstructed from
+depth in Figs. 3 and 5. Marigold accurately captures both the
+overall scene layout, such as the spatial relationships between
+walls and furniture, and fine-grained details, as indicated by
+the arrows. In particular, the reconstruction of flat surfaces,
+especially walls, is significantly improved. Additionally, we
+report an inference speed comparison in Tab. II.
+G. Ablation Studies
+We select two zero-shot validation sets for ablation studies:
+the official training split of NYUv2 [21], consisting of 785
+samples, and a randomly selected subset of 800 images from
+the KITTI Eigen [7] training split.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+MiDaS
+
+DPT
+
+Omnidata
+
+Metric3Dv2 Marigold (ours) Ground Truth
+
+DAv2
+
+DIODE
+
+Scannet
+
+ETH3D
+
+KITTI
+
+NYUv2
+
+Input Image
+
+8
+
+Fig. 3: Qualitative comparison of monocular depth estimation methods across different datasets. Marigold excels at capturing
+thin structures (e.g., chair legs) and preserving overall layout of the scene (e.g., walls in ETH3D and chairs in DIODE).
+
+96.25
+
+5.65
+
+96.07
+
+5.49
+
+95.90
+
+KITTI
+
+11.72
+AbsRel
+δ1
+
+11.55
+11.39
+11.22
+
+11.9
+4.1
+62.0
+
+88.50
+
+48.7
+
+87.87
+
+DDIM-trailing AbsRel
+DDIM AbsRel
+DDIM-trailing δ1
+DDIM δ1
+
+19.7
+
+88.82
+
+88.19
+
+98.9
+85.8
+72.7
+
+δ1 (%)
+
+27.4
+
+NYUv2
+
+59.5
+46.4
+
+KITTI
+
+91.9
+DDIM-trailing AbsRel
+DDIM AbsRel
+DDIM-trailing δ1
+DDIM δ1
+
+35.4
+22.1
+
+74.3
+56.7
+
+δ1 (%)
+
+96.43
+
+AbsRel (%)
+
+35.2
+
+AbsRel (%)
+
+AbsRel
+δ1
+
+5.81
+
+96.60
+δ1 (%)
+
+5.97
+
+11.89
+AbsRel (%)
+
+NYUv2
+
+δ1 (%)
+
+AbsRel (%)
+
+6.13
+
+39.0
+
+87.55
+1
+
+2
+
+5
+
+10
+# Predictions
+
+20
+
+Fig. 4: Ablation of ensemble size. We observe a monotonic
+improvement with the growth of ensemble size. This improvement starts to diminish after 10 predictions per sample.
+MiDaS
+
+Omnidata
+
+DPT
+
+Marigold (ours)
+
+21.4
+1
+
+2
+
+4
+6
+10
+# Inference Steps (log scale)
+
+20
+
+50
+
+Fig. 6: Ablation of denoising steps. One denoising step is sufficient with DDIM-trailing [23] (default in v1.1). DDIM [18]
+(default in v1.0) requires at least 4-10 steps.
+
+Ground Truth
+
+DIODE
+
+ScanNet
+
+NYUv2
+
+Input RGB Image
+
+8.8
+
+Fig. 5: Qualitative comparison (unprojected from depth,
+colored as normals) of monocular depth estimation methods
+across different datasets. Marigold-Depth stands out for its
+superior reconstruction of flat surfaces and detailed structures.
+
+TABLE III: Training datasets: HyperSim [66] alone contributes the most; Virtual KITTI [67] improves outdoor results.
+HyperSim
+
+Virtual
+KITTI
+
+✗
+✓
+✓
+
+✓
+✗
+✓
+
+NYUv2
+AbsRel ↓ δ1 ↑
+13.9
+5.7
+5.6
+
+83.4
+96.3
+96.5
+
+KITTI
+AbsRel ↓
+δ1 ↑
+15.4
+13.7
+11.3
+
+79.3
+82.5
+88.7
+
+Training data domain. To better understand the impact of
+the synthetic data on model generalization, we conduct an
+ablation study using the two datasets employed during training.
+The results, presented in Tab. III, show that even fine-tuning
+on a single synthetic dataset enables the pretrained LDM to
+adapt reasonably well to monocular depth estimation. However,
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+9
+
+TABLE IV: Quantitative Comparison of Marigold-Normals with SOTA surface normals estimators on several zero-shot
+benchmarks1 . In the 1st section, we list methods requiring more than 2M samples for fine-tuning. We compare methods from
+the 2nd section with flavors of Marigold-Normals (ours, this paper) from the 3rd section. Legend: The mean metric is presented
+as absolute angles, 11.25° metric is in percentage terms; bold numbers are the best, underscored second best; NFEs is the
+number of function evaluations required to obtain the prediction – ensemble × steps for diffusion models and 1 for end-to-end
+networks. Marigold outperforms other methods in this low-data regime on most indoor and outdoor scenes.
+Method
+
+NFEs
+
+Prior
+
+Metric3D v2 [56]2
+Omnidata v2 [81]
+
+1 DINOv2
+1 ImageNet
+
+DSINE [82]2
+GeoWizard [69]2
+GenPercept [26]
+StableNormal [83]
+Lotus-G [25]
+Lotus-D [25]
+E2E-FT [23]
+E2E-FT [23]
+Marigold-Normals v0.13
+Marigold-Normals v1.1
+Marigold-Normals v1.1
+Marigold-Normals v1.1
+Marigold-Normals v1.1
+
+NYUv2
+Mean ↓ 11.25° ↑
+
+iBims-1
+Mean ↓ 11.25° ↑
+
+DIODE
+Mean ↓ 11.25° ↑
+
+OASIS
+Mean ↓ 11.25° ↑
+
+142M 16M
+15M 12M
+
+91K
+310K
+
+—
+16.2
+
+—
+60.2
+
+13.3
+17.2
+
+66.4
+55.5
+
+19.6
+18.2
+
+69.7
+63.9
+
+12.6
+20.6
+
+64.9
+40.8
+
+23.4
+24.2
+
+28.5
+27.7
+
+1 ImageNet
+10 × 50 SD v2.0
+1 SD v2.1
+1 SD v2.0
+1 × 1 SD v2.0
+1 SD v2.0
+1 Marigold
+1 SD v2.0
+
+1.3M
+2.3B
+2.3B
+2.4B
+2.3B
+2.3B
+2.3B
+2.3B
+
+86K
+51K
+—
+51K
+—
+—
+—
+—
+
+74K
+227K
+44K
+227K
+59K
+59K
+74K
+74K
+
+16.2
+17.6
+18.2
+16.7
+15.3
+15.3
+14.7
+14.7
+
+61.0
+54.6
+57.4
+54.0
+64.0
+62.9
+66.0
+66.1
+
+16.4
+19.0
+18.3
+17.8
+16.9
+16.8
+16.2
+16.5
+
+59.6
+50.0
+56.0
+54.2
+59.1
+58.2
+61.4
+60.4
+
+17.1
+19.3
+18.3
+17.1
+17.5
+17.7
+15.8
+16.1
+
+67.4
+62.3
+63.8
+67.8
+66.1
+64.9
+69.9
+69.7
+
+19.9
+24.7
+22.3
+19.3
+21.2
+21.0
+19.2
+19.0
+
+41.8
+30.1
+38.1
+53.8
+39.7
+39.7
+43.8
+44.4
+
+24.4
+25.3
+25.9
+25.7
+24.7
+25.7
+22.8
+23.6
+
+28.8
+26.9
+23.3
+25.4
+27.0
+25.3
+29.8
+27.9
+
+10 × 50 SD v2.0
+1 × 1 SD v2.0
+10 × 1 SD v2.0
+1 × 4 SD v2.0
+10 × 4 SD v2.0
+
+2.3B
+2.3B
+2.3B
+2.3B
+2.3B
+
+—
+—
+—
+—
+—
+
+39K
+77K
+77K
+77K
+77K
+
+16.1
+14.9
+14.8
+15.2
+14.5
+
+62.3
+64.3
+64.5
+65.3
+66.1
+
+17.1
+16.4
+16.3
+17.0
+16.1
+
+58.5
+58.9
+59.0
+59.6
+60.5
+
+16.6
+17.2
+17.1
+17.0
+16.3
+
+68.0
+65.6
+65.7
+68.0
+68.5
+
+19.6
+19.5
+19.5
+19.4
+18.8
+
+44.7
+43.2
+43.3
+45.0
+45.5
+
+23.5
+23.2
+23.2
+23.2
+22.4
+
+28.0
+28.3
+28.3
+29.2
+30.1
+
+Metrics on ScanNet, NYUv2, and iBims-1 are sourced from the respective papers. Metrics that were not reproducible are re-computed by us (for GeoWizard, GenPercept,
+and StableNormal). We compute the metrics for all methods on OASIS (except for Omnidata and DSINE) and DIODE.
+Privileged information used by methods: Metric3D v2 and DSINE require camera intrinsics; GeoWizard requires choosing between indoor and outdoor regimes.
+The preview models (v0.1), uploaded to the Hugging Face repository shortly after releasing Marigold-Depth (v1.0) [18].
+
+Test-time ensembling. We test the effectiveness of the
+proposed test-time ensembling scheme by varying the number
+of predictions. As shown in Fig. 4, a single prediction already
+yields reasonably good results. Ensembling 10 predictions can
+reduce the absolute relative error on NYUv2 by ∼8%, and
+ensembling 20 predictions brings an improvement of ∼9.5%.
+Number of denoising steps. Like the base model, Marigold is
+configured to use a 1000-step DDPM schedule during training.
+In version 1.0, inference used DDIM with leading timesteps,
+requiring 4 to 10 function evaluations (NFE) to reach peak
+performance. To report best-case results, we used 50 steps
+in the initial evaluations. Later, Garcia et al. [23] proposed
+switching to trailing timesteps for inference with DDIM. This
+change significantly improved efficiency of Marigold, with
+performance saturating at just 1 DDIM step (NFE=1). This is
+the default in all Marigold v1.1 models. Table I reports results
+across model versions, NFE, ensemble sizes, alternative VAEs,
+and FP16 quantized weights. The effect of varying denoising
+steps in DDIM scheduler [30] is shown in Fig. 6.
+IV. S URFACE N ORMALS E STIMATION M ODEL
+Surface normals and depth estimation are inherently related,
+as both aim to regress 3D geometry. While the depth of
+a pixel is predicted as a single positive scalar, the surface
+normal is represented as a three-dimensional vector on the unit
+sphere. Real surface normals can hardly be collected outside of
+a simulation or a controlled environment. Instead, normals
+have traditionally been derived from depth measurements,
+which often introduce noise at flat surfaces and unrealistic
+smoothness at depth discontinuities. Simulated data, however,
+
+Input Image
+
+StableNormal
+
+DSINE
+
+Lotus-G
+
+Marigold-Normals
+
+Ground Truth
+
+NYUv2
+
+more diverse and photorealistic data yield stronger performance
+across both indoor and outdoor scenes. Notably, incorporating
+training data from a different domain enhances performance
+not only on that domain but also on the original one.
+
+DIODE
+
+3
+
+ScanNet
+Mean ↓ 11.25° ↑
+
+ScanNet
+
+2
+
+Data
+Real Synthetic
+
+iBims-1
+
+1
+
+Prior
+
+Fig. 7: Qualitative comparison of monocular surface normals
+estimation methods across different datasets. Compared to
+baseline methods, Marigold-Normals demonstrates superior
+performance in handling complex scene layouts and shows
+greater robustness to motion blur and reflections.
+
+often struggles with the sim-to-real gap. This motivates
+Marigold-Normals, which aims to bridge the gap to real data
+through its Stable Diffusion prior.
+
+A. Method
+We closely follow the Marigold-Depth fine-tuning protocol
+and introduce Marigold-Normals, a model variant for monocular surface normals estimation. Methodology adaptation for
+the new task to cope with the three-dimensional unit vectors
+of surface normals is minimal. Raw ground-truth normal maps
+are streamed directly into the VAE encoder during training. No
+range normalization or channel replication is required. VAE
+outputs are normalized along the channel dimension to ensure
+unit-length predictions.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+65.70
+
+66.16
+65.72
+
+14.67
+
+65.27
+
+65.47
+
+14.59
+
+14.38
+
+65.24
+
+14.50
+
+45.51
+
+19.49
+
+45.37
+
+19.32
+
+44.99
+
+19.16
+
+44.39
+
+DIODE
+
+19.24
+Mean
+11.25°
+
+19.08
+
+45.23
+
+Mean
+
+14.61
+
+19.39
+Mean
+
+14.75
+
+18.92
+
+45.08
+
+18.99
+
+18.76
+
+44.94
+
+18.82
+
+1
+
+2
+
+5
+
+10
+# Predictions
+
+20
+
+Mean
+11.25°
+
+11.25°
+
+14.83
+
+65.93
+
+ScanNet
+
+64.83
+64.38
+
+DIODE
+
+45.59
+
+Mean
+11.25°
+
+11.25°
+
+Mean
+11.25°
+
+14.83
+
+11.25°
+
+Mean
+
+15.05
+
+66.16
+Mean
+
+ScanNet
+
+11.25°
+
+15.27
+
+10
+
+43.79
+43.18
+
+1
+
+2
+
+4
+6
+10
+# Inference Steps (log scale)
+
+20
+
+50
+
+Fig. 8: Ablation of ensemble size for Marigold-Normals. The
+performance consistently improves with increasing ensemble
+size. Diminishing returns begin after 10 predictions per sample.
+
+Fig. 9: Ablation of denoising steps for Marigold-Normals.
+The best performance in benchmarks is obtained at 4 denoising
+steps. Visually, one step is sufficient in most cases.
+
+Test-time ensembling. First, we run inference N times with
+different noise initialization. We then average the normals
+predictions {n̂1 , . . . , n̂N } to a single mean prediction n̄ and
+normalize it to unit length. Lastly, for every pixel (u, v) in the
+final prediction, we select the nearest neighbor vector from
+(u,v)
+the i-th prediction n̂i
+that maximizes the cosine similarity
+with the corresponding vector in the mean normal map n̄(u,v) :
+(u,v)
+arg maxi∈{1,...,N } n̄(u,v) · n̂i
+.
+
+split, encompassing 325 indoor and 446 outdoor samples.
+OASIS [117] contains in-the-wild images sourced from the
+internet. We use the entire validation split of 10,000 samples.
+Following established methods [78], [118], [119], we report
+the mean angular error and the percentage of pixels with an
+angular error <11.25°.
+
+B. Implementation
+We fine-tune the model for 26K iterations using the Adam
+optimizer with a learning rate of 6 · 10−5 . The training data is
+augmented with horizontal flipping, blurring, and color jitter.
+At inference, we use the DDIM scheduler [30] in trailing mode
+and perform 4 steps. The final prediction is aggregated using
+an ensemble size of 10. All other settings are the same as for
+the depth model.
+
+Comparison with other methods. We compare MarigoldNormals to 8 baselines. DSINE [82] is a discriminative
+regression-based method that relies on a CNN architecture.
+Similar to us, GeoWizard [69], StableNormal [83], and LotusG [25] are generative diffusion-based methods that fine-tune a
+Stable Diffusion backbone. GenPercept [26], Lotus-D [25], and
+E2E-FT [23] bypass the probabilistic formulation and perform
+end-to-end training and inference instead.
+The quantitative results are shown in Table IV. Our method
+consistently outperforms the baselines on most datasets and
+metrics. Notably, our straightforward fine-tuning and inference approach proves more effective than the more complex
+strategies employed by other diffusion-based methods. A
+qualitative comparison is shown in Figure 7. It is apparent that
+Marigold-Normals produces highly accurate predictions, even
+in challenging scene layouts and scenarios.
+
+Training Datasets. We train the model on three synthetic
+datasets covering both indoor and outdoor scenes. Hypersim [66] and InteriorVerse [99] are photo-realistic indoor
+datasets. We filter out incomplete samples and obtain 49K
+samples from 434 scenes for HyperSim and 27K samples
+from 3806 scenes for InteriorVerse. The training resolution
+is kept at 480 × 640 for both datasets. Sintel [115] consists D. Ablations
+of indoor and outdoor sequences from a short animated film.
+Test-time ensembling. We investigate the impact of testWe filter out low-quality samples and use 627 training images.
+time ensembling while varying the number of aggregated
+The images are center-cropped to an aspect ratio of 3 : 4 and
+predictions. The ablation studies are conducted on the ScanNet
+resized to 480×640. Despite the small sample size, we observe
+and DIODE splits. As illustrated in Fig. 8, the performance
+improvement in training with Sintel due to its scene diversity
+with ensembling behaves very similarly to the depth model.
+and image appearance.
+While a single prediction already delivers solid results, the
+performance consistently improves as more predictions are
+C. Evaluation
+combined. However, like depth, the gains plateau when more
+Evaluation Protocol. We evaluate our method on five unseen than 10 predictions per image are aggregated.
+benchmarks. NYUv2 [21], ScanNet [112], and iBims-1 [116]
+are indoor depth datasets, for which we use the ground-truth
+normals provided by [82]. This includes 654 samples from the
+NYUv2 test split, all 100 samples of iBims-1, and a subset
+of 300 samples defined by [78] of ScanNet. DIODE [114]
+features both indoor and outdoor scenes. We use the validation
+
+Number of denoising steps. As quantitatively shown in Fig. 9,
+the best performance with the DDIM trailing timesteps setting
+is achieved at 4 steps. We additionally visualized predictions
+with 1-, 4-, and 20-step inference in Fig. 10. Interestingly,
+the level of detail can be controlled by simply adjusting the
+number of denoising iterations. While 1-step inference already
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+11
+
+TABLE V: Quantitative Comparison of Marigold-IIDAppearance v1.1 with SOTA methods on the InteriorVerse
+test set. Marigold outperforms the two competing methods on
+this benchmark.
+
+Fig. 10: Prediction granularity and denoising steps. From left
+to right, we visualize predictions with 1, 4, and 20 denoising
+steps during inference. By increasing the number of steps, fine
+details, such as the cat’s fur, become more pronounced.
+produces reasonably good results in all cases, increasing the
+number of steps results in more pronounced details in highfrequency regions. However, improved details do not necessarily
+translate to improved performance metrics, as most evaluation
+benchmarks either mask out or over-smooth high-frequency
+regions in the ground truth.
+V. I NTRINSIC D ECOMPOSITION M ODELS
+Adaptation of Marigold to other image analysis tasks, such as
+Intrinsic Image Decomposition (IID), is simple and affordable.
+Specifically, this task enables a structured separation of images
+into physically meaningful properties. We introduce two models:
+Marigold-IID-Appearance and Marigold-IID-Lighting.
+Marigold-IID-Appearance represents intrinsic properties
+through a physically-based BRDF, where material attributes
+are characterized by three key components: albedo, roughness,
+and metallicity. This model primarily focuses on estimating
+illumination-independent reflectance properties.
+Marigold-IID-Lighting decomposes an image into albedo,
+diffuse shading, and a non-diffuse residual component. This
+decomposition aligns with the intrinsic residual model in linear
+space I = A · S + R, where the image I is composed
+of albedo A, a diffuse shading component S (representing
+illumination color), and an additive residual term R capturing
+non-diffuse effects. This formulation provides a structured
+way to separate reflectance from shading while accounting for
+complex illumination phenomena.
+Similarly to the surface normals estimation task, ground
+truth for IID is hard to obtain without simulation or outside a
+controlled capture environment. Therefore, we again turn to
+the available synthetic data to derive the Marigold-IID models.
+
+Method
+
+Albedo
+PSNR ↑ SSIM ↑ LPIPS ↓
+
+Material
+PSNR ↑ SSIM ↑ LPIPS ↓
+
+IID-Diffusion [96]
+RGB↔X [97]
+
+18.10
+13.16
+
+0.863
+0.774
+
+0.198
+0.289
+
+16.09
+10.13
+
+0.691
+0.547
+
+0.356
+0.636
+
+Marigold-IID-Appearance v1.1
+
+19.50
+
+0.846
+
+0.190
+
+17.63
+
+0.803
+
+0.286
+
+TABLE VI: Quantitative Comparison of Marigold-IIDLighting v1.1 with SOTA methods on the HyperSim test set.
+Marigold achieves competitive performance on this benchmark.
+Method
+
+Albedo
+PSNR ↑ SSIM ↑ LPIPS ↓
+
+Lighting
+PSNR ↑ SSIM ↑ LPIPS ↓
+
+IID-in-the-wild [90]
+RGB↔X [97]
+
+19.28
+17.43
+
+0.819
+0.795
+
+0.260
+0.200
+
+16.82
+16.70
+
+0.725
+0.742
+
+0.308
+0.251
+
+Marigold-IID-Lighting v1.1
+
+18.21
+
+0.771
+
+0.218
+
+17.62
+
+0.729
+
+0.263
+
+B. Implementation
+The U-Net is adapted to handle the increased number of
+predicted images (P ): 2 and 3 for the IID-Appearance and
+IID-Lighting models, respectively. The input channels of the
+first convolutional layer are replicated P + 1 times; the whole
+weight tensor is divided by the replication factor to maintain
+the activations statistics. The output channels of the final layer
+are replicated P times without changing weights.
+The modified IID-Appearance U-Net is fine-tuned for 40K
+iterations on the training split of InteriorVerse, consisting of
+45K samples at 480 × 640 resolution. Gamma correction and
+conversion from linear to sRGB space are applied to the input
+scene and target intrinsic images. The IID-Lighting U-Net is
+fine-tuned for 36K iterations on a pre-filtered training split of
+HyperSim, yielding 24K samples. All samples are resized to
+480 × 640 and converted to sRGB space while keeping the
+target intrinsic images in linear space.
+For quantitative evaluation, we perform 4 denoising steps
+without ensembling. Other settings remain the same as for
+the depth model. As with other Marigold models, 1 step is
+sufficient qualitatively.
+
+C. Evaluation
+
+Evaluation Protocol. The IID-Appearance model is evaluated
+A. Method
+on the test split of the InteriorVerse [99] dataset, which contains
+Different from depth and normals, IID requires predicting 2.6K samples. We assess the prediction performance of albedo
+multiple images representing the decomposition of a single and material. For IID-Lighting, evaluation is performed on
+input image. In the case of Marigold-IID-Appearance, we the HyperSim [66] test split, comprising 5.2K samples, where
+predict two images per input: the first is the albedo image in we evaluate the quality of the predicted albedo and shading
+standard color space, with values normalized to the unit range. components. Albedo and material predictions are compared
+The second image encodes two BRDF properties (roughness directly to the ground truth without any alignment. Due to
+and metallicity) into the red and green channels [96], also their differing value ranges, shading predictions are first scalenormalized to a unit range. We denote this modality as material. aligned to the corresponding ground truth and then normalized
+We keep the blue channel at zero, which gives the material to the unit range before evaluation. The reported metrics are
+visualization a red-green tone. For Marigold-IID-Lighting, three Peak Signal-to-Noise Ratio (PSNR), Structural Similarity Index
+images are predicted per input: the albedo image, shading, and Measure (SSIM) [120], and Learned Perceptual Image Patch
+residual components, all normalized to the unit range.
+Similarity (LPIPS) [121].
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+12
+
+Fig. 11: Qualitative comparison of Marigold-IID-Appearance (left) and Marigold-IID-Lighting (right). Left: albedo and material
+(with roughness in the red channel and metallicity in the green channel) predictions on the InteriorVerse test set. Right: albedo
+and diffuse shading predictions on the HyperSim test set. Predictions of Marigold-IID-Appearance and Marigold-IID-Lighting
+contain less baked-in shading and are more consistent with the ground truth.
+
+Fig. 12: Robustness to varying lighting conditions. The
+Marigold-IID models generate consistent predictions across
+different environmental lighting setups of the same scene.
+
+Comparison with other methods We compare our results
+to three state-of-the-art methods: RGB↔X [97] and Intrinsic
+Image Diffusion (IID-Diffusion) [96] for IID-Appearance, and
+RGB↔X and IID-in-the-wild [90] for IID-Lighting. For the
+cited methods, we adopt the inference settings reported in their
+respective papers: 50 denoising steps for RGB↔X, and 50
+denoising steps with an ensemble size of 10 for IID-Diffusion.
+The quantitative comparisons are shown in Tab. V and
+Tab. VI. The visual comparisons are presented in Fig. 11. Our
+method produces quantitatively more accurate and qualitatively
+cleaner decompositions of images. We further demonstrate the
+robustness of our method to varying environmental lighting
+conditions in Fig. 12.
+All modalities in-the-wild can be seen in Fig. 13. Evidently,
+image analysis tasks benefit from the rich generative prior,
+validating our universal fine-tuning protocol.
+
+VI. L ATENT C ONSISTENCY M ODEL (LCM)
+
+Fig. 13: Marigold in-the-wild results – all modalities. Our
+fine-tuning protocol enables generalization across multiple
+modalities. None of the fine-tuning datasets included humans,
+animals, food, engines, or toys, attesting to the successful carryover of the rich generative prior to downstream tasks.
+
+A. Method
+
+Latent Consistency Models [22] is a latent diffusion model
+We distill Marigold-LCM from the standard Marigold using
+class that enables high-quality one- or few-step inference. a similar recipe detailed in Luo et al. [22] (Fig. 14). Similarly
+Inspired by LCM’s success in fast image generation, we to the base fine-tuning protocol, we only distill the U-Net
+developed Marigold-LCM, a Latent Consistency Model variant part of the model while keeping the VAE frozen. The LCM
+of Marigold that achieves similar prediction results in one or distillation involves three models: a frozen teacher model Φ,
+a few denoising steps.
+which is a standard Marigold U-Net; a student model Θ, which
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+Teacher
+
+
+DDIM
+
+Target
+
+
+EMA
+Consistency Loss
+Student
+
+
+Fig. 14: Overview of Marigold-LCM distillation. To train
+Marigold-LCM, we initialize three replicas of the base
+Marigold: the Teacher (Φ), the Target (Θ− ), and the Student
+(Θ). The student is updated via optimization of the consistency
+objective, and the target is updated via EMA of student weights.
+At each training step, the student learns to predict the same
+(d)
+clean latent z0 as produced by the teacher after applying the
+DDIM step of size k. Each model takes the image condition
+z(x) and the input timestep, similarly to Fig. 1.
+
+we eventually output as Marigold-LCM; and a target model
+Θ− . Both the student and target models are initialized with
+the same weights as the teacher model.
+At each training iteration, we sample data from the training
+dataset and convert the sample to latent images using the VAE
+encoder. We then sample Gaussian noise and diffuse the depth
+(d)
+latent to a random timestep t to obtain zt . Now the teacher
+(d)
+model takes zt as input, predicts noise, and then estimates
+(d)
+the depth latent zt−k at noise level t−k using the DDIM solver
+step detailed in [22]. We set k = 200 in our implementation,
+which yields the best distillation result. We now minimize the
+loss between the outputs of student Θ and target model Θ−
+through a self-consistency function f [22], [31]
+
+
+(d)
+(d)
+L f (Θ, zt , t), f (Θ− , zt−k , t − k) .
+Here, the self-consistency function is defined as
+
+(5)
+
+13
+
+B. Inference
+The consistency distillation training allows only one forward
+pass of the noise latent through the trained student model to
+generate the clean predicted depth latent. Additionally, one can
+improve the sample quality by taking multi-step sampling [22],
+[31]. This is done by adding another random noise latent to
+the denoised latent following a timestep schedule and then
+denoising again through the student model. In practice, we use
+the identical noise schedule of the original Marigold, swap the
+U-Net with the trained LCM model, and change the denoising
+sampling method from DDIM to LCM, as introduced above.
+This means that the evaluation protocol of Marigold-LCM is
+identical to the base Marigold.
+C. Implementation
+The Marigold-LCM model is distilled from the base model
+for 5K iterations using the AdamW [123] optimizer with a base
+learning rate of 3·10−6 . We use the same training set, batch size,
+gradient accumulation steps, and data augmentation as Marigold
+training. Distilling Marigold LCM takes approximately one day
+on a single NVIDIA A100 GPU card with 40G VRAM. We
+apply one-step denoising at inference time to output the clean
+predicted depth latent. For evaluation, we follow the same
+ensemble method as the standard Marigold using 10 samples.
+D. Experiments
+We compared Marigold-LCM with one LCM inference step
+with various Marigold DDIM configurations in Tab. I. Although
+Marigold-LCM with one step does not outperform the original
+Marigold with 50 steps in most cases, it outperforms prior art
+on most datasets and metrics. This validates the hypothesis that
+Marigold is amenable to the latent consistency distillation, and
+the resulting model is on par with the base. It also shows that
+LCM distillation can be successfully adapted to modalities other
+than text-to-image. However, given the improved quantitative
+and qualitative performance of Marigold with DDIM and
+trailing timesteps pointed out in E2E-FT [23], the viability of
+LCM distillation remains an open question for future research.
+
+VII. H IGH R ESOLUTION D EPTH M ODEL
+(6)
+Applying monocular depth estimation networks to highresolution images seems straightforward, but poses two inherent
+where cskip , cout are differentiable functions that satisfiy challenges. First, neural networks have a fixed receptive field
+(d,θ)
+cskip (ϵ) = 1, cout = 0 for some small ϵ > 0, and z0
+is limited to the model architecture or the resolution of the training
+the clean denoised depth latent predicted by model θ. We use data. Second, memory consumption can become excessive when
+the Pseudo-Huber metric [122] as our loss function:
+naively applying those models to larger image dimensions. The
+q
+simple way to address those challenges is to downsample to
+L(x, y) = ∥x − y∥22 + c2 − c,
+(7) its native processing resolution (768 for Marigolds fine-tuned
+from Stable Diffusion) and later upsample the computed depth
+where we set c = 0.001.
+map. We refer to this prediction as a “global depth map” d̂(g) .
+At the end of each training iteration, the student model is
+Typically, this approach compromises the edge quality of the
+updated using gradient descent according to our loss function.
+depth estimation for high-resolution predictions. An alternative
+While the weights of the target model are updated with a
+approach is partitioning a large image into smaller patches and
+running average of the weights of the student model:
+processing them independently. However, even if consistency
+
+−
+−
+Θ = stopgrad µΘ + (1 − µ) Θ ,
+(8) at the seams was perfect, this method suffers from global
+inconsistencies due to the lack of communication between
+here the decay weight µ is set to be 0.95.
+neighboring patches w.r.t. global layout.
+(d,θ)
+f (θ, x, t) = cskip (t)x + cout (t)z0 ,
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+14
+
+half-resolution crops of size 384 × 512. To generate the global
+conditioning, we precompute Marigold-Depth results for the
+whole training dataset with half the dataset resolution as the
+processing resolution. Specifically, we generate two sets of
+predictions: one set of base predictions with 10 ensemble
+members and one set using ensemble size one. We randomly
+select one of these sets for each sample during training. For
+data augmentations, we apply Gaussian blur to 50% training
+samples with random radii ranging from 0 to 4 pixels.
+C. Evaluation
+
+Fig. 15: High-resolution Marigold Pipeline. We first create
+a global prediction d̂(g) with the original Marigold-Depth
+pipeline at the native processing resolution. This prediction
+is then used as an additional conditioning variable in the
+upsampling diffusion process, which upsamples the prediction
+in a patch-based, MultiDiffusion forward pass.
+A. Method
+We introduce the Marigold-HR model to overcome these
+challenges (Fig. 15). The process starts by predicting a
+global depth map at native processing resolution, as in the
+original version. This global depth map serves as a coarse
+scene representation and is the initialization for the following
+refinement procedure.
+Next, we upsample the global depth map by a factor 2× and
+use it with the correspondingly resampled RGB image as the
+conditioning for another diffusion model named Φ. To keep
+memory usage bounded, we implement the forward pass as a
+bundle of inferences of overlapping tiles, where we synchronize
+latents via a closed-form equation from the MultiDiffusion
+approach [103]:
+
+Evaluation datasets. We benchmark on two high-resolution
+datasets that contain unmasked depth continuities. The datasets
+are: First, the stereo-matched Middlebury 2014 [124] contains
+ground truth of resolution 2016 × 2940. We evaluate the
+complete dataset with 46 samples. Second, we evaluate the
+Booster dataset [125], which contains a stereo-generated
+ground-truth of size 3008 × 4112. We only consider the scenes
+where the ground truth is provided. Since the images in each
+scene only vary by illumination and small parallax, we use
+one image per scene – 31 samples total.
+Evaluation protocol. We evaluate all depth maps with
+the affine-invariant protocol and provide the corresponding
+general-purpose metrics – i.e., the Absolute Mean Relative
+Error (AbsRel ↓) and Threshold Accuracy (δ1 ↑) accuracy.
+Furthermore, four edge-based metrics evaluate the quality of the
+discontinuities: Depth Boundary Error Completeness (ϵcomp
+DBE ↓)
+prc
+and Accuracy (ϵacc
+↓)
+[126],
+as
+well
+as
+Edge
+Precision
+(ϵ
+↑)
+DBE
+rec
+and Recall (ϵ ↑) [127]. Since none of the methods directly
+outputs the exact dataset-specific resolutions, we resample the
+prediction using bilinear interpolation. For ours, we employ
+two upsampling iterations with Marigold-HR, until the output
+resolution approximates the target resolution.
+
+Comparison with other methods. We benchmark our method
+against other recent methods designed for high-resolution
+inference. BoostingDepth [100] implements a version based on
+n
+X
+
+Fi−1 (Wi )
+MiDaS [60] and another based on LeRes [109]. We note that the
+−1
+i
+Ψ (Jt | z) =
+⊗ Fi
+Φ zt
+(9)
+Pn
+−1
+officially provided checkpoints are trained on a mixed dataset,
+F
+(W
+)
+j
+j=1 j
+i=1
+including our evaluation dataset, Middlebury 2014. Finally,
+Wi are the per-pixel blending weights of tile i – in our im- we also compare the recent PatchFusion [101] that bootstraps
+plementation, we use the Chamfer distance to the image border. ZoeDepth [54] and the concurrently proposed DepthPro [104].
+The function Fi−1 transforms the tile back into its location in
+In Table VII, we present the results on the high-resolution
+the global canvas based on the tile index i. For this model dataset. Marigold-HR achieves the best or second-best per(d) (g)
+latent variable zit is defined as the Fi (cat(zt , zt , z(x) )).
+formance in all metrics. Depth Pro performs best in global
+depth estimation metrics (AbsRel and δ1). In terms of edge
+acc
+prc
+rec
+B. Implementation
+quality metrics (ϵcomp
+DBE , ϵDBE , ϵ , ϵ ), Depth Pro is also a strong
+For the Marigold-HR refiner, we resume the training from performer; however, on the Booster dataset, Marigold-HR
+the Marigold-Depth checkpoint for 12K iterations with addi- achieves slightly better performance.
+Furthermore, we show qualitative results in Fig. 16. These
+tional conditioning on the ×2 lower resolution inference. We
+follow the BetterDepth protocol [70], first aligning the global results demonstrate the visual quality attainable with a diffusionprediction to the ground truth and then masking out the loss of based model at high resolution. For the in-the-wild example
+dissimilar patches, such that the refiner is encouraged to follow as well, our model produces plausible results, capturing even
+the conditioning. We use the suggested setting of η = 0.1 to fine-grained details such as the cat’s whiskers.
+threshold the distance between patches. For the MultiDiffusion
+D. Ablations
+pipeline, we set the patch overlap to 50%.
+We keep the same training datasets as the base model.
+We conduct ablation studies to evaluate the impact of
+However, we deviate from the base protocol and train with our model’s two main methodological design choices: global
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+15
+
+TABLE VII: Quantitative comparison of Marigold-HR v1.0 against SOTA depth estimators. We note the bootstraped model
+in the brackets after the actual method name. Marigold-HR improves upon the base model, particularly excelling in edge quality
+metrics, where it achieves results competitive with current state-of-the-art models.
+Data
+
+Method
+
+Middlebury 2014
+
+Booster Dataset
+
+Real Synthetic AbsRel ↓
+
+prc
+δ1 ↑ ϵcomp
+ϵacc
+↑ ϵrec ↑ AbsRel ↓
+DBE ↓ ϵ
+DBE ↓
+
+prc
+δ1 ↑ ϵcomp
+ϵacc
+↑ ϵrec ↑
+DBE ↓ ϵ
+DBE ↓
+
+Boosting [100] (MiDaS [60])
+Boosting [100] (LeRes [109])
+PatchFusion [101] (ZoeDepth [54])
+Depth Pro [104]
+
+2M
+300K
+3.9M
+5.1M
+
+—
+54K
+1M
+2.5M
+
+7.3
+7.0
+6.4
+3.1
+
+94.2
+95.3
+96.2
+99.3
+
+5.9
+5.4
+4.5
+3.6
+
+1.9
+1.9
+1.9
+1.7
+
+30.
+29.
+29.
+36.
+
+21.
+29.
+42.
+54.
+
+7.5
+6.9
+6.7
+2.0
+
+95.2
+94.7
+94.6
+99.8
+
+8.1
+6.2
+5.7
+4.9
+
+2.6
+2.2
+2.4
+2.3
+
+43.
+44.
+44.
+48.
+
+12.
+25.
+28.
+38.
+
+Marigold-Depth v1.0
+Marigold-HR v1.0
+
+—
+—
+
+74K
+74K
+
+5.0
+5.0
+
+97.5
+97.8
+
+5.0
+3.5
+
+2.4
+1.8
+
+24.
+33.
+
+29.
+61.
+
+3.9
+4.3
+
+99.1
+99.2
+
+6.4
+4.1
+
+3.1
+1.8
+
+33.
+48.
+
+22.
+45.
+
+Booster Dataset
+
+In-the-Wild
+
+Ground Truth
+
+Marigold-HR
+
+Marigold-Base
+
+Depth Pro
+
+PatchFusion
+
+Boosting LeRes
+
+Input Image
+
+Middlebury 2014
+
+TABLE VIII: Ablation study for Marigold’s high-resolution
+module. Combining both global conditioning and MultiDiffusion inference yields the best overall performance compared
+to its ablated versions.
+Middlebury 2014
+
+Booster Dataset
+
+prc
+δ1 ↑ ϵcomp
+ϵacc
+↑
+DBE ↓ ϵ
+DBE ↓
+
+prc
+δ1 ↑ ϵcomp
+ϵacc
+↑
+DBE ↓ ϵ
+DBE ↓
+
+768
+1536
+3072‡
+
+97.5
+95.3
+84.1
+
+5.0
+4.4
+6.3
+
+2.4
+2.3
+2.2
+
+24.
+23.
+23.
+
+99.1
+92.6
+79.3
+
+6.4
+5.6
+8.8
+
+3.1
+2.5
+7.0
+
+33.
+37.
+16.
+
+Marigold-Depth
++ Global cond.
+
+1536
+3072‡
+
+97.4
+96.7
+
+3.7
+4.0
+
+1.9
+1.8
+
+30.
+30.
+
+98.4
+98.1
+
+4.5
+4.4
+
+2.1
+1.9
+
+45.
+49.
+
+Marigold-Depth
++ MultiDiffusion
+
+1536
+3072
+
+93.3
+82.9
+
+4.0
+5.0
+
+2.1
+2.0
+
+25.
+23.
+
+88.6
+82.9
+
+4.5
+5.0
+
+1.6
+2.0
+
+40.
+23.
+
+Marigold-HR (best)
+
+1536
+3072
+
+98.0
+97.8
+
+3.8
+3.5
+
+2.0
+1.8
+
+30.
+33.
+
+98.8
+99.2
+
+4.5
+4.1
+
+2.2
+1.8
+
+43.
+48.
+
+Method
+
+Size
+
+Marigold-Depth (base)
+
+‡
+
+denotes that inference had to be done in float16 to reduce GPU memory usage.
+
+balancing the benefits of global context and high-resolution
+edges, with moderate memory costs below 15GB.
+
+VIII. C ONCLUSION
+Fig. 16: Quantitative comparison of Marigold-HR, Marigold,
+and other SOTA methods. Predictions on Middlebury 2014 and
+Booster are aligned to the ground truth and visualized with
+the same color mapping. The predictions for the in-the-wild
+example are per sample normalized. Marigold-HR produces
+fine-grained outputs while also maintaining global context.
+
+conditioning and MultiDiffusion inference. The results are
+presented in Table VIII.
+Starting with the base Marigold-Depth model, we first
+augment it with global conditioning, which requires retraining
+the model. This modification improves the edge quality metrics,
+while the global metrics only slightly worsen. However, we
+note that GPU memory consumption scales quadratically with
+the upsampling factor in this configuration, making it less
+practical for high-resolution applications. Next, we apply the
+MultiDiffusion inference strategy to the Marigold-Depth model
+without retraining. This approach also improves the edge
+quality metrics at higher resolutions but keeps GPU memory
+bounded. However, we observe a degradation in the global
+metrics because the patches processed during inference lack
+global context. Finally, by combining global conditioning and
+MultiDiffusion inference, we improve global and edge-focused
+metrics as shown in the last two rows of Table VIII; effectively
+
+We have presented Marigold, an affordable fine-tuning
+protocol for pretrained text-to-image LDMs, and a family of
+models for state-of-the-art image analysis tasks. Our evaluation
+confirms the value of leveraging rich scene priors and diverse
+synthetic data across tasks such as monocular depth prediction,
+surface normals estimation, and intrinsic image decomposition.
+Marigold offers competitive performance across all these
+tasks. Additionally, we have presented LCM distillation
+and High-Resolution inference, which are adaptable to any
+modality. Marigold is trainable in under 3 GPU-days on
+consumer hardware, and its single-step inference has runtime
+comparable with other recent approaches. List of models, web
+apps (spaces), code, and further reading links:
+Space Depth
+hf.co/spaces/prs-eth/marigold
+Space Normals
+hf.co/spaces/prs-eth/marigold-normals
+Space Intrinsics
+hf.co/spaces/prs-eth/marigold-intrinsics
+Model Depth v1.0
+hf.co/prs-eth/marigold-depth-v1-0
+Model Depth v1.1
+hf.co/prs-eth/marigold-depth-v1-1
+Model Normals v1.1
+hf.co/prs-eth/marigold-normals-v1-1
+Model Appearance v1.1
+hf.co/prs-eth/marigold-iid-appearance-v1-1
+Model Lighting v1.1
+hf.co/prs-eth/marigold-iid-lighting-v1-1
+Model Depth-LCM v1.0 hf.co/prs-eth/marigold-depth-lcm-v1-0
+Model Depth-HR v1.0
+hf.co/prs-eth/marigold-depth-hr-v1-0
+Training code
+github.com/prs-eth/Marigold
+Inference code
+hf.co/docs/diffusers/api/pipelines/marigold
+diffusers tutorial
+hf.co/docs/diffusers/using-diffusers/marigold usage
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+ACKNOWLEDGEMENTS
+We thank: The Hugging Face team (and especially Ahsen
+Khaliq, Omar Sanseviero, Sayak Paul, Yiyi Xu) for (1) the
+GPU grants to host Marigold spaces and models, (2) helping
+us to promote Marigold among research and content creator
+communities on X (Twitter), Posts, Spaces, and beyond, (3)
+guidance with integrating Marigold into the diffusers [14];
+Robert Presl for creating multiple promotional 3D prints for
+this paper; Alexander Becker, Dominik Narnhofer, and Xiang
+Zhang for discussions related to Marigold-HR; Peter Kocsis
+for help with reproducing [96].
+R EFERENCES
+[1] J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. Fei-Fei, “Imagenet:
+A large-scale hierarchical image database,” in CVPR, 2009. 1
+[2] A. Krizhevsky, I. Sutskever, and G. E. Hinton, “Imagenet classification
+with deep convolutional neural networks,” NeurIPS, 2012. 1
+[3] K. Simonyan and A. Zisserman, “Very deep convolutional networks for
+large-scale image recognition,” in ICLR, 2015. 1
+[4] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image
+recognition,” in CVPR, 2016. 1
+[5] J. Yosinski, J. Clune, Y. Bengio, and H. Lipson, “How transferable are
+features in deep neural networks?” NeurIPS, 2014. 1
+[6] J. Long, E. Shelhamer, and T. Darrell, “Fully convolutional networks
+for semantic segmentation,” in CVPR, 2015. 1, 2
+[7] D. Eigen, C. Puhrsch, and R. Fergus, “Depth map prediction from a
+single image using a multi-scale deep network,” in NeurIPS, 2014. 1,
+3, 6, 7
+[8] A. Paszke, S. Gross, F. Massa, A. Lerer, J. Bradbury, G. Chanan,
+T. Killeen, Z. Lin, N. Gimelshein, L. Antiga et al., “Pytorch: An
+imperative style, high-performance deep learning library,” NeurIPS,
+2019. 2
+[9] A. Ramesh, M. Pavlov, G. Goh, S. Gray, C. Voss, A. Radford, M. Chen,
+and I. Sutskever, “Zero-shot text-to-image generation,” OpenAI, 2021.
+2
+[10] Y. Song and S. Ermon, “Generative modeling by estimating gradients
+of the data distribution,” NeurIPS, vol. 32, 2019. 2, 3
+[11] A. Q. Nichol, P. Dhariwal, A. Ramesh, P. Shyam, P. Mishkin, B. Mcgrew,
+I. Sutskever, and M. Chen, “GLIDE: Towards photorealistic image
+generation and editing with text-guided diffusion models,” in ICML,
+2022. 2
+[12] R. Rombach, A. Blattmann, D. Lorenz, P. Esser, and B. Ommer, “Highresolution image synthesis with latent diffusion models,” in CVPR,
+2022. 2, 3, 4, 5, 6
+[13] C. Schuhmann, R. Beaumont, R. Vencu, C. Gordon, R. Wightman,
+M. Cherti, T. Coombes, A. Katta, C. Mullis, M. Wortsman et al.,
+“LAION-5B: An open large-scale dataset for training next generation
+image-text models,” NeurIPS, 2022. 2, 3
+[14] P. von Platen, S. Patil, A. Lozhkov, P. Cuenca, N. Lambert, K. Rasul,
+M. Davaadorj, D. Nair, S. Paul, W. Berman, Y. Xu, S. Liu, and T. Wolf,
+“Diffusers: State-of-the-art diffusion models,” GitHub repository, 2022.
+2, 16
+[15] T. Brooks, A. Holynski, and A. A. Efros, “Instructpix2pix: Learning to
+follow image editing instructions,” in CVPR, 2023. 2, 5
+[16] L. Zhang, A. Rao, and M. Agrawala, “Adding conditional control to
+text-to-image diffusion models,” in ICCV, 2023. 2
+[17] N. Ruiz, Y. Li, V. Jampani, Y. Pritch, M. Rubinstein, and K. Aberman,
+“DreamBooth: Fine tuning text-to-image diffusion models for subjectdriven generation,” in CVPR, 2023. 2, 3
+[18] B. Ke, A. Obukhov, S. Huang, N. Metzger, R. C. Daudt, and
+K. Schindler, “Repurposing diffusion-based image generators for
+monocular depth estimation,” in CVPR, 2024. 2, 3, 4, 7, 8, 9
+[19] L. Yang, B. Kang, Z. Huang, Z. Zhao, X. Xu, J. Feng, and H. Zhao,
+“Depth anything v2,” arXiv preprint arXiv:2406.09414, 2024. 2, 3, 7
+[20] A. Geiger, P. Lenz, C. Stiller, and R. Urtasun, “Vision meets robotics:
+The KITTI dataset,” International Journal of Robotics Research, 2013.
+2
+[21] P. K. Nathan Silberman, Derek Hoiem and R. Fergus, “Indoor segmentation and support inference from RGBD images,” in ECCV, 2012. 2,
+6, 7, 10
+
+16
+
+[22] S. Luo, Y. Tan, L. Huang, J. Li, and H. Zhao, “Latent consistency
+models: Synthesizing high-resolution images with few-step inference,”
+2023. 2, 3, 12, 13
+[23] G. M. Garcia, K. A. Zeid, C. Schmidt, D. de Geus, A. Hermans, and
+B. Leibe, “Fine-tuning image-conditional diffusion models is easier
+than you think,” arXiv preprint arXiv:2409.11355, 2024. 2, 3, 4, 6, 7,
+8, 9, 10, 13
+[24] M. Gui, J. S. Fischer, U. Prestel, P. Ma, D. Kotovenko, O. Grebenkova,
+S. A. Baumann, V. T. Hu, and B. Ommer, “Depthfm: Fast monocular
+depth estimation with flow matching,” arXiv preprint arXiv:2403.13788,
+2024. 2, 3, 7
+[25] J. He, H. Li, W. Yin, Y. Liang, L. Li, K. Zhou, H. Liu, B. Liu, and Y.-C.
+Chen, “Lotus: Diffusion-based visual foundation model for high-quality
+dense prediction,” arXiv preprint arXiv:2409.18124, 2024. 2, 3, 4, 7,
+9, 10
+[26] G. Xu, Y. Ge, M. Liu, C. Fan, K. Xie, Z. Zhao, H. Chen, and C. Shen,
+“Diffusion models trained with large data are transferable visual models,”
+arXiv preprint arXiv:2403.06090, 2024. 2, 3, 4, 7, 9, 10
+[27] O. B. Bohan, “Tiny autoencoder for stable diffusion,”
+https://hf.co/madebyollin/taesd, 2024, last accessed 15.06.2024.
+2, 6, 7
+[28] B. K. Horn, “Shape from shading: A method for obtaining the shape
+of a smooth opaque object from one view,” 1970. 2, 4
+[29] J. Ho, A. Jain, and P. Abbeel, “Denoising diffusion probabilistic models,”
+NeurIPS, 2020. 3, 5, 6
+[30] J. Song, C. Meng, and S. Ermon, “Denoising diffusion implicit models,”
+in ICLR, 2021. 3, 6, 9, 10
+[31] Y. Song, P. Dhariwal, M. Chen, and I. Sutskever, “Consistency models,”
+in ICML, 2023. 3, 13
+[32] Y. Song, J. Sohl-Dickstein, D. P. Kingma, A. Kumar, S. Ermon,
+and B. Poole, “Score-based generative modeling through stochastic
+differential equations,” in ICLR, 2021. 3
+[33] T. Wang, M. Kanakis, K. Schindler, L. Van Gool, and A. Obukhov,
+“Breathing new life into 3d assets with generative repainting,” in BMVC,
+2023. 3
+[34] R. Bommasani, D. A. Hudson, E. Adeli, R. Altman, S. Arora, S. von
+Arx, M. S. Bernstein, J. Bohg, A. Bosselut, E. Brunskill, E. Brynjolfsson
+et al., “On the opportunities and risks of foundation models,” arXiv
+preprint arXiv:2108.07258, 2022. 3
+[35] H. Yao, R. Zhang, and C. Xu, “Visual-language prompt tuning with
+knowledge-guided context optimization,” in CVPR, 2023. 3
+[36] R. Zhang, X. Hu, B. Li, S. Huang, H. Deng, Y. Qiao, P. Gao, and H. Li,
+“Prompt, generate, then cache: Cascade of foundation models makes
+strong few-shot learners,” in CVPR, 2023. 3
+[37] H. Bahng, A. Jahanian, S. Sankaranarayanan, and P. Isola, “Exploring visual prompts for adapting large-scale models,” arXiv preprint
+arXiv:2203.17274, 2022. 3
+[38] P. Gao, S. Geng, R. Zhang, T. Ma, R. Fang, Y. Zhang, H. Li, and
+Y. Qiao, “CLIP-adapter: Better vision-language models with feature
+adapters,” ICJV, 2023. 3
+[39] R. Zhang, R. Fang, W. Zhang, P. Gao, K. Li, J. Dai, Y. Qiao, and H. Li,
+“Tip-adapter: Training-free CLIP-adapter for better vision-language
+modeling,” arXiv:2111.03930, 2021. 3
+[40] O. Pantazis, G. Brostow, K. Jones, and O. Mac Aodha, “SVL-adapter:
+Self-supervised adapter for vision-language pretrained models,” in
+BMVC, 2022. 3
+[41] C. Zhou, C. C. Loy, and B. Dai, “Extract free dense labels from CLIP,”
+in ECCV, 2022. 3
+[42] W. Zhao, Y. Rao, Z. Liu, B. Liu, J. Zhou, and J. Lu, “Unleashing
+text-to-image diffusion models for visual perception,” in ICCV, 2023.
+3
+[43] H. Fu, M. Gong, C. Wang, K. Batmanghelich, and D. Tao, “Deep
+ordinal regression network for monocular depth estimation,” in CVPR,
+2018. 3
+[44] J. H. Lee, M.-K. Han, D. W. Ko, and I. H. Suh, “From big to small:
+Multi-scale local planar guidance for monocular depth estimation,” arXiv
+preprint arXiv:1907.10326, 2019. 3
+[45] W. Yuan, X. Gu, Z. Dai, S. Zhu, and P. Tan, “NeWCRFs: Neural window
+fully-connected CRFs for monocular depth estimation,” in CVPR, 2022.
+3
+[46] V. Patil, C. Sakaridis, A. Liniger, and L. Van Gool, “P3depth: Monocular
+depth estimation with a piecewise planarity prior,” in CVPR, 2022. 3
+[47] C. Liu, S. Kumar, S. Gu, R. Timofte, and L. Van Gool, “VA-DepthNet:
+A variational approach to single image depth prediction,” in ICLR,
+2023. 3
+[48] S. F. Bhat, I. Alhashim, and P. Wonka, “AdaBins: Depth estimation
+using adaptive bins,” in CVPR, 2021. 3
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+17
+
+[49] Z. Li, X. Wang, X. Liu, and J. Jiang, “Binsformer: Revisiting adaptive
+bins for monocular depth estimation,” IEEE TIP, vol. 33, pp. 3964–3976,
+2024. 3
+[50] J. Ning, C. Li, Z. Zhang, C. Wang, Z. Geng, Q. Dai, K. He, and H. Hu,
+“All in tokens: Unifying output space of visual tasks via soft token,” in
+ICCV, 2023. 3
+[51] G. Yang, H. Tang, M. Ding, N. Sebe, and E. Ricci, “Transformer-based
+attention networks for continuous pixel-wise prediction,” in ICCV, 2021.
+3
+[52] Z. Li, Z. Chen, X. Liu, and J. Jiang, “Depthformer: Exploiting longrange correlation and local information for accurate monocular depth
+estimation,” Machine Intelligence Research, pp. 1–18, 2023. 3
+[53] S. Aich, J. M. U. Vianney, M. A. Islam, M. Kaur, and B. Liu,
+“Bidirectional attention network for monocular depth estimation,” in
+ICRA, 2021. 3
+[54] S. F. Bhat, R. Birkl, D. Wofk, P. Wonka, and M. Müller, “ZoeDepth:
+Zero-shot transfer by combining relative and metric depth,” arXiv
+preprint arXiv:2302.12288, 2023. 3, 14, 15
+[55] W. Yin, C. Zhang, H. Chen, Z. Cai, G. Yu, K. Wang, X. Chen, and
+C. Shen, “Metric3D: Towards zero-shot metric 3d prediction from a
+single image,” in ICCV, 2023. 3, 7
+[56] M. Hu, W. Yin, C. Zhang, Z. Cai, X. Long, H. Chen, K. Wang,
+G. Yu, C. Shen, and S. Shen, “Metric3d v2: A versatile monocular
+geometric foundation model for zero-shot metric depth and surface
+normal estimation,” arXiv preprint arXiv:2404.15506, 2024. 3, 7, 9
+[57] V. Guizilini, I. Vasiljevic, D. Chen, R. Ambrus, , and A. Gaidon, “Towards
+zero-shot scale-aware monocular depth estimation,” in ICCV, 2023. 3
+[58] Z. Li and N. Snavely, “MegaDepth: Learning single-view depth
+prediction from internet photos,” in CVPR, 2018. 3
+[59] W. Yin, X. Wang, C. Shen, Y. Liu, Z. Tian, S. Xu, C. Sun, and D. Renyin,
+“Diversedepth: Affine-invariant depth prediction using diverse data,”
+arXiv preprint arXiv:2002.00569, 2020. 3, 7
+[60] R. Ranftl, K. Lasinger, D. Hafner, K. Schindler, and V. Koltun, “Towards
+robust monocular depth estimation: Mixing datasets for zero-shot crossdataset transfer,” IEEE PAMI, 2020. 3, 5, 7, 14, 15
+[61] R. Ranftl, A. Bochkovskiy, and V. Koltun, “Vision transformers for
+dense prediction,” in ICCV, 2021. 3, 7
+[62] L. Yang, B. Kang, Z. Huang, X. Xu, J. Feng, and H. Zhao, “Depth
+anything: Unleashing the power of large-scale unlabeled data,” in CVPR,
+2024. 3, 7
+[63] M. Oquab, T. Darcet, T. Moutakanni, H. Vo, M. Szafraniec, V. Khalidov,
+P. Fernandez, D. Haziza, F. Massa, A. El-Nouby et al., “DINOv2:
+Learning robust visual features without supervision,” Transactions on
+Machine Learning Research, 2024. 3, 4
+[64] Y. Duan, X. Guo, and Z. Zhu, “DiffusionDepth: Diffusion denoising
+approach for monocular depth estimation,” in ECCV, 2024. 3
+[65] S. Saxena, A. Kar, M. Norouzi, and D. J. Fleet, “Monocular depth
+estimation using diffusion models,” arXiv preprint arXiv:2302.14816,
+2023. 3
+[66] M. Roberts, J. Ramapuram, A. Ranjan, A. Kumar, M. A. Bautista,
+N. Paczan, R. Webb, and J. M. Susskind, “Hypersim: A photorealistic
+synthetic dataset for holistic indoor scene understanding,” in ICCV,
+2021. 3, 4, 6, 8, 10, 11
+[67] Y. Cabon, N. Murray, and M. Humenberger, “Virtual KITTI 2,” arXiv
+preprint arXiv:2001.10773, 2020. 3, 6, 8
+[68] Y. Lipman, R. T. Q. Chen, H. Ben-Hamu, M. Nickel, and M. Le, “Flow
+matching for generative modeling,” in ICLR, 2023. 3
+[69] X. Fu, W. Yin, M. Hu, K. Wang, Y. Ma, P. Tan, S. Shen, D. Lin, and
+X. Long, “Geowizard: Unleashing the diffusion priors for 3d geometry
+estimation from a single image,” in ECCV, 2024. 3, 7, 9, 10
+[70] X. Zhang, B. Ke, H. Riemenschneider, N. Metzger, A. Obukhov,
+M. Gross, K. Schindler, and C. Schroers, “Betterdepth: Plug-and-play
+diffusion refiner for zero-shot monocular depth estimation,” NeurIPS,
+2024. 3, 14
+[71] J. Gregorek and L. Nalpantidis, “Steeredmarigold: Steering diffusion
+towards depth completion of largely incomplete depth maps,” arXiv
+preprint arXiv:2409.10202, 2024. 3
+[72] F. Tosi, P. Z. Ramirez, and M. Poggi, “Diffusion models for monocular
+depth estimation: Overcoming challenging conditions,” in ECCV, 2024.
+3
+[73] Y. Jia, L. Hoyer, S. Huang, T. Wang, L. V. Gool, K. Schindler, and
+A. Obukhov, “Dginstyle: Domain-generalizable semantic segmentation
+with image diffusion models and stylized semantic control,” in ECCV,
+2024. 3, 4
+[74] J. Shao, Y. Yang, H. Zhou, Y. Zhang, Y. Shen, M. Poggi, and Y. Liao,
+“Learning temporally consistent video depth from video diffusion priors,”
+arXiv preprint arXiv:2406.01493, 2024. 3
+
+[75] W. Hu, X. Gao, X. Li, S. Zhao, X. Cun, Y. Zhang, L. Quan, and
+Y. Shan, “Depthcrafter: Generating consistent long depth sequences for
+open-world videos,” arXiv preprint arXiv:2409.02095, 2024. 3
+[76] L. Ladický, B. Zeisl, and M. Pollefeys, “Discriminatively trained dense
+surface normal estimation,” in ECCV, 2014. 3
+[77] X. Wang, D. Fouhey, and A. Gupta, “Designing deep networks for
+surface normal estimation,” in CVPR, 2015. 3
+[78] J. Huang, Y. Zhou, T. Funkhouser, and L. Guibas, “Framenet: Learning
+local canonical frames of 3d surfaces from a single rgb image,” in
+ICCV, 2019. 3, 10
+[79] D. Eigen and R. Fergus, “Predicting depth, surface normals and semantic
+labels with a common multi-scale convolutional architecture,” in ICCV,
+2015. 3
+[80] G. Bae, I. Budvytis, and R. Cipolla, “Estimating and exploiting the
+aleatoric uncertainty in surface normal estimation,” in ICCV, 2021. 3
+[81] O. F. Kar, T. Yeo, A. Atanov, and A. Zamir, “3d common corruptions
+and data augmentation,” in CVPR, 2022. 3, 9
+[82] G. Bae and A. J. Davison, “Rethinking inductive biases for surface
+normal estimation,” in CVPR, 2024. 3, 9, 10
+[83] C. Ye, L. Qiu, X. Gu, Q. Zuo, Y. Wu, Z. Dong, L. Bo, Y. Xiu, and
+X. Han, “Stablenormal: Reducing diffusion variance for stable and sharp
+normal,” ACM Transactions on Graphics (TOG), 2024. 4, 9, 10
+[84] H. Barrow, J. Tenenbaum, A. Hanson, and E. Riseman, “Recovering
+intrinsic scene characteristics,” Comput. vis. syst, vol. 2, no. 3-26, p. 2,
+1978. 4
+[85] Z. Li, M. Shafiei, R. Ramamoorthi, K. Sunkavalli, and M. Chandraker,
+“Inverse rendering for complex indoor scenes: Shape, spatially-varying
+lighting and svbrdf from a single image,” in CVPR, 2020. 4
+[86] Z. Wang, J. Philion, S. Fidler, and J. Kautz, “Learning indoor inverse
+rendering with 3d spatially-varying lighting,” in ICCV, 2021. 4
+[87] Z. Li, J. Shi, S. Bi, R. Zhu, K. Sunkavalli, M. Hašan, Z. Xu,
+R. Ramamoorthi, and M. Chandraker, “Physically-based editing of
+indoor scene lighting from a single image,” in ECCV, 2022. 4
+[88] J. Luo, D. Ceylan, J. S. Yoon, N. Zhao, J. Philip, A. Frühstück, W. Li,
+C. Richardt, and T. Wang, “Intrinsicdiffusion: Joint intrinsic layers from
+latent diffusion models,” in ACM SIGGRAPH, 2024, pp. 1–11. 4
+[89] R. Zhu, Z. Li, J. Matai, F. Porikli, and M. Chandraker, “Irisformer:
+Dense vision transformers for single-image inverse rendering in indoor
+scenes,” in CVPR, 2022. 4
+[90] C. Careaga and Y. Aksoy, “Colorful diffuse intrinsic image decomposition in the wild,” ACM Trans. Graph., vol. 43, no. 6, 2024. 4, 11,
+12
+[91] ——, “Intrinsic image decomposition via ordinal shading,” ACM
+Transactions on Graphics, vol. 43, no. 1, pp. 1–24, 2023. 4
+[92] T. Karras, S. Laine, and T. Aila, “A style-based generator architecture
+for generative adversarial networks,” in CVPR, 2019. 4
+[93] A. Bhattad, D. McKee, D. Hoiem, and D. Forsyth, “Stylegan knows
+normal, depth, albedo, and more,” NeurIPS, 2024. 4
+[94] X. Du, N. Kolkin, G. Shakhnarovich, and A. Bhattad, “Generative
+models: What do they know? do they know things? let’s find out!”
+arXiv preprint arXiv:2311.17137, 2023. 4
+[95] H.-Y. Lee, H.-Y. Tseng, and M.-H. Yang, “Exploiting diffusion prior
+for generalizable dense prediction,” in CVPR, 2024. 4
+[96] P. Kocsis, V. Sitzmann, and M. Nießner, “Intrinsic image diffusion for
+indoor single-view material estimation,” in CVPR, 2024. 4, 11, 12, 16
+[97] Z. Zeng, V. Deschaintre, I. Georgiev, Y. Hold-Geoffroy, Y. Hu, F. Luan,
+L.-Q. Yan, and M. Hašan, “Rgb-x: Image decomposition and synthesis
+using material-and lighting-aware diffusion models,” in SIGGRAPH
+conference, 2024. 4, 11, 12
+[98] A. Radford, J. W. Kim, C. Hallacy, A. Ramesh, G. Goh, S. Agarwal,
+G. Sastry, A. Askell, P. Mishkin, J. Clark et al., “Learning transferable
+visual models from natural language supervision,” in ICML, 2021, pp.
+8748–8763. 4
+[99] J. Zhu, F. Luan, Y. Huo, Z. Lin, Z. Zhong, D. Xi, R. Wang,
+H. Bao, J. Zheng, and R. Tang, “Learning-based inverse rendering
+of complex indoor scenes with differentiable monte carlo raytracing,”
+in SIGGRAPH Asia conference. ACM, 2022. 4, 10, 11
+[100] S. M. H. Miangoleh, S. Dille, L. Mai, S. Paris, and Y. Aksoy, “Boosting
+monocular depth estimation models to high-resolution via contentadaptive multi-resolution merging,” in CVPR, 2021. 4, 14, 15
+[101] Z. Li, S. F. Bhat, and P. Wonka, “Patchfusion: An end-to-end tile-based
+framework for high-resolution monocular metric depth estimation,” in
+CVPR, 2024. 4, 14, 15
+[102] ——, “Patchrefiner: Leveraging synthetic data for real-domain highresolution monocular metric depth estimation,” in ECCV, 2024. 4
+[103] O. Bar-Tal, L. Yariv, Y. Lipman, and T. Dekel, “Multidiffusion: fusing
+diffusion paths for controlled image generation,” in ICML, 2023. 4, 14
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+18
+
+[104] A. Bochkovskii, A. Delaunoy, H. Germain, M. Santos, Y. Zhou, S. R.
+Richter, and V. Koltun, “Depth pro: Sharp monocular metric depth in
+less than a second,” arXiv, 2024. 4, 14, 15
+[105] W. Wagner, A. Ullrich, V. Ducic, T. Melzer, and N. Studnicka, “Gaussian
+decomposition and calibration of a novel small-footprint full-waveform
+digitising airborne laser scanner,” ISPRS journal of Photogrammetry
+and Remote Sensing, vol. 60, no. 2, pp. 100–112, 2006. 5
+[106] S. Huang, Z. Gojcic, Z. Wang, F. Williams, Y. Kasten, S. Fidler,
+K. Schindler, and O. Litany, “Neural lidar fields for novel view synthesis,”
+in ICCV, 2023. 5
+[107] A. Eftekhar, A. Sax, J. Malik, and A. Zamir, “Omnidata: A scalable
+pipeline for making multi-task mid-level vision datasets from 3d scans,”
+in ICCV, 2021. 5, 7
+[108] T. Salimans and J. Ho, “Progressive distillation for fast sampling of
+diffusion models,” in ICLR, 2022. 6
+[109] W. Yin, J. Zhang, O. Wang, S. Niklaus, L. Mai, S. Chen, and C. Shen,
+“Learning to recover 3d scene shape from a single image,” in CVPR,
+2021. 7, 14, 15
+[110] C. Zhang, W. Yin, B. Wang, G. Yu, B. Fu, and C. Shen, “Hierarchical
+normalization for robust monocular depth estimation,” NeurIPS, 2022.
+7
+[111] A. Geiger, P. Lenz, and R. Urtasun, “Are we ready for autonomous
+driving? the KITTI vision benchmark suite,” in CVPR, 2012. 6
+[112] A. Dai, A. X. Chang, M. Savva, M. Halber, T. Funkhouser, and
+M. Nießner, “ScanNet: Richly-annotated 3d reconstructions of indoor
+scenes,” in CVPR, 2017. 6, 10
+[113] T. Schops, J. L. Schonberger, S. Galliani, T. Sattler, K. Schindler,
+M. Pollefeys, and A. Geiger, “A multi-view stereo benchmark with
+high-resolution images and multi-camera videos,” in CVPR, 2017. 7
+[114] I. Vasiljevic, N. Kolkin, S. Zhang, R. Luo, H. Wang, F. Z. Dai, A. F.
+Daniele, M. Mostajabi, S. Basart, M. R. Walter, and G. Shakhnarovich,
+“DIODE: A Dense Indoor and Outdoor DEpth Dataset,” arXiv preprint
+arXiv:1908.00463, 2019. 7, 10
+[115] D. J. Butler, J. Wulff, G. B. Stanley, and M. J. Black, “A naturalistic
+open source movie for optical flow evaluation,” in ECCV, 2012. 10
+[116] T. Koch, L. Liebel, F. Fraundorfer, and M. Körner, “Evaluation of cnnbased single-image depth estimation methods,” in ECCV workshop,
+2019. 10
+[117] W. Chen, S. Qian, D. Fan, N. Kojima, M. Hamilton, and J. Deng,
+“OASIS: A large-scale dataset for single image 3d in the wild,” in
+CVPR, 2020. 10
+[118] A. Bansal, B. Russell, and A. Gupta, “Marr Revisited: 2D-3D model
+alignment via surface normal prediction,” in CVPR, 2016. 10
+[119] D. F. Fouhey, A. Gupta, and M. Hebert, “Data-driven 3D primitives
+for single image understanding,” in ICCV, 2013. 10
+[120] Z. Wang, A. C. Bovik, H. R. Sheikh, and E. P. Simoncelli, “Image
+quality assessment: from error visibility to structural similarity,” IEEE
+TIP, vol. 13, no. 4, pp. 600–612, 2004. 11
+[121] R. Zhang, P. Isola, A. A. Efros, E. Shechtman, and O. Wang, “The
+unreasonable effectiveness of deep features as a perceptual metric,” in
+CVPR, 2018. 11
+[122] Y. Song and P. Dhariwal, “Improved techniques for training consistency
+models,” in ICLR, 2024. 13
+[123] I. Loshchilov and F. Hutter, “Decoupled weight decay regularization,”
+in ICLR, 2019. 13
+[124] D. Scharstein, H. Hirschmüller, Y. Kitajima, G. Krathwohl, N. Nešić,
+X. Wang, and P. Westling, “High-resolution stereo datasets with subpixelaccurate ground truth,” in GCPR. Springer, 2014. 14
+[125] P. Z. Ramirez, F. Tosi, L. Di Stefano, R. Timofte, A. Costanzino,
+M. Poggi, S. Salti, S. Mattoccia, Y. Zhang, C. Wu et al., “Ntire 2024
+challenge on hr depth from images of specular and transparent surfaces,”
+in CVPR, 2024. 14
+[126] T. Koch, L. Liebel, F. Fraundorfer, and M. Korner, “Evaluation of cnnbased single-image depth estimation methods,” in ECCV workshop,
+2018. 14
+[127] J. Hu, M. Ozay, Y. Zhang, and T. Okatani, “Revisiting single image
+depth estimation: Toward higher resolution maps with accurate object
+boundaries,” in WACV, 2019. 14
+
+Bingxin Ke is a PhD student at the Photogrammetry and Remote Sensing Lab
+of ETH Zurich. His interest lies in generalizable computer vision, especially for
+3D vision problems. He earned his Bachelor’s degree in Geomatics Engineering
+at Wuhan University in 2020, and Master’s degree in Geomatics at ETH Zurich
+in 2022.
+
+Kevin Qu is a Master student at the Photogrammetry and Remote Sensing Lab
+of ETH Zurich. He obtained his Bachelor’s degree in Electrical and Computer
+Engineering at the Technical University of Munich in 2023, and is currently
+pursuing his Master’s degree in Robotics, Systems and Control at ETH. His
+research interests include generative models, 3D vision and robotic perception.
+
+Tianfu Wang is a PhD student at the Intelligent Sensing Lab of the University
+of Maryland, College Park. Tianfu completed his Master’s degree in Computer
+Science at ETH Zurich, where he worked in the Photogrammetry and Remote
+Sensing Lab. Prior to that, Tianfu earned his Bachelor’s degree in Computer
+Science and Mathematics from Northwestern University. Tianfu is interested
+in computational imaging, generative models, and differentiable rendering.
+
+Nando Metzger is a PhD student at the Photogrammetry and Remote Sensing
+Lab of ETH Zurich. He is interested in weakly supervised learning and superresolution techniques and their applications to monocular depth and remote
+sensing. He studied Geomatics at ETH Zurich, where he received his Bachelor’s
+degree in 2019 and his Master’s degree in 2021.
+
+Shengyu Huang is a PhD student at the Photogrammetry and Remote Sensing
+Lab of ETH Zurich. He is interested in 3D vision problems and applications
+of neural fields beyond conventional cameras. He earned a Bachelor’s degree
+in Surveying and Mapping Engineering at Tongji University in 2018, later he
+obtained his Master’s degree in Geomatics from ETH Zurich in 2020.
+
+Bo Li is a student collaborator with the Photogrammetry and Remote Sensing
+Lab of ETH Zurich. His research interests include computer graphics, generative
+models and efficient GPU computation for large-scale AI workloads. He earned
+dual Bachelor’s degrees in Biological Science and Computer Science from
+Peking University and Master’s degree in Computer Science at ETH Zurich.
+
+Anton Obukhov is an established researcher in the Photogrammetry and
+Remote Sensing Lab, broadly interested in computer vision and machine
+learning research. He joined the Computer Vision Laboratory at ETH Zurich
+in 2018 and received his PhD in 2022, supervised by Prof. Luc Van Gool and
+funded by the Toyota TRACE-Zurich project. He also holds a Diploma in
+Computational Mathematics and Cybernetics from Moscow State University,
+obtained in 2008. Between these degrees, he spent a decade working in the
+industry: he helped NVIDIA drive the adoption of NVIDIA CUDA technology
+in scientific computing and later helped Ubiquiti Networks build multiple
+video camera products with varying degree of artificial intelligence.
+
+Konrad Schindler (Senior Member, IEEE) received the Diplomingenieur
+(MTech) degree from the Vienna University of Technology, Vienna, Austria,
+in 1999, and the PhD from the Graz University of Technology, Graz, Austria,
+in 2003. He was a photogrammetric engineer in the private industry and
+held researcher positions with the Graz University of Technology, Monash
+University, Melbourne, VIC, Australia, and ETH Zürich, Zürich, Switzerland.
+He was an assistant professor of image understanding with TU Darmstadt,
+Darmstadt, Germany, in 2009. Since 2010, he has been a tenured professor of
+photogrammetry and remote sensing with ETH Zürich. His research interests
+include computer vision, photogrammetry, and remote sensing.
+
+

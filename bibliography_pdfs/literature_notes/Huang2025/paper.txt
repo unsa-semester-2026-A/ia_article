@@ -1,0 +1,4024 @@
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+1
+
+Diffusion Model-Based Image Editing: A Survey
+
+arXiv:2402.17525v4 [cs.CV] 11 Mar 2025
+
+Yi Huang∗ , Jiancheng Huang∗ , Yifan Liu∗ , Mingfu Yan∗ , Jiaxi Lv∗ , Jianzhuang Liu∗ , Senior Member, IEEE,
+Wei Xiong, He Zhang, Liangliang Cao, Fellow, IEEE, and Shifeng Chen
+Abstract—Denoising diffusion models have emerged as a powerful tool for various image generation and editing tasks, facilitating the
+synthesis of visual content in an unconditional or input-conditional manner. The core idea behind them is learning to reverse the
+process of gradually adding noise to images, allowing them to generate high-quality samples from a complex distribution. In this survey,
+we provide an exhaustive overview of existing methods using diffusion models for image editing, covering both theoretical and practical
+aspects in the field. We delve into a thorough analysis and categorization of these works from multiple perspectives, including learning
+strategies, user-input conditions, and the array of specific editing tasks that can be accomplished. In addition, we pay special attention
+to image inpainting and outpainting, and explore both earlier traditional context-driven and current multimodal conditional methods,
+offering a comprehensive analysis of their methodologies. To further evaluate the performance of text-guided image editing algorithms,
+we propose a systematic benchmark, EditEval, featuring an innovative metric, LMM Score. Finally, we address current limitations and
+envision some potential directions for future research. The accompanying repository is released at https://github.com/SiatMMLab/
+Awesome-Diffusion-Model-Based-Image-Editing-Methods.
+Index Terms—Diffusion Model, Image Editing, AIGC
+
+✦
+
+1
+
+I NTRODUCTION
+
+I
+
+N the realm of AI-generated content (AIGC) [1]–[10], image
+generation and editing are recognized as significant for practical
+applications, including digital media, advertising, and scientific research. Distinct from image generation, which creates entirely new
+images from minimal inputs, image editing involves modifying the
+appearance, structure, or content of an existing image to achieve a
+desired outcome. This process can encompass a range of changes
+from subtle adjustments to moderate transformations, all without
+fundamentally altering the original image. The evolution of image
+editing has progressed from manual, labor-intensive processes
+to advanced learning-based algorithms. A pivotal advancement
+in this evolution is the introduction of Generative Adversarial
+Networks (GANs) [9], [11]–[15], which significantly enhance the
+possibilities for creative image manipulation.
+More recently, diffusion models have emerged as a powerful
+tool in this domain. Inspired by principles from non-equilibrium
+thermodynamics [10], diffusion models work by gradually adding
+noise to data and then learning to reverse this process from random
+noise until generating desired data that matches the source data
+distribution [16]–[23]. The application of diffusion models in
+image editing has garnered growing interest, as evidenced by the
+increasing number of research publications. This interest highlights the potential and versatility of diffusion models in improving
+image editing performance compared to previous methods. Given
+
+•
+
+•
+•
+•
+•
+•
+•
+
+Y. Huang, J. Huang, M. Yan, and J. Lv are with Shenzhen Institute of
+Advanced Technology, Chinese Academy of Sciences, Shenzhen, China,
+and also with University of Chinese Academy of Sciences, Beijing, China.
+(E-mail: yi.huang@siat.ac.cn)
+Y. Liu is with Southern University of Science and Technology, Shenzhen,
+China, and also with Shenzhen Institute of Advanced Technology, Chinese
+Academy of Sciences, Shenzhen, China.
+J. Liu and S. Chen are with Shenzhen Institute of Advanced Technology, Chinese Academy of Sciences, Shenzhen, China. (E-mail:
+jz.liu@siat.ac.cn, shifeng.chen@siat.ac.cn)
+W. Xiong is with NVIDIA, Santa Clara, USA.
+H. Zhang is with Adobe Inc, San Jose, USA.
+L. Cao is with Apple Inc, Cupertino, USA.
+∗ denotes equal contributions. S. Chen is the corresponding author.
+
+Fig. 1: Statistical overview of research publications in diffusion
+model-based image editing. Top: learning strategies. Middle: input
+conditions. Bottom: editing tasks.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+2
+
+this significant advancement, it is essential to systematically review and summarize these contributions. However, despite this
+progress, there is a notable lack of surveys specifically dedicated
+to diffusion model-based image editing. Existing surveys [24]–
+[27] on diffusion models tend to concentrate on other visual tasks,
+such as image generation [28]–[43], restoration and enhancement
+[44]–[58], or video generation [59]–[76]. Those that do mention
+image editing often provide only a cursory overview [77]–[84],
+lacking a detailed and focused exploration of the methods. To
+address this gap, we conduct this survey to offer an in-depth and
+comprehensive analysis specifically focused on 2D image editing
+using diffusion models. Due to the extensive related literature,
+works that either focus on other relevant tasks or employ other
+techniques are not included as the primary review target.
+Specifically, we delve deeply into the methodologies, input conditions, and a wide range of editing tasks achieved by
+diffusion models in this field. The survey critically reviews
+over 100 research papers, organizing them into three primary
+classes—training-based approaches, testing-time finetuning approaches, and training and finetuning free approaches—based
+on whether their learning strategies require training, finetuning
+during inference, or can operate effectively without either. Each
+class is further divided based on its core techniques, with detailed
+discussions presented in Sections 4, 5, and 6, respectively. We also
+explore 10 distinct types of input conditions used in these methods,
+including text, mask, reference (Ref.) image, class, layout, pose,
+sketch, segmentation (Seg.) map, audio, and dragging points to
+show the adaptability of diffusion models in diverse image editing
+scenarios. Furthermore, our survey presents a new classification
+of image editing tasks into three broad categories, semantic editing, stylistic editing, and structural editing, covering 12 specific
+types. Fig. 1 visually represents the statistical distributions of
+research across learning strategies, input conditions, and editing
+task categories. In addition, we pay special attention to inpainting
+and outpainting, which together stand out as a unique type of
+editing. We explore both earlier traditional and current multimodal
+conditional methods, offering a comprehensive analysis of their
+methodologies in Section 7. We also introduce EditEval, a benchmark designed to evaluate text-guided image editing algorithms,
+as detailed in Section 8. In particular, an effective evaluation
+metric, LMM Score, is proposed by leveraging the advanced
+visual-language understanding capabilities of large multimodal
+models (LMMs). Finally, we present some current challenges and
+potential future trends as an outlook in Section 9.
+In summary, this survey aims to systematically categorize and
+critically assess the extensive body of research in diffusion modelbased image editing. Our goal is to provide a comprehensive
+resource that not only synthesizes current findings but also guides
+future research directions in this rapidly advancing field.
+
+generative models is their dynamic execution across iterative time
+steps, covering both forward and backward movements in time.
+For each time step t, the noisy latent zt delineates the current
+state. The time step t increments progressively during forward
+diffusion process, and it reduces towards 0 during reverse diffusion
+process. Notably, the literature lacks a distinct differentiation
+between zt in forward diffusion and zt in reverse diffusion. In
+the context of forward diffusion, let zt ∼ q (zt | zt−1 ), and in
+reverse diffusion, let zt−1 ∼ p (zt−1 | zt ). Herein, we denote T
+with 0 < t ≤ T as the maximal time step for finite cases. The
+initial data distribution at t = 0 is represented by z0 ∼ q (z0 ),
+slowly contaminated by additive noise to z0 . Diffusion models
+gradually eliminate noise by a parameterized model pθ (zt−1 | zt )
+in the reverse time direction. This model approximates the ideal,
+albeit unattainable, denoised distribution p (zt−1 | zt ). Denoising
+Diffusion Probabilistic Models (DDPMs), as introduced in Ho et
+al. [16], effectively utilize Markov chains to facilitate both the
+forward and backward processes over a finite series of time steps.
+Forward Diffusion Process. This process serves as transforming
+the data distribution into a predefined distribution, such as the
+Gaussian distribution. The transformation is represented as:
+p
+(1)
+q(zt | zt−1 ) = N (zt | 1 − βt zt−1 , βt I),
+
+2
+
+BACKGROUND
+
+2.1
+
+Diffusion Models
+
+Diffusion Models have exerted a profound influence on the field of
+generative AI, giving rise to a plethora of approaches falling under
+their umbrella. Essentially, these models are grounded in a pivotal
+principle known as diffusion, which gradually adds noise to data
+samples of some distribution, transforming them into a predefined
+typically simple distribution, such as Gaussian, and this process is
+then reversed iteratively to generate data matching the original
+distribution. What distinguishes diffusion models from earlier
+
+where the set of hyper-parameters 0 < β1:T < 1 is indicative of
+the noise variance introduced at each sequential step. This diffusion process can be briefly expressed via a single-step equation:
+√
+q(zt | z0 ) = N (zt | ᾱt z0 , (1 − ᾱt )I),
+(2)
+Qt
+with αt = 1 − βt and ᾱt = i=1 αi , as elaborated in SohlDickstein et al. [10]. As a result, bypassing the need to consider
+intermediate time steps, zt can be directly sampled by:
+√
+√
+(3)
+zt = ᾱt · z0 + 1 − ᾱt · ϵ, ϵ ∼ N (0, I) .
+Reverse Diffusion Process. The reverse process, also called
+ancestral sampling [85], is defined by sampling a random Gaussian
+noise zT and then for t in T, t − 1, ..., 1, sampling zt−1 , until getting to z0 . The primary objective here is to learn the reverse of the
+forward diffusion process, with the aim of generating a distribution
+that closely aligns with the original unaltered data samples z0 .
+In the context of image editing, z0 represents the edited image.
+Practically, this is achieved using a UNet architecture to learn
+a parameterized version of p. Given that the forward diffusion
+process is approximated by q(zT ) ≈ N (0, I), the formulation of
+the learnable transition is expressed as:
+
+pθ (zt−1 | zt ) = N (zt−1 | µθ (zt , ᾱt ), Σθ (zt , ᾱt )) ,
+
+(4)
+
+where the functions µθ and Σθ are learnable parameters. In
+addition, for the conditional formulation pθ (zt−1 | zt , c), which
+is conditioned on an external variable c (in image editing, c
+can be the source image), the model becomes µθ (zt , c, ᾱt ) and
+Σθ (zt , c, ᾱt ).
+Optimization. The optimization strategy for guiding the reverse
+diffusion in learning the forward process involves minimizing the
+Kullback-Leibler (KL) divergence between the joint distributions
+of the forward and reverse sequences. These are mathematically
+defined as:
+T
+Y
+pθ (z0 , ..., zT ) = p (zT )
+pθ (zt−1 | zt ) ,
+(5)
+t=1
+
+q (z0 , ..., zT ) = q (z0 )
+
+T
+Y
+t=1
+
+q (zt | zt−1 ) ,
+
+(6)
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+leading to the minimization of:
+KL(q (z0 , ..., zT ) ∥pθ (z0 , ..., zT ))
+
+(7)
+
+≥ Eq(z0 ) [− log pθ (z0 )] + c,
+which is detailed in Ho et al. [16] and the constant c is irrelevant
+for optimizing θ. The KL divergence of Eq. 7 represents the
+variational bound of the log-likelihood of the data (log pθ (z0 )).
+This KL divergence serves as the loss and is minimized in
+DDPMs. Practically, Ho et al. [16] adopt a reweighed version
+of this loss as a simpler denoising loss:
+
+
+Et∼U (1,T ),z0 ∼q(z0 ),ϵ∼N (0,I) λ(t)∥ϵ − ϵθ (zt , t)∥2 , (8)
+where λ(t) > 0 denotes a weighting function, zt is obtained using
+Eq. 3, and ϵθ represents a network designed to predict the noise ϵ
+based on zt and t.
+DDIM Sampling and Inversion. When working with a real image
+z0 , prevalent editing methods [86], [87] initially invert this z0
+into a corresponding zT utilizing a specific inversion scheme.
+Subsequently, the sampling begins from this zT , employing some
+editing strategy to produce an edited outcome z̃0 . In an ideal
+scenario, direct sampling from zT , without any edits, should yield
+a z̃0 that closely resembles z0 . A significant deviation of z̃0 from
+z0 , termed reconstruction failure, indicates the inability of the
+edited image to maintain the integrity of unaltered regions in z0 .
+Therefore, using an inversion method that ensures z̃0 ≈ z0 is
+crucial. The DDIM sampling equation [18] is:
+zt−1 =
+
+√
+
+ᾱt−1
+
+zt −
+
+√
+
+1 − ᾱt ϵθ (zt , t) p
+√
++ 1 − ᾱt−1 ϵθ (zt , t), (9)
+ᾱt
+
+which is alternatively expressed as:
+zt =
+
+√
+
+ᾱt
+
+zt−1 −
+
+√
+1 − ᾱt−1 ϵθ (zt , t) √
+√
++ 1 − ᾱt ϵθ (zt , t).
+ᾱt−1
+
+(10)
+
+Although Eq. 10 appears to provide an ideal inversion from zt−1
+to zt , the problem arises from the unknown nature of zt , which
+is also used as an input for the network ϵθ (zt , t). To address this,
+DDIM Inversion [18] operates under the assumption that zt−1 ≈
+zt and replaces zt on the right-hand side of Eq. 10 with zt−1 ,
+leading to the following approximation:
+zt =
+
+√ zt−1 −
+ᾱt
+
+√
+1 − ᾱt−1 ϵθ (zt−1 , t) √
+√
++ 1 − ᾱt ϵθ (zt−1 , t).
+ᾱt−1
+(11)
+
+Text Condition and Classifier-Free Guidance. Text-conditional
+diffusion models are designed to synthesize outcomes from random noise zT guided by a text prompt P . During inference in
+the sampling process, the noise estimation network ϵθ (zt , t, C) is
+utilized to predict the noise ϵ, where C = ψ(P ) represents the
+text embedding. This process methodically removes noise from zt
+across T steps until the final result z0 is obtained.
+In the realm of text-conditional image generation, it is vital to
+ensure substantial textual influence and control over the generated
+output. To this end, Ho et al. [32] introduce the concept of
+classifier-free guidance, a technique that amalgamates conditional
+and unconditional predictions. More specifically, let ∅ = ψ(“”)1
+denote the null text embedding. When combined with a guidance
+scale w, the classifier-free guidance prediction is formalized as:
+
+ϵθ (zt , t, C, ∅) = wϵθ (zt , t, C) + (1 − w) ϵθ (zt , t, ∅). (12)
+1. The placeholder ∅ is typically used for negative prompts to prevent
+certain attributes from manifesting in the generated image.
+
+3
+
+In this formulation, ϵθ (zt , t, C, ∅) replaces ϵθ (zt , t) in the sampling Eq. 9. The value of w, typically ranging from [1, 7.5] as
+suggested in [30], [31], dictates the extent of textual control. A
+higher w value correlates with a stronger text-driven influence in
+the generation process.
+2.2
+
+Attention in Stable Diffusion
+
+Cross-Attention in Stable Diffusion. In Stable Diffusion, crossattention layers play a crucial role in fusing images and text,
+allowing T2I models to generate images that are consistent with
+textual descriptions. A cross-attention layer receives the query,
+key, and value matrices, i.e., Qcross , Kcross , and Vcross , from
+the noisy image and prompt. Specifically, Qcross is derived from
+the spatial features of the noisy image by a linear layer, while
+Kcross and Vcross are projected from the textual embedding of
+the input prompt via a linear layer. The cross-attention map is
+defined as:
+!
+Qcross Kcross T
+√
+Mcross = Softmax
+,
+(13)
+dcross
+where dcross is the dimensionality of the keys and queries. The
+final output is defined as the fused feature of the text and image,
+ij
+in the
+denoted as Mcross Vcross . Intuitively, each cell Mcross
+cross-attention map determines the weights attributed to the value
+of the j -th text token relative to the spatial feature i of the image.
+The cross-attention map enables the diffusion model to align the
+tokens of the prompt in the image area.
+Self-Attention in Stable Diffusion. Unlike cross-attention, a selfattention layer receives the key matrix Kself and the query matrix
+Qself from the noisy image through linear layers. The selfattention map is defined as:
+!
+Qself Kself T
+p
+,
+(14)
+Mself = Softmax
+dself
+ij
+
+where dself is the dimensionality of Kself and Qself . Mself of
+Mself determines the weights assigned to the relevance of the ith and j -th spatial features in the image and can affect the spatial
+layout and shape details of the generated image. Consequently, the
+self-attention map can be utilized to preserve the spatial structure
+characteristics of the original image during the editing process.
+2.3
+
+Related Tasks
+
+While this survey focuses exclusively on diffusion model-based
+image editing, it is important to acknowledge related tasks that
+share similarities with image editing but differ in their objectives and methodologies. These tasks, such as conditional image
+generation, image restoration, and image composition, involve
+the creation, improvement, or compositing of images rather than
+the direct modification of existing content. Although these tasks
+are not the primary focus of this survey, understanding their
+distinctions and connections to image editing is crucial for a
+comprehensive view of how diffusion models are applied across
+various vision tasks.
+2.3.1 Conditional Image Generation
+Class-Conditioned Image Generation. Early efforts [35], [36],
+[88]–[91] usually incorporate the class-induced gradients via an
+additional pretrained classifier during sampling. However, Ho et
+al. [32] introduce the classifier-free guidance, which does not rely
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+4
+
+on an external classifier and allows for more versatile conditions,
+e.g., text, as guidance.
+Text-to-Image (T2I) Generation. GLIDE [38] is the first work
+that uses text to guide image generation directly from the highdimensional pixel level, replacing the label in class-conditioned
+diffusion models. Similarly, Imagen [31] uses a cascaded framework to generate high-resolution images more efficiently in pixel
+space. A different line of research first projects the image into a
+lower-dimensional space and then applies diffusion models in this
+latent space. Representative works include Stable Diffusion (SD)
+[30], VQ-diffusion [92], and DALL-E 2 [29]. Following these
+pioneering studies, a large number of works [41], [93]–[98] are
+proposed, advancing this field over the past two years.
+Additional Conditions. Beyond text, more specific conditions are
+also used to achieve higher fidelity and more precise control in
+image synthesis. GLIGEN [99] inserts a gated self-attention layer
+between the original self-attention and cross-attention layers in
+each block of a pretrained T2I diffusion model for generating
+images conditioned on grounding boxes. Make-A-Scene [100] and
+SpaText [101] use segmentation masks to guide the generation
+process. In addition to segmentation maps, ControlNet [102]
+can also incorporate other types of input, such as depth maps,
+normal maps, canny edges, pose, and sketches as conditions.
+Other methods [103]–[107] integrate diverse conditional inputs
+and include additional layers, enhancing the generative process
+controlled by these conditions.
+Personalized Image Generation. Closely related to image editing within conditional image generation is the task of creating
+personalized images. This task focuses on generating images that
+maintain a certain identity, typically guided by a few reference
+images of the same subject. Two early approaches are Textual
+Inversion [108] and DreamBooth [109]. Specifically, Textual Inversion learns a unique identifier word to represent a new subject
+and incorporates this word into the text encoder’s dictionary.
+DreamBooth binds a new rare word with a specific subject by
+finetuning the entire Imagen [31] model with a few reference
+images. For efficient training, some methods [110]–[112] depend
+on low-rank adaptation (LoRA) that focuses on adapting only
+a small subset of the model’s parameters. For example, Mixof-Show adopts embedding-decomposed LoRA (ED-LoRA) for
+single-concept learning and gradient fusion for multi-concept
+fusion. Following these foundational works, subsequent methods
+[113]–[124] provide more refined control over the generated
+images, enhancing the precision and accuracy of the output.
+Vector Graphics Generation. Scalable Vector Graphics (SVGs)
+can be scaled to any size, and are compact for digital icons,
+graphics, and stickers. VectorFusion [125] shows that a textconditioned diffusion model trained on pixel representations of
+images can be used to generate SVG-exportable vector graphics.
+DiffSketcher [126] creates vectorized sketches by optimizing a set
+of Bézier curves with the score distillation sampling loss. A recent
+work [127] proposes a dual-domain (vector-pixel) diffusion with
+cross-modality impulse signals from each other.
+
+multiple diffusion models in sequence, each generating images of
+increasing resolution. SRDiff [128] follows a close realization of
+SR3. The main distinction between SRDiff and SR3 is that SR3
+predicts the target image directly, whereas SRDiff predicts the
+difference between the input and output images.
+Restoration in Non-Spatial Spaces. Some diffusion model-based
+IR methods focus in other spaces. For example, Refusion [50],
+[130] employs a mean-reverting Image Restoration (IR)-SDE to
+transform target images into their degraded counterparts. They
+leverage an autoencoder to compress the input image into its
+latent representation, with skip connections for accessing multiscale details. Chen et al. [131] employ a similar approach by
+proposing a two-stage strategy called Hierarchical Integration
+Diffusion Model. The conversion from the spatial to the wavelet
+domain is lossless and offers significant advantages. For instance,
+WaveDM [54] modifies the low-frequency band, whereas WSGM
+[132] or ResDiff [47] conditions the high-frequency bands relative
+to the low-resolution image. BDCE [133] designs a bootstrap
+diffusion model in the depth curve space for high-resolution lowlight image enhancement.
+T2I Prior Usage. The incorporation of T2I information proves
+advantageous as it allows the usage of pretrained T2I models.
+These models can be finetuned by adding specific layers or
+encoders tailored to the IR task. Wang et al. put this concept
+into practice with StableSR [134]. Central to StableSR is a timeaware encoder trained in tandem with a frozen Stable Diffusion
+model [30]. This setup seamlessly integrates trainable spatial
+feature transform layers, enabling conditioning based on the input image. DiffBIR [135] uses pretrained T2I diffusion models
+for blind image restoration, with a two-stage pipeline and a
+controllable module. CoSeR [136] introduces Cognitive SuperResolution, merging image appearance and language understanding. SUPIR [137] leverages generative priors, model scaling, and
+a dataset of 20 million images for advanced restoration guided
+by textual prompts, featuring negative-quality prompts and a
+restoration-guided sampling method.
+Projection-Based Methods. These methods aim to extract inherent structures or textures from input images to complement the
+generated images at each step and to ensure data consistency.
+ILVR [52], which projects the low-frequency information from
+the input image to the output image, ensures data consistency and
+establishes an improved condition. To address this and enhance
+data consistency, some recent works [57], [58], [138] take a
+different approach by aiming to estimate the posterior distribution
+using the Bayes theorem.
+Decomposition-Based Methods. These methods view IR tasks
+as a linear reverse problem. Denoising Diffusion Restoration
+Models (DDRM) [53] utilizes a pretrained denoising diffusion
+generative model to address linear inverse problems, showcasing
+versatility across super-resolution, deblurring, inpainting, and colorization under varying levels of measurement noise. Denoising
+Diffusion Null-space Model (DDNM) [55] represents another
+decomposition-based zero-shot approach applicable to a broad
+range of linear IR problems beyond image SR, such as colorization, inpainting, and deblurring. It leverages the range-null
+space decomposition methodology [139], [140] to tackle diverse
+IR challenges effectively.
+
+2.3.2 Image Restoration and Enhancement
+Input Image as a Condition. Generative models have significantly contributed to diverse image restoration tasks, such as
+super-resolution (SR) and deblurring [6], [7], [33], [128], [129].
+Super-Resolution via Repeated Refinement (SR3) [44] utilizes
+DDPM for conditional image generation through a stochastic,
+iterative denoising process. Cascaded Diffusion Model [35] adopts
+
+2.3.3 Image Composition
+Image-Based Virtual Try-On. The goal of image-based virtual
+try-on (VTON) is to generate images of a person wearing a chosen
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+5
+
+garment while preserving the person’s identity and ensuring visual
+coherence [141], [142]. Traditional warp-based VTON methods
+[143]–[147] generally involve a two-step process: first, the garment is adjusted to match the target person’s pose, and then it is
+seamlessly overlaid onto the person’s image. Recently, with the
+rise of diffusion models, several VTON approaches [148]–[153]
+have emerged, leading to significant improvements in generating
+realistic and high-quality try-on images. For example, TryOnDiffusion [149] unifies two UNets to preserve garment details and
+warp the garment for significant pose and body change in a single
+network. LaDIVTON [150] maps garment features to the CLIP
+embeddings to condition the latent diffusion model along with
+the warped input. StableVITON [151] employs a specialized zero
+cross-attention block to establish a semantic connection between
+the garment and the person’s features.
+Image-Guided Object Composition. Image-guided object composition [165], [167], [238], [259], [260] incorporates specific
+objects and scenarios from user-provided photos, potentially with
+the assistance of a text prompt. Recent studies [165], [167]
+effectively incorporate additional guiding images into diffusion
+models through retraining pre-trained models on their datasets.
+TF-ICON [238] involves the gradual injection of composite selfattention maps through multiple samplers. PrimeComposer [261]
+formulates this task as a subject-guided local editing problem and
+depicts the object through attention steering.
+
+Repl.), background change (Bg. Chg.), and emotional
+expression modification (Emo. Expr. Mod.).
+Stylistic Editing: This category focuses on enhancing or
+transforming the visual style and aesthetic elements of an
+image without altering its narrative content. Tasks within
+this category include color change (Color Chg.), texture
+change (Text. Chg.), and overall style change (Style Chg.)
+encompassing both artistic and realistic styles.
+Structural Editing: This category pertains to changes in
+the spatial arrangement, positioning, viewpoints, and characteristics of elements within an image, emphasizing the
+organization and presentation of objects within the scene.
+Tasks within this category include object movement (Obj.
+Move.), object size and shape change (Obj. Size. Chg.),
+object action and pose change (Obj. Act. Chg.), and
+perspective/viewpoint change (Persp./View. Chg.).
+
+3
+
+S COPE AND C ATEGORIZATION
+
+Scope. In this survey, we concentrate on those works that most
+directly contribute to the field of image editing using diffusion
+models. To ensure a clear and focused discussion, this survey
+applies two primary criteria for the inclusion of works: (1) the
+task must focus on image editing, defined as modifying the appearance, structure, or content of existing images without significant
+transformations that would constitute new image generation, and
+(2) the methodology must depend on diffusion models performed
+on 2D images. Hence, works that utilize traditional image editing
+techniques or other generative models are excluded. Furthermore,
+works that rely on 3D knowledge are also not reviewed.
+Categorization. In this survey, we organize diffusion model-based
+image editing papers into three principle groups based on their
+learning strategies: training-based approaches, testing-time finetuning approaches, and training and finetuning free approaches,
+which are elaborated in Sections 4, 5, and 6, respectively. These
+learning strategies are defined by whether the methods require a
+substantial training phase, involve finetuning during the inference
+stage, or can perform without either, thus providing a comprehensive understanding of the resources and processes involved
+in applying these methods. Additionally, we explore 10 types of
+input conditions employed by these methods to control the editing
+process, including text, mask, reference (Ref.) image, class, layout,
+pose, sketch, segmentation (Seg.) map, audio, and dragging points.
+Furthermore, we investigate 12 most common editing types that
+can be accomplished by these methods, which are organized into
+three broad categories defined as follows.
+•
+
+Semantic Editing: This category encompasses alterations
+to the content and narrative of an image, affecting the depicted scene’s story, context, or thematic elements. Tasks
+within this category include object addition (Obj. Add.),
+object removal (Obj. Remo.), object replacement (Obj.
+
+•
+
+•
+
+Table 1 summarizes the multi-perspective categorization of the
+surveyed papers comprehensively, providing a quick search.
+
+4
+
+T RAINING -BASED A PPROACHES
+
+In the field of diffusion model-based image editing, training-based
+approaches refer to methods that require a substantial training
+phase on large datasets before they can be applied to specific
+editing tasks. These methods are notable for their stable training
+processes and effective modeling of data distribution, leading to
+reliable performance across a variety of editing scenarios. This
+section categorizes these methods into four main groups based on
+their application scopes, and the conditions required for training,
+as shown in Fig. 2. Further, within each of these primary groups,
+we classify the approaches into distinct types based on their core
+editing methodologies. This classification illustrates the range
+of these methods, from targeted domain-specific applications to
+broader open-world uses.
+4.1
+
+Domain-Specific Editing
+
+Over the past several years, Generative Adversarial Networks
+(GANs) have been widely explored in image editing for their ability to generate high-quality images. However, diffusion models,
+with their advanced image generation capabilities, emerge as a
+new focus in this field. One challenge with diffusion models is
+their need for extensive computational resources when trained on
+large datasets. To address this, earlier studies train these models on
+smaller specialized datasets, which highly concentrate on specific
+domains such as CelebA [262] and FFHQ [11] for human face
+manipulation, AFHQ [263] for animal face editing and translation,
+LSUN [264] for object modification, and WikiArt [265] for style
+transfer. To thoroughly understand these approaches, we organize
+them according to their types of supervision.
+CLIP Guidance. Drawing inspiration from GAN-based methods
+[266], [267] that use CLIP [268] for guiding image editing with
+text, several studies incorporate CLIP into diffusion models. A key
+example is DiffusionCLIP [154], which allows for image manipulation in both trained and new domains using CLIP. Specifically, it
+first converts a real image into latent noise using DDIM inversion,
+and then finetunes the pretrained diffusion model during the reverse diffusion process to adjust the image’s attributes constrained
+by a CLIP loss between the source and target text prompts. Instead
+of finetuning on the whole diffusion model, Asyrp [155] focuses
+on a semantic latent space internally, termed h-space, where it
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+6
+
+TABLE 1: Comprehensive categorization of diffusion model-based image editing methods from multiple perspectives. The methods are
+color-rendered according to training , testing-time finetuning , and training & finetuning free . Input conditions include text, class,
+reference (Ref.) image, segmentation (Seg.) map, pose, mask, layout, sketch, dragging points, and audio. Task capabilities—semantic,
+stylistic, and structural—are marked with checkmarks (✓) according to the experimental results provided in the source papers.
+Semantic Editing
+Method
+
+Condition(s)
+
+DiffusionCLIP [154]
+Asyrp [155]
+EffDiff [156]
+DiffStyler [157]
+
+Text, Class
+Text, Class
+Class
+Text, Class
+Ref. Image,
+Class
+Class
+Class
+Class
+Class
+Class
+Seg. Map, Class
+Ref. Image
+Ref. Image,
+Sketch
+Ref. Image
+Ref. Image,
+Layout
+Ref. Image,
+Mask, Text
+Ref. Image,
+Mask
+Text
+Ref. Image, Text
+Text, Mask
+Text
+Text, Mask
+Text, Mask
+Text
+Text, Mask, Ref.
+Image
+Text
+Text
+Text
+Text
+Text
+Text
+Text
+Text
+Text
+Ref. Image,
+Seg. Map, Pose
+Ref. Image,
+Audio, Text
+Text
+Text
+Text
+Text
+Text
+Text
+Text, Ref. Image
+Text
+Text
+Text
+Text
+Text
+
+StyleDiffusion [158]
+UNIT-DDPM [159]
+CycleNet [160]
+Diffusion Autoencoders [161]
+HDAE [162]
+EGSDE [163]
+Pixel-Guided Diffusion [164]
+PbE [165]
+RIC [166]
+ObjectStitch [167]
+PhD [168]
+DreamInpainter [169]
+Anydoor [170]
+FADING [171]
+PAIR Diffusion [172]
+SmartBrush [173]
+IIR-Net [174]
+PowerPaint [175]
+Imagen Editor [176]
+SmartMask [177]
+Uni-paint [178]
+InstructPix2Pix [179]
+MoEController [180]
+FoI [181]
+LOFIE [182]
+InstructDiffusion [183]
+Emu Edit [184]
+DialogPaint [185]
+Inst-Inpaint [186]
+HIVE [187]
+ImageBrush [188]
+InstructAny2Pix [189]
+MGIE [190]
+SmartEdit [191]
+iEdit [192]
+TDIELR [193]
+ChatFace [194]
+UniTune [195]
+Custom-Edit [196]
+KV-Inversion [197]
+Null-Text Inversion [198]
+DPL [199]
+DiffusionDisentanglement [200]
+Prompt Tuning Inversion [201]
+(Continued on the next page)
+
+Obj.
+Add.
+
+Obj.
+Remo.
+
+Obj. Bg.
+Repl. Chg.
+✓
+✓
+✓
+
+Stylistic Editing
+Emo.
+Expr.
+Mod.
+✓
+✓
+✓
+
+Color
+Chg.
+
+Style
+Chg.
+
+Text.
+Chg.
+
+✓
+
+✓
+
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+
+Structural Editing
+Obj.
+Obj. Persp.
+Obj.
+Size.
+Act. /View.
+Move.
+Chg.
+Chg.
+Chg.
+
+✓
+✓
+✓
+
+✓
+✓
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+✓
+✓
+
+✓
+✓
+
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+✓
+✓
+✓
+✓
+✓
+
+✓
+
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+
+✓
+
+✓
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+
+✓
+✓
+✓
+✓
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+
+✓
+✓
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+
+✓
+
+✓
+✓
+✓
+
+✓
+✓
+✓
+
+✓
+✓
+
+✓
+
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+✓
+✓
+✓
+✓
+✓
+
+✓
+
+✓
+✓
+✓
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+✓
+
+✓
+
+✓
+
+✓
+✓
+
+✓
+✓
+
+✓
+
+✓
+✓
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+✓
+
+✓
+
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+
+✓
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+7
+
+TABLE 1 (continued)
+Semantic Editing
+Method
+
+Condition(s)
+
+Obj.
+Add.
+
+StyleDiffusion [202]
+InST [203]
+DragonDiffusion [204]
+DragDiffusion [205]
+DDS [206]
+DiffuseIT [207]
+CDS [208]
+MagicRemover [209]
+Imagic [210]
+LayerDiffusion [211]
+Forgedit [212]
+SINE [213]
+PRedItOR [214]
+ReDiffuser [215]
+Captioning and Injection [216]
+InstructEdit [217]
+Direct Inversion [218]
+DDPM Inversion [219]
+SDE-Drag [220]
+LEDITS++ [221]
+FEC [222]
+EMILIE [223]
+Negative Inversion [224]
+ProxEdit [225]
+Null-Text Guidance [226]
+EDICT [227]
+AIDI [228]
+CycleDiffusion [229]
+InjectFusion [230]
+Fixed-point inversion [231]
+TIC [232]
+Diffusion Brush [233]
+Self-guidance [234]
+P2P [235]
+Pix2Pix-Zero [236]
+
+Text
+Text
+Dragging Points
+Dragging Points
+Text
+Text
+Text
+Text
+Text
+Mask, Text
+Text
+Text
+Text
+Text
+Text
+Text
+Text
+Text
+Layout
+Text
+Text
+Text
+Text
+Text
+Ref. Image, Text
+Text
+Text
+Text
+Ref. Image
+Text
+Text, Mask
+Text, Mask
+Layout
+Text
+Text
+Text, Pose,
+Sketch
+Text
+Text, Ref.
+Image, Mask
+Text
+
+✓
+
+MasaCtrl [87]
+PnP [237]
+TF-ICON [238]
+Object-Shape Variations [239]
+Conditional Score Guidance
+[240]
+EBMs [241]
+Shape-Guided Diffusion [242]
+HD-Painter [243]
+FISEdit [244]
+Blended Latent Diffusion [245]
+PFB-Diff [246]
+DiffEdit [247]
+RDM [248]
+MFL [249]
+Differential Diffusion [250]
+Watch Your Steps [251]
+Blended Diffusion [252]
+ZONE [253]
+Inpaint Anything [254]
+The Stable Artist [255]
+SEGA [256]
+LEDITS [257]
+OIR-Diffusion [258]
+
+Obj.
+Remo.
+
+✓
+
+Obj. Bg.
+Repl. Chg.
+✓
+
+✓
+
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+
+✓
+
+Stylistic Editing
+Emo.
+Expr.
+Mod.
+
+✓
+✓
+✓
+
+Color
+Chg.
+
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+
+✓
+
+✓
+✓
+✓
+
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+✓
+✓
+
+✓
+
+✓
+✓
+
+✓
+
+✓
+
+Text.
+Chg.
+
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+
+Style
+Chg.
+
+✓
+✓
+
+Structural Editing
+Obj.
+Obj. Persp.
+Obj.
+Size.
+Act. /View.
+Move.
+Chg.
+Chg.
+Chg.
+
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+✓
+
+✓
+✓
+✓
+✓
+
+✓
+✓
+✓
+✓
+
+✓
+✓
+✓
+
+✓
+✓
+✓
+
+✓
+✓
+✓
+
+✓
+
+✓
+✓
+✓
+✓
+✓
+
+✓
+✓
+✓
+✓
+✓
+
+✓
+
+✓
+
+✓
+✓
+✓
+✓
+✓
+
+✓
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+✓
+✓
+
+✓
+
+✓
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+
+✓
+✓
+
+✓
+
+✓
+
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+
+✓
+✓
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+
+✓
+
+✓
+✓
+
+✓
+
+✓
+✓
+✓
+
+✓
+
+✓
+
+✓
+✓
+
+Text
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+Text
+Text, Mask
+Text, Mask
+Text
+Text, Mask
+Text, Mask
+Text
+Text
+Text
+Text, Mask
+Text
+Text, Mask
+Text, Mask
+Text, Mask
+Text
+Text
+Text
+Text
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+✓
+
+✓
+
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+
+✓
+✓
+✓
+✓
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+
+✓
+✓
+✓
+✓
+
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+✓
+
+✓
+✓
+✓
+✓
+✓
+✓
+
+✓
+✓
+✓
+
+✓
+✓
+
+✓
+✓
+✓
+✓
+
+✓
+✓
+✓
+✓
+
+✓
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+8
+
+Domain-Specific Editing
+
+DiffusionCLIP [154], Asyrp [155], EffDiff [156], DiffStyler [157], StyleDiffusion [158], UNIT-DDPM [159],
+CycleNet [160], Diffusion Autoencoders [161], HDAE [162], EGSDE [163], Pixel-Guided Diffusion [164]
+
+Reference and Attribute
+Guided Editing
+
+PbE [165], RIC [166], ObjectStitch [167], PhD [168], DreamInpainter [169], Anydoor [170], FADING [171],
+PAIR Diffusion [172], SmartBrush [173], IIR-Net [174], PowerPaint [175], Imagen Editor [176],
+SmartMask [177],Uni-paint [178]
+
+Training-Based
+Approaches (Section 4 )
+Instructional Editing
+
+InstructPix2Pix [179], MoEController [180], FoI [181], LOFIE [182], InstructDiffusion [183], Emu Edit [184],
+DialogPaint [185], Inst-Inpaint [186], HIVE [187], ImageBrush [188], InstructAny2Pix [189], MGIE [190],
+SmartEdit [191]
+
+Pseudo-Target Retrieval Based Editing
+
+iEdit [192], TDIELR [193], ChatFace [194]
+
+Fig. 2: Taxonomy of training-based approaches for image editing.
+defines an additional implicit function parameterized by a small
+neural network. Then it trains the network with the guidance
+of the CLIP loss while keeping the diffusion model frozen. To
+address the time-consuming problem of multi-step optimization
+in DiffusionCLIP, EffDiff [156] introduces a faster method with
+single-step training and efficient processing.
+Beyond face editing the above methods primarily focus on,
+DiffStyler [157] and StyleDiffusion [158] target artistic style transfer. DiffStyler uses a CLIP instruction loss for the alignment of
+target text descriptions and generated images, along with a CLIP
+aesthetic loss for visual quality enhancement. StyleDiffusion, on
+the other hand, introduces a CLIP-based style disentanglement
+loss to improve the style-content harmonization.
+Cycling Regularization. Since diffusion models are capable of
+domain translation, the cycling framework used in methods like
+CycleGAN [14] is also explored within them. For example,
+UNIT-DDPM [159] defines a dual-domain Markov chain within
+diffusion models, using cycle consistency to regularize training for
+unpaired image-to-image translation. Similarly, CycleNet [160]
+adopts ControlNet [102] with pretrained Stable Diffusion [30] as
+the backbone for text conditioning. It employs consistency regularization throughout the image translation cycle, encompassing both
+forward translation from the source domain to the target domain
+and backward translation in the reverse direction.
+Projection and Interpolation. Another technique frequently used
+in GANs [269], [270] involves projecting two real images into the
+GAN latent space and then interpolating between them for smooth
+image manipulation, which is also adopted in some diffusion
+models for image editing. For instance, Diffusion Autoencoders
+[161] introduces a semantic encoder to map an input image to
+a semantically meaningful embedding, which then serves as a
+condition of a diffusion model for reconstruction. After training
+the semantic encoder and the conditional diffusion model, any
+image can be projected into this semantic space for interpolation.
+However, HDAE [162] points out that this approach tends to
+miss rich low-level and mid-level features. It addresses this by
+enhancing the framework to hierarchically exploit the coarse-tofine features of both the semantic encoder and the diffusion-based
+decoder, aiming for more comprehensive representations.
+Classifier Guidance. Some studies enhance image editing performance by introducing an additional pretrained classifier for
+guidance. EGSDE [163], for example, uses an energy function to
+guide the sampling for realistic unpaired image-to-image translation. This function consists of two log potential functions specified
+by a time-dependent domain-specific classifier and a low-pass
+filter, respectively. For fine-grained image editing, Pixel-Guided
+Diffusion [164] trains a pixel-level classifier to both estimate
+segmentation maps and guide the sampling with its gradient.
+
+4.2
+
+Reference and Attribute Guided Editing
+
+This category of works extracts attributes or other information
+from single images to serve as conditions for training diffusionbased image editing models in a self-supervised manner. They can
+be classified into two types: reference-based image composition
+and attribute-controlled image editing.
+Reference-Based Image Composition. To learn how to composite images, PbE [165] is trained in a self-supervised manner using
+the content inside the object’s bounding box of an image as the
+reference image, and the content outside this bounding box as the
+source image. To prevent the trivial copy-and-paste solution, it
+applies strong augmentations to the reference image, creates an
+arbitrarily shaped mask based on the bounding box, and employs
+the CLIP image encoder to compress information of the reference
+image as the condition of the diffusion model.
+Building upon this, RIC [166] incorporates sketches of the
+masked areas as control conditions for training, allowing users
+to finely tune the effects of reference image synthesis through
+sketches. ObjectStitch [167] designs a Content Adaptor to better
+preserve the key identity information of the reference image.
+Meanwhile, PhD [168] trains an Inpainting and Harmonizing module on a frozen pretrained diffusion model for efficiently guiding
+the inpainting of masked areas. To preserve the low-level details of
+the reference image for inpainting, DreamInpainter [169] utilizes
+the downsampling network of U-Net to extract its features. During
+the training process, it adds noise to the entire image, requiring
+the diffusion model to learn how to restore the clear image under
+the guidance of a detailed text description. Furthermore, Anydoor
+[170] uses image pairs from video frames as training samples
+to enhance image composition quality, and introduces modules
+for capturing identity features, preserving textures, and learning
+appearance changes.
+Attribute-Controlled Image Editing. This type of papers typically involves augmenting pretrained diffusion models with specific image features as control conditions to learn the generation
+of corresponding images. This approach allows for image editing
+by altering these specific control conditions. After training on
+age-text-face pairs, FADING [171] edits facial images through
+null-text inversion and attention control for age manipulation.
+PAIR Diffusion [172] perceives images as a collection of objects,
+learning to modulate each object’s properties, specifically structure
+and appearance. SmartBrush [173] employs masks of varying
+granularities as control conditions, enabling the diffusion model
+to inpaint masked regions according to the text and the shape of
+the mask. To better preserve image information that is irrelevant to
+the editing text, IIR-Net [174] performs color and texture erasure
+in the required areas. The resulting image, post-erasure, is then
+used as one of the control conditions for the diffusion model.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+4.3
+
+9
+
+Instructional Editing
+
+Using instructions (e.g., “Remove the hat”) to drive the image
+editing process as opposed to using a description of the edited
+image (e.g., “A puppy with a hat and a smile”) seems more natural,
+humanized, and more accurate to the user’s needs. InstructPix2Pix
+[179] is the first study that learns to edit images following human
+instructions. Subsequent works have improved upon it in terms
+of model architecture, dataset quality, multi-modality, and so on.
+Therefore, we first describe InstructPix2Pix, and then categorize
+and present the subsequent works based on their most prominent
+contributions. Correspondingly, a common framework of these
+instruction-based methods is depicted in Fig. 3.
+InstructPix2Pix Framework. One of the major challenges in
+enabling diffusion models to edit images according to instructions
+is the construction of the instruction-image paired dataset. InstructPix2Pix generates these image pairs in two steps. First, given
+an image caption (e.g., “photograph of a girl riding a horse”),
+it uses a finetuned GPT-3 [271] to generate both an instruction
+(e.g., “have her ride a dragon.”) and an edited image caption (e.g.,
+“photograph of a girl riding a dragon”). Second, it employs Stable
+Diffusion and the Prompt-to-Prompt algorithm [235] to generate
+edited images, collecting over 450,000 training image pairs. Then
+it trains an instructional image editing diffusion model in a fully
+supervised manner, taking into account the conditions of the input
+image and the instruction.
+Model Architecture Enhancement. MoEController [180] introduces a Mixture-of-Expert (MOE) architecture, which includes
+three specialized experts for fine-grained local translation, global
+style transfer, and complex local editing tasks. On the other
+hand, FoI [181] harnesses the implicit grounding capabilities of
+InstructPix2Pix to identify and focus on specific editing regions. It
+also employs cross-condition attention modulation to ensure each
+instruction targets its corresponding area, reducing interference
+between multiple instructions.
+Data Quality Enhancement. LOFIE [182] enhances the quality
+of training datasets by leveraging recent advances in segmentation
+[272], Chain-of-Thought prompting [273], and visual question
+answering (VQA) [274]. MagicBrush [275] hires crowd workers
+from Amazon Mechanical Turk (AMT) to manually perform
+continuous edits using DALL-E 2 [29]. It comprises 5,313 edit sessions and 10,388 edit turns, thereby establishing a comprehensive
+benchmark for instructional image editing. InstructDiffusion [183]
+is a unified framework that treats a diverse range of vision tasks
+as human-intuitive image-manipulating processes, i.e., keypoint
+detection, segmentation, image enhancement, and image editing.
+For image editing, it not only utilizes existing datasets but also
+augmentes them with additional data generated using tools for
+object removal and replacement, and by collecting image editing
+pairs from real-world Photoshop requests on the internet. Emu
+Edit [184] is also trained on both image editing and recognition
+data, leveraging a dataset comprising 16 distinct tasks with 10
+million examples. The dataset is created using Llama 2 [276]
+and in-context learning to generate diverse and creative editing
+instructions. During training, the model learns task embeddings in
+conjunction with its weights, enabling efficient adaptation to new
+tasks with only a few examples.
+DialogPaint [185] aims to extract user’s editing intentions
+during a multi-turn dialogue process and edit images accordingly.
+It employs the self-instruct technique [277] on GPT-3 to create a
+multi-turn dialogue dataset and, in conjunction with four image
+
+Fig. 3: Common framework of instructional image editing methods. The sample images are from InstructPix2Pix [179], InstructAny2Pix [189] and MagicBrush [275].
+editing models, generates an instructional image editing dataset.
+Additionally, the authors finetune the Blender dialogue model
+[278] to generate corresponding editing instructions based on the
+dialogue data, which then drives the trained instruction editing
+model to edit images.
+Inst-Inpaint [186] allows users to specify objects to be removed from an image simply through text commands, without
+the need for binary masks. It constructs a dataset named GQAInpaint, based on the image and scene graph dataset GQA [279].
+It first selects objects and their corresponding relationships from
+the scene graph, and then uses Detectron2 [280] and Detic [281]
+to extract the segmentation masks of these objects. Afterward,
+it employs CRFill [282] to generate inpainted target images.
+The editing instructions are generated through fixed templates.
+After constructing the dataset, Inst-Inpaint is trained to perform
+instructional image inpainting.
+Human Feedback-Enhanced Learning. To improve the alignment between edited images and human instructions, HIVE
+[187] introduces Reinforcement Learning from Human Feedback
+(RLHF) in instructional image editing. After obtaining a base
+model following [179], a reward model is then trained on a human
+ranking dataset. The reward model’s estimation is integrated into
+the training process to finetune the diffusion model, aligning it
+with human feedback.
+Visual Instruction. ImageBrush [188] is proposed to learn visual
+instruction from a pair of transformation images that illustrate
+the desired manipulation, and to apply this instruction to edit a
+new image. The method concatenates example images, the source
+image, and a blank image into a grid, using a diffusion model
+to iteratively denoise the blank image based on the contextual
+information provided by the example images. Additionally, a
+visual prompting encoder is proposed to extract features from the
+visual instructions to enhance the diffusion process.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+Leveraging Multimodal Large-Scale Models. InstructAny2Pix
+[189] enables users to edit images through instructions that integrate audio, image, and text. It employs ImageBind [283], a
+multimodal encoder, to convert diverse inputs into a unified latent
+space representation. Vicuna-7b [284], a large language model
+(LLM), encodes the multimodal input sequence to predict two
+special tokens as the conditions to align the multimodal inputs
+with the editing results of the diffusion model.
+MGIE [190] inputs the image and instruction, along with
+multiple [IMG] tokens, into the Multimodal Large Language
+Model (MLLM), LLaVA [285]. It then projects the hidden state of
+[IMG] in the penultimate layer into the cross attention layer of the
+UNet in Stable Diffusion. During the training process, the weights
+of LLaVA and Stable Diffusion are jointly optimized.
+Similarly, SmartEdit [191] employs LLaVA and additionally
+introduces a Bidirectional Interaction Module (BIM) to perform
+image editing in complex scenarios. It first aligns the MLLM’s
+hidden states with the CLIP text encoder using QFormer [274],
+and then it facilitates the fusion between the image feature and the
+QFormer output through BIM. Besides, it leverages perceptionrelated data, such as segmentation data, to strengthen the model’s
+understanding of spatial and conceptual attributes. Additionally, it
+incorporates synthetic editing data in complex understanding and
+reasoning scenarios to activate the MLLM’s reasoning ability.
+4.4
+
+Pseudo-Target Retrieval Based Editing
+
+Since obtaining edited images that accurately represent the ground
+truth is challenging, the methods in this category aim to retrieve
+pseudo-target images or directly use CLIP scores [268] as the
+objective to optimize model parameters. iEdit [192] trains the
+diffusion model with weak supervision, utilizing CLIP to retrieve
+and edit the dataset images that are most similar to the editing text,
+serving as pseudo-target image post-editing. Additionally, it incorporates masks into the image editing process to enable localized
+preservation by CLIPSeg [286]. To effectively tackle region-based
+image editing, TDIELR [193] initially processes the input image
+using DINO [287] to generate attention maps and features for
+anchor initialization. It learns a region generation network (RGN)
+to select the most fitting region proposals. The chosen regions and
+text descriptions are then fed into a pretrained text-to-image model
+for editing. TDIELR employs CLIP to calculate scores, assessing
+the similarity between the text descriptions and editing results,
+providing a training signal for RGN. Furthermore, ChatFace [194]
+also utilizes CLIP scores as a metric to learn how to edit on real
+facial images.
+
+5
+
+10
+
+Fig. 4: Testing-time finetuning framework with different finetuning components. The sample images are from Custom-Edit [196].
+5.1
+
+Denoising Model Finetuning
+
+The denoising model is the central component in image generation and editing. Directly finetuning it is a simple and effective
+approach. Consequently, many editing methods are based on this
+finetuning process. Some of them involve finetuning the entire
+denoising model, while others focus on finetuning specific layers
+within the model.
+Finetuning Entire Denoising Models. Finetuning the entire
+denoising model allows the model to better learn specific features
+of images and more accurately interpret textual prompts, resulting
+in edits that more closely align with user intent. UniTune [195]
+finetunes the diffusion model on a single base image during the
+tuning phase, encouraging the model to produce images similar to
+the base image. During the sampling phase, a modified sampling
+process is used to balance fidelity to the base image and alignment
+to the editing prompt. This includes starting sampling from a noisy
+version of the base image and applying classifier-free guidance
+during the sampling process. Custom-Edit [196] uses a small set
+of reference images to personalize the diffusion model, enhancing
+the similarity of the edited image to the reference images while
+maintaining the similarity to the source image.
+Partial Parameter Finetuning in Denoising Models. Some
+methods focus on finetuning specific parts of the denoising model,
+such as the self-attention layers, cross-attention layers, encoder, or
+decoder. This type of finetuning is more precise, largely preserving
+the capabilities of the pretrained models and building upon them.
+KV Inversion [197], by learning keys (K) and values (V), designs
+an enhanced version of self-attention, termed Content-Preserving
+Self-Attention (CP-attn). This effectively addresses the issue of
+action editing on real images while maintaining the content and
+structure of the original images. It offers an efficient and flexible
+solution for image editing without the need for model finetuning
+or training on large-scale datasets.
+
+T ESTING -T IME F INETUNING A PPROACHES
+
+Testing-time finetuning approaches usually do not involve a traditional pre-training phase but instead require finetuning during
+the inference (testing-time) stage for each specific image to be
+edited. These methods are designed to optimize the model’s
+performance for individual images, allowing for more precise
+and personalized edits. This section explores various finetuning
+strategies, as shown in Fig. 4 and Fig. 5, ranging from finetuning
+the entire model to adjusting specific layers or embeddings. These
+methods collectively demonstrate the evolving complexity and
+effectiveness of finetuning techniques in image editing, catering
+to various editing requirements and user intentions.
+
+5.2
+
+Embedding Finetuning
+
+Many finetuning approaches opt to target either text or nulltext embeddings for refinement, allowing for better integration
+of embeddings with the generative process to achieve enhanced
+editing outcomes.
+Null-Text Embedding Finetuning. The goal of null-text embedding finetuning is to solve the problem of reconstruction failures
+in DDIM Inversion [18] and thus improve the consistency with the
+original image. In Null-Text Inversion [198], DDIM Inversion is
+first applied to the original image to obtain the inversion trajectory.
+Then, during the sampling process, the null-text embedding is
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+Denoising Model Finetuning
+Embedding Finetuning
+Testing-Time Finetuning
+Approaches (Section 5)
+
+UniTune [195], Custom-Edit [196], KV-Inversion [197]
+Null-Text Inversion [198], DPL [199], DiffusionDisentanglement [200], Prompt Tuning Inversion [201]
+
+Guidance with a Hypernetwork
+Latent Variable Optimization
+Hybrid Finetuning
+
+11
+
+StyleDiffusion [202], InST [203]
+DragonDiffusion [204], DragDiffusion [205], DDS [206], DiffuseIT [207], CDS [208], MagicRemover [209]
+
+Imagic [210], LayerDiffusion [211], Forgedit [212], SINE [213]
+
+Fig. 5: Taxonomy of testing-time finetuning approaches for image editing.
+finetuned to reduce the distance between the sampling trajectory
+and the inversion trajectory so that the sampling process can
+reconstruct the original image. The advantage of this approach
+is that neither the U-Net weights nor the text embedding are
+changed, so it is possible to improve reconstruction performance
+without changing the target prompt set by the user. Similarly,
+DPL [199] dynamically updates nouns in the text prompt with a
+leakage fixation loss to address cross-attention leakage. The nulltext embedding is finetuned to ensure high quality cross-attention
+maps and accurate image reconstruction.
+Text Embedding Finetuning. Finetuning embeddings derived
+from input text can enhance image editing, making edited images
+more aligned with conditional characteristics. DiffusionDisentanglement [200] introduces a simple lightweight image editing
+algorithm that achieves style matching and content preservation by
+optimizing the blending weights of two text embeddings. This process involves optimizing about 50 parameters, with the optimized
+weights generalizing well across different images. Prompt Tuning
+Inversion [201] designs an accurate and fast inversion technique
+for text-based image editing, comprising a reconstruction phase
+and an editing phase. In the reconstruction phase, it encodes the
+information of the input image into a learnable text embedding.
+During the editing phase, a new text embedding is computed
+through linear interpolation, combining the target embedding with
+the optimized one to achieve effective editing while maintaining
+high fidelity.
+5.3
+
+Guidance with a Hypernetwork
+
+Beyond conventional generative frameworks, some methods incorporate a custom network to better align with specific editing
+intentions. StyleDiffusion [202] introduces a Mapping Network
+that maps features of the input image to an embedding space
+aligned with the embedding space of textual prompts, effectively generating a prompt embedding. Cross-attention layers are
+used to combine textual prompt embeddings with image feature
+representations. These layers achieve text-image interaction by
+computing attention maps of keys, values, and queries. InST [203]
+integrates a multi-layer cross-attention mechanism in its Textual
+Inversion segment to process image embeddings. The learned key
+information is transformed into a text embedding, which can be
+seen as a “new word” representing the unique style of the artwork,
+effectively expressing its distinctive style.
+5.4
+
+Latent Variable Optimization
+
+The direct optimization of an image’s latent variable is also a
+technique employed during the finetuning process. This approach
+involves directly optimizing the noisy latents by introducing certain loss function relationships and features of some intermediate
+layers instead of optimizing the parameters of the generator or the
+
+embedded conditional parameters. Utilizing a pretrained diffusion
+model, most methods acquire its capability to perform image
+translation without the need of paired training data.
+Human-Guided Optimization of Latent Variables. This approach allows users to participate in the image editing process, guiding the generation of images. Represented by DragGAN [288], this interactive editing process enables users to
+specify and move specific points within an image to new locations while keeping the rest of the image unchanged. DragGAN
+achieves this editing by optimizing the latent space of GANs. Subsequently, there are developments based on diffusion models, such
+as DragonDiffusion [204], which constructs an energy function in
+the intermediate features of the diffusion model to guide editing. This enables image editing guidance directly through image
+features, independent of textual descriptions. DragDiffusion [205]
+concentrates on optimizing the diffusion latent representations at
+a specific time step, rather than across multiple time steps. This
+design is based on the observation that the U-Net feature maps
+at a particular time step offer ample semantic and geometric
+information to facilitate drag-and-drop editing.
+Utilizing Network Layers and Input for Optimizing Latent
+Variables. Some optimization methods utilize embeddings or network features derived from input condition to construct loss functions, thereby enabling direct optimization of latent variables. The
+DDS [206] method leverages two image-text pairs: one comprising
+a source image and its descriptive text, and the other a target
+image with its corresponding descriptive text. DDS calculates the
+discrepancy between these two image-text pairs, deriving the loss
+through this comparison. The loss function in DiffuseIT [207] also
+incorporates the use of the CLIP model’s text and image encoders
+to compute the similarity between the target text and the source
+image. CDS [208] integrates a contrastive learning loss function
+into the DDS framework, utilizing the spatially rich features of the
+self-attention layers of LDM [30] to guide image editing through
+contrastive loss calculation.
+5.5
+
+Hybrid Finetuning
+
+Some works combine the various finetuning approaches mentioned above, which can be sequential, with stages of tuning
+occurring in series, or conducted simultaneously as part of a
+single integrated workflow. Such composite finetuning methods
+can achieve targeted and effective image editing.
+Text Embedding & Denoising Model Finetuning. Imagic [210]
+implements its goal in stages, starting with converting target text
+into a text embedding, which is then optimized to reconstruct an
+input image by minimizing the difference between the embedding
+and the image. Simultaneously, the diffusion model is finetuned
+for better image reconstruction. A midpoint is found through linear
+interpolation between the optimized text embedding and the target
+text, combining features of both. This embedding is then used by
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+Input Text Refinement
+
+Inversion/Sampling
+Modification
+Training and Finetuning Free
+Approaches (Section 6)
+
+Attention
+Modification
+Mask
+Guidance
+
+12
+
+PRedItOR [214], ReDiffuser [215], Captioning and Injection [216], InstructEdit [217]
+Direct Inversion [218], DDPM Inversion [219], SDE-Drag [220], LEDITS++ [221], FEC [222],
+EMILIE [223], Negative Inversion [224], Proximal Inversion [225], Null-Text Guidance [226],
+EDICT [227], AIDI [228], CycleDiffusion [229], InjectFusion [230], Fixed-point inversion [231],
+TIC [232], Diffusion Brush [233], Self-guidance [234]
+
+P2P [235], Pix2Pix-Zero [236], MasaCtrl [87], PnP [237], TF-ICON [238], Object-Shape Variations [239],
+Conditional Score Guidance [240], EBMs [241], Shape-Guided Diffusion [242], HD-Painter [243]
+FISEdit [244], Blended Latent Diffusion [245], PFB-Diff [246], DiffEdit [247], RDM [248], MFL [249],
+Differential Diffusion [250], Watch Your Steps [251], Blended Diffusion [252], ZONE [253], Inpaint Anything [254]
+
+Multi-Noise Redirection
+
+The Stable Artist [255], SEGA [256], LEDITS [257], OIR-Diffusion [258]
+
+Fig. 6: Taxonomy of training and finetuning free approaches for image editing.
+the finetuned diffusion model to generate the final edited image.
+LayerDiffusion [211] optimizes text embeddings to match an input
+image’s background and employs a layered diffusion strategy to
+finetune the model, enhancing its ability to maintain subject and
+background consistency. Forgedit [212] focuses on rapid image
+reconstruction and finding suitable text embeddings for editing,
+utilizing the diffusion model’s encoder and decoder for learning
+image layout and texture details, respectively.
+Text Encoder & Denoising Model Finetuning. SINE [213]
+initially finetunes the text encoder and the denoising model to
+better understand the content and geometric structure of individual
+images. It introduces a patch-based finetuning strategy, allowing
+the model to generate images at any resolution, not just the fixed
+resolution of the pretrained model. Through this finetuning and
+patch training, SINE is capable of handling single-image editing
+tasks, including but not limited to style transfer, content addition,
+and object manipulation.
+
+6
+
+T RAINING AND F INETUNING F REE A PPROACHES
+
+Training and finetuning free approaches start from the premise
+that they are fast and low-cost. They do not require any form of
+training (on the dataset) or finetuning (on the source image) during
+the editing process. This section categorizes these methods into
+five groups based on the specific elements they modify within the
+image, as shown in Figs. 6 and 7, highlighting how they leverage
+the inherent principles of diffusion models for efficient editing.
+6.1
+
+a user-friendly image editing method by employing a captioning
+model such as BLIP [289] and prompt injection techniques [216]
+to augment input text embeddings. This method allows the user
+to provide minimal text input, such as a single noun, and then
+automatically generates or optimizes detailed prompts that effectively guide the editing process, resulting in more accurate and
+contextually relevant image editing.
+Instruction-Based Textual Guidance. This category enables finegrained control over the image editing process via user instructions. It represents a significant step forward in that users to
+steer the editing process with less technical expertise. InstructEdit
+[217] introduces a framework comprising a language processor, a
+segmentation model like SAM [272], and an image editing model.
+The language processor interprets user instructions into segmentation prompts and captions, which are subsequently utilized to
+create masks and guide the image editing process. This approach
+shows the capability of instruction-based textual guidance in
+achieving detailed and precise image editing.
+
+Input Text Refinement
+
+Input text refinement in the realm of image editing marks a
+significant progression in refining the text-to-image translation
+mechanism. This approach emphasizes the enhancement of text
+embeddings and the streamlining of user inputs, trying to guarantee that images are modified both accurately and contextually in
+accordance with the given text. It enables conceptual modifications
+and intuitive user instructions, getting rid of the necessity for
+complex model modifications.
+Enhancement of Input Text Embeddings. These methods concentrate on the refinement of text embeddings to modify the
+text-to-image translation. PRedItOR [214] enhances input text
+embeddings by leveraging a diffusion prior model to perform
+conceptual edits in the CLIP image embedding space, allowing
+for more nuanced and context-aware image editing. ReDiffuser
+[215] generates rich prompts through regeneration learning, which
+are then fused to guide the editing process, ensuring that the
+desired features are enhanced while maintaining the source image
+structure. Additionally, Captioning and Injection [216] introduces
+
+6.2
+
+Inversion/Sampling Modification
+
+Modification of inversion and sampling formulas are common
+techniques in training and finetuning free methods [218], [219],
+[224]. The inversion process is used to invert a real image into
+a noisy latent space, and then the sampling process is used to
+generate an edited result given the target prompt. Among them,
+DDIM Inversion [18] is the most commonly used baseline method,
+although it often leads to the failure of reconstructing the source
+image [219], [224], [227]. Direct Inversion [218] pioneers a
+paradigm that edits a real image by changing the source prompt to
+the target prompt, showcasing its ability to handle diverse tasks.
+However, it still faces the reconstruction failure problem. Thus,
+several methods [219], [224], [227] modify the inversion and
+sampling formulas to improve the reconstruction capability.
+Reconstruction Information Memory. DDPM Inversion [219],
+SDE-Drag [220], LEDITS++ [221], FEC [222], and EMILIE [223] all belong to the category of reconstruction information
+memory; they save the information in the inversion stage and
+use it in the sampling stage to ensure reconstruction. DDPM
+Inversion explores the latent noise space of DDPM, by preserving
+all noisy latents during the inversion stage, thus achieving userfriendly image editing while ensuring reconstruction performance.
+SDE-Drag introduces stochastic differential equations as a unified
+and improved framework for editing and shows its superiority
+in drag-conditioned editing. LEDITS++ addresses inefficiencies
+in DDIM Inversion, presenting a DPM-Solver [90] inversion approach. FEC focuses on consistency enhancement, providing three
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+13
+
+Fig. 7: Common framework of training and finetuning free methods, where the modifications described in different sections are
+indicated. The sample images are from LEDITS++ [221].
+techniques for saving the information during inversion to improve
+the reconstruction consistency. EMILIE pioneers iterative multigranular editing, offering iterative capabilities and multi-granular
+control for desired changes. These methods ensure reconstruction
+performance by memorizing certain inversion information, and on
+this basis, enhance the diversity of editing operations.
+Utilising Null-Text in Sampling. Negative Inversion [224], ProxEdit [225], and Null-Text Guidance [226] all explore the impact of null-text (also known as negative prompts) information
+on image editing. Negative Inversion uses the source prompt
+as the negative prompt during sampling, achieving comparable
+reconstruction quality to optimization-based approaches. ProxEdit
+addresses degradation in DDIM Inversion reconstruction with
+larger classifier-free guidance scales, and proposes an efficient
+solution through proximal guidance and mutual self-attention control. Meanwhile, Null-Text Guidance [226] leverages a disturbance
+scheme to transform generated images into cartoons without the
+need for training. Despite the different uses of null-text by these
+methods, they all explore the role of null-text or negative prompt
+settings in image editing from different perspectives.
+Single-Step Multiple Noise Prediction. EDICT [227] and
+AIDI [228] propose to predict multiple noises during single-step
+sampling to solve the problem of reconstruction failure. EDICT,
+drawing inspiration from affine coupling layers [227], achieves
+mathematically exact inversion of real images. It maintains coupled noise vectors, enabling precise image reconstruction without
+local linearization assumptions, outperforming DDIM Inversion.
+On the other hand, AIDI introduces accelerated iterative diffusion
+inversion, and focuses on improving reconstruction accuracy by
+predicting multiple noises during single-step inversion. By employing a blended guidance technique, AIDI demonstrates effective results in various image editing tasks with a low classifier-free
+guidance scale ranging from 1 to 3.
+6.3
+
+Attention Modification
+
+Attention modification methods enhance the operations in the
+attention layers, which is the most common and direct way of
+training-free image editing. In the U-Net of Stable Diffusion, there
+are many cross-attention and self-attention layers, and the attention
+maps and feature maps in these layers contain a lot of semantic
+information. The common characteristic of attention modification
+entails discerning the intrinsic principles in the attention layers,
+and then utilizing them by modifying the attention operations.
+
+Prompt-to-Prompt (P2P) [235] is the pioneering research of attention modification.
+Attention Map Replacement. P2P introduces an intuitive
+prompt-to-prompt editing framework reliant solely on text inputs
+by identifying cross-attention layers as pivotal in governing the
+spatial relationship between image layout and prompt words.
+As shown in Fig. 7, given the reconstruction and editing paths,
+P2P replaces the attention maps of the editing path with the
+corresponding ones of the reconstruction path, resulting in consistency between the edited result and the source image. Unlike
+P2P, Pix2Pix-Zero [236] eliminates the need for user-defined text
+prompts in real image editing. It autonomously discovers editing
+directions in the text embedding space, preserving the original
+content structure. Also, it introduces cross-attention guidance in
+the U-Net to retain input image features.
+Attention Feature Replacement. Both MasaCtrl [87] and
+PnP [237] emphasize replacing the attention features for consistency. MasaCtrl converts self-attention into mutual self-attention,
+which replaces the Key and Value features in the self-attention
+layer for action editing. A mask-guided mutual self-attention
+strategy further enhances consistency by addressing confusion of
+foreground and background. PnP enables fine-grained control over
+generated structures through spatial feature manipulation and selfattention, directly injecting guidance image features. While both
+contribute to feature replacement, MasaCtrl focuses on the Key
+and Value in the self-attention layer, while PnP emphasizes the
+Query and Key in the self-attention layer.
+Local Attention Map Modification. The TF-ICON [238] framework and Object-Shape Variation [239] share the utilization of
+local attention map modification. TF-ICON focuses on crossdomain image-guided composition, seamlessly integrating userprovided objects into visual contexts without additional training.
+It introduces the exceptional prompt for accurate image inversion
+and deformation mapping of the source image self-attention.
+Meanwhile, Object-Shape Variation [239] aims to generate collections depicting shape variations of specific objects in text-toimage workflows. It employs prompt-mixing for shape choices
+and proposes a localization technique using self-attention layers.
+Attention Score Guidance. Both Conditional Score Guidance [240] and EBMs [241] work on using different attention
+score guidances. Conditional Score Guidance focuses on imageto-image translation by introducing a conditional score function.
+This function considers both the source image and text prompt
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+14
+
+to selectively edit regions while preserving others. The mixup
+technique enhances the fusion of unedited and edited regions,
+ensuring high-fidelity translation. EBMs tackle the problem of
+semantic misalignment with the target prompt. It introduces an
+energy-based framework for adaptive context control, modeling
+the posterior of context vectors to enhance semantic alignment.
+6.4
+
+Mask Guidance
+
+Mask guidance in diffusion-based image editing represents a kind
+of techniques for enhancing image editing. It includes techniques
+for enhancing denoising efficiency through selective processing,
+precise mask auto-generation for targeted image editing, and
+mask-guided regional focus to ensure localized modifications
+aligning accurately with specific regions of interest. These approaches leverage masks to steer and refine the sampling process,
+offering improved precision, speed, and flexibility.
+Mask-Enhanced Denoising Efficiency. These methods utilize
+masks to enhance the efficiency of diffusion-based image editing.
+The methods [244]–[246] prioritize speed improvements while
+ensuring high-quality results. By selectively processing image
+regions through masks, they effectively reduce computational
+demands and enhance overall efficiency. FISEdit [244] introduces
+a cache-enabled sparse diffusion model that leverages semantic
+mapping between the minor modifications on the input text and
+the affected regions on the output image. It automatically identifies
+the affected image regions and utilizes the cached unchanged
+regions’ feature map to accelerate the inference process. Blended
+Latent Diffusion [245] leverages the text-to-image Latent Diffusion Model [30], which accelerates the diffusion process by
+functioning within a lower-dimensional latent space, and effectively obviates the requirement for gradient computations of CLIP
+[268] at every timestep of the diffusion model. PFB-Diff [246]
+seamlessly integrates text-conditioned generated content into the
+target image through multi-level feature blending and introduces
+an attention masking mechanism in the cross-attention layers to
+confine the impact of specific words to desired regions, improving
+the performance of background editing.
+Mask Auto-Generation. These methods enable precise image
+editing by automatically generating masks. DiffEdit [247] simplifies semantic editing by automatically generating masks that
+isolate relevant regions for modification. This selective editing
+approach safeguards unedited regions and preserves their semantic
+integrity. RDM [248] introduces a region-aware diffusion model
+that seamlessly integrates masks to automatically pinpoint and
+edit regions of interest based on text-driven guidance. MFL [249]
+proposes a two-stage mask-free training paradigm tailored for textguided image editing. In the first stage, a unified mask is obtained
+according to the source prompt, and then several candidate images
+are generated with the provided mask and the target prompt based
+on the diffusion model.
+Mask-Guided Regional Focus. This line of research employs
+masks as navigational tools, steering the sampling process towards specific regions of interest. The methods [250], [251] excel
+in localizing edits, ensuring that modifications align precisely
+with designated regions specified in text prompts or editing requirements. Differential Diffusion [250] pioneers a region-aware
+editing paradigm where masks are employed to personalize the
+intensity of change within each region of the source image. This
+allows a granular level of control, fostering exquisite details and
+artistic expression. Watch Your Steps [251] utilizes masks as
+
+Fig. 8: Visual comparison between traditional context-driven inpainting (top) and multimodal conditional inpainting (bottom).
+The samples in the two rows are from Palette [45] and Imagen
+Editor [176], respectively.
+relevance maps to pinpoint desired edit regions, ensuring that only
+the most relevant regions are edited while preserving the other
+regions of the original image.
+6.5
+
+Multi-Noise Redirection
+
+Multi-noise redirection is the process of predicting multiple noises
+in different directions in a single step and then redirecting them
+into a single noise. The advantage of this redirection is its capacity
+to enable the single noise to unify multiple distinct editing directions simultaneously, thereby more effectively meeting the user’s
+editing requirements.
+Semantic Noise Steering. These methods semantically guide the
+noise redirection in the sampling process and enhance fine-grained
+control over image content. Stable Artist [255] and SEGA [256]
+showcase the ability to steer the diffusion process using semantic guidance. They facilitate refined edits in image composition
+through control over various semantic directions within the noise
+redirection process. LEDITS [257] applies semantic noise steering
+by combining DDPM inversion [219] with SEGA, and facilitates
+versatile editing direction, encompassing both object editing and
+overall style change.
+Object-Aware Noise Redirection.
+OIR-Diffusion [258] introduces the object-aware inversion and
+reassembly method, which enables fine-grained editing of specific
+objects within an image by determining optimal inversion steps
+for each sample and seamlessly integrating the edited regions with
+the other regions. It significantly maintains the fidelity of the nonedited regions and achieves remarkable results in editing diverse
+object attributes, particularly in intricate multi-object scenarios.
+
+7
+
+I NPAINTING AND O UTPAINTING
+
+Image inpainting and outpainting, often regarded as sub-tasks of
+image editing, occupy unique positions with distinct objectives
+and challenges. We divide them into two major types (see Fig. 8)
+for better explanation, as detailed in Sections 7.1 and 7.2.
+7.1
+
+Traditional Context-Driven Inpainting
+
+7.1.1 Supervised Training
+The supervised training-based inpainting & outpainting methods usually train a diffusion model from scratch with paired
+corrupted and complete images. Palette [45] develops a unified
+framework for image-to-image translation based on conditional
+diffusion models and individually trains this framework on four
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+15
+
+image-to-image translation tasks, namely colorization, inpainting,
+outpainting, and JPEG restoration. It utilizes a direct concatenation
+of low-quality reference images with the denoised result at the t−1
+step as the condition for noise prediction at the t step. SUD2 [290]
+builds upon and extends the SUD framework [291], integrating
+additional strategies like correlation minimization, noise injection,
+and particularly the use of denoising diffusion models to address
+the scarcity of paired training data in semi-supervised learning.
+
+maps, and reference images. These models, e.g., Stable Diffusion
+and Imagen, can also be adapted to the inpainting task where
+the noisy background is replaced with a noisy version of the
+original image in the reverse diffusion process. However, this can
+sometimes result in unsatisfactory samples due to limited global
+context visibility. Addressing this, models like GLIDE [38] and
+Stable Inpainting (inpainting specialist v1.5 from Stable Diffusion
+[30]) further finetune the pretrained text-to-image models specialized for inpainting. They use a randomly generated mask along
+with the masked image and the full image caption, enabling the
+model to utilize information from the unmasked region during
+training. As pioneering works, they provide enlightening insights
+for subsequent research.
+
+7.1.2 Zero-Shot Learning
+Context Prior Integration. This type of methods extracts structures and textures from uncorrupted image parts to complement masked regions, ensuring global content consistency. Repaint [292] uses a pretrained unconditional diffusion model,
+modifying the denoising process by sampling masked areas from
+the model and unmasked areas from the image at each reverse
+step. Similarly, GradPaint [293] employs a pretrained diffusion
+model to estimate masked content, using a custom loss function
+to measure coherence with unmasked regions and updating the
+content based on the loss gradient.
+Degradation Decomposition. Image inpainting can be regarded
+as a specialized application of general linear inverse problems
+represented as y = Hx + n, where H is the degradation operator
+(e.g., a mask matrix indicating corrupted regions in inpainting),
+and n ∼ N (0, σ 2 I). The goal is to recover the original image x
+from the corrupted image y. Some works focus on decomposition
+on H. DDRM [53] uses a pretrained diffusion model and Singular
+Value Decomposition (SVD) of H to transform this recovery into
+an efficient iterative diffusion process in the spectral space of H.
+Differently, DDNM [55] applys a range-null space decomposition,
+dividing the image into two distinct components via the pseudoinverse of the degradation matrix.
+Posterior Estimation. To solve the general noisy linear inverse problem, several studies [57], [58], [294]–[297] focus
+on estimating the posterior distribution p(x|y), leveraging the
+unconditional diffusion model based on Bayes’ theorem. The
+conditional posterior p(xt |y) is calculated at each step of the
+p(y|xt )p(xt )
+reverse diffusion process: p(xt |y) =
+. The corp(y)
+responding gradient of the log-likelihood is then computed as
+∇xt log pt (xt |y) = ∇xt log pt (y|xt ) + ∇xt log pt (xt ), where
+the score function ∇xt log pt (xt ) is estimated by a pretrained
+score network sθ (xt , t). Thus, the problem reduces to estimating
+∇xt log pt (y|xt ). DPS [58] approximates the posterior pt (y|xt )
+with pt (y|x̂0 ). MCG [57] further introduces a projection onto
+the measurement subspace to ensure data consistency. ΠGDM
+[294] extends this approach to both linear and non-linear inverse
+problems through the use of the Moore-Penrose pseudo-inverse
+H† of the degradation function H. GDP [295] offers a different
+approximation strategy, incorporating an image distance metric
+and quality loss functions to guide the estimation process. Similarly, CoPaint [296] uses a one-step prediction of the final image to
+make inpainting errors more tractable during the denoising steps.
+7.2
+
+Multimodal Conditional Inpainting
+
+7.2.1 Random Mask Training
+Traditional image inpainting, focusing on filling missing areas in
+images driven by surrounding context, often lacks precise control
+over the content. With the advance of text-to-image diffusion
+models, this limitation is being overcome by injecting additional
+multimodal conditions such as text descriptions, segmentation
+
+7.2.2 Precise Control Conditioning
+An essential problem with random masking is that it may cover
+regions unrelated to the text prompt, leading the model to ignoring
+the prompt, especially when the masked regions are small. To
+provide more precise control, SmartBrush [173] introduces a
+precision factor to produce various mask types. It allows users
+to choose between coarse masks, which include the desired object
+within the mask, and detailed masks that closely outline the object
+shape. Imagen Editor [176] finetunes Imagen [31] by integrating
+image and mask context into each diffusion stage with three
+convolutional downsampling image encoders. The mask here is
+generated on-the-fly by an object detector, SSD Mobilenet v2
+[298], instead of randomly masking.
+PbE [165] and PhD [168] focus on using reference images for
+users’ personalized inpainting. Specifically, PbE uses CLIP to only
+extract subject information from the reference image, while PhD
+integrates both text and reference images in the training pipeline
+same as PbE’s. Uni-paint [178] first finetunes Stable Diffusion
+on the unmasked regions of the input images with null text and
+then uses various modes of guidance including unconditional, textdriven, stroke-driven, exemplar-driven inpainting, and a combination of them to perform multimodal inpainting during inference
+via different condition integration techniques. PVA [299] focuses
+on facial inpainting by encoding a few reference images with the
+same identity as the masked image through Transformer blocks.
+The encoded image embedding, combined with the CLIP text
+embedding, then serves as extra conditions of the Stable Inpainting
+model through a parallel visual attention mechanism. SmartMask
+[177] utilizes semantic amodal segmentation data to create highquality annotations for mask-free object insertion. It trains a
+diffusion model to predict instance maps from these annotations
+including both semantic maps and scene context.
+7.2.3 Pretrained Diffusion Prior Exploiting
+Despite significant advancements in training-based methods, there
+still exist challenges, particularly in gathering large-scale realistic
+data and the extensive resources required for model training.
+Consequently, some research shifts focus to specific inpainting
+tasks, harnessing the generative capabilities of pretrained text-toimage diffusion models via integrating various techniques.
+Blended Diffusion [252] uses CLIP to compute the difference
+between the denoised image embedding from a pretrained diffusion model and the guided text embedding to refine generation
+within masked regions. It then blends the noisy masked regions
+with the noisy unmasked parts of the input image during each
+sampling step. Blended Latent Diffusion [245] takes this further
+by applying the technique in the LDM [30] for higher efficiency.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+16
+
+Inpaint Anything [254] combines SAM [272] with inpainting
+models like LaMa [300], providing a user-friendly framework for
+removing, replacing, or filling image parts with simple clicks.
+MagicRemover [209] employs null-text inversion [198] to project
+an image into a noisy latent code and then optimizes the codes
+during sampling. It introduces an attention-based guidance strategy and a classifier optimization algorithm to enhance inpainting
+precision and stability with fewer steps.
+HD-Painter [243] is designed for high-resolution image inpainting and operates in two stages: image completion and
+inpainting-specialized super-resolution. The first stage is carried
+out in the latent space of Stable Diffusion, where a promptaware introverted attention mechanism replaces the original selfattention, and an additional reweighting attention score guidance
+is employed. This modification ensures better alignment of the
+generated content with the input prompt. The second stage uses the
+Stable Diffusion Super-Resolution variant with the low-resolution
+inpainted image conditioned and mask blended.
+
+multimodal models (LMMs) to assess the editing performance on
+different tasks. In addition to the objective evaluation provided
+by LMM Score, we also carry out a user study to incorporate
+subjective evaluation. The details of EditEval’s construction and
+its application are described as follows.
+
+7.3
+
+Outpainting
+
+Image outpainting, similar to but not the same as inpainting,
+aims to generate new pixels that seamlessly extend an image’s
+boundaries. Existing T2I models like Stable Diffusion [30] and
+DALL-E [29] can be generalized to address this task due to
+their training on extensive datasets including images of various
+sizes and shapes. It is often considered a special form of inpainting with similar implementations. For instance, Palette [45]
+trains a diffusion model by directly combining cropped images
+with their original versions as input in a supervised manner.
+PowerPaint [175] divides inpainting and related tasks into four
+specific categories, viewing outpainting as a type of context-aware
+image inpainting. It enhances Stable Diffusion with learnable taskspecific prompts and finetuning strategies to precisely direct the
+model towards distinct objectives.
+
+8
+
+B ENCHMARK AND E VALUATION
+
+8.1
+
+Benchmark Construction
+
+In the previous sections, we delve into the methodology aspects
+of diffusion model-based image editing approaches. Beyond this
+analysis, it is crucial to assess these methods, examining their
+capabilities across various editing tasks. However, existing benchmarks for image editing are limited and do not fully meet the
+needs identified in our survey. For instance, EditBench [176]
+primarily aims at text and mask-guided inpainting, and ignores
+broader tasks that involve global editing like style transfer. TedBench [210], while it expands the range of tasks, lacks detailed
+instructions, which is essential for evaluating methods that rely on
+textual instructions rather than descriptions. Moreover, the EditVal
+benchmark [301], while attempting to offer more comprehensive
+coverage of tasks and methods, is limited by the quality of its
+images from the MS-COCO dataset [302], which are often lowresolution and blur.
+To address these problems, we introduce EditEval, a benchmark designed to evaluate general diffusion model-based image
+editing methods. EditEval includes a carefully curated dataset
+of 150 high-quality images, each accompanied by text prompts.
+EditEval evaluates performance on 7 common editing tasks selected from Table 1. Additionally, we propose LMM Score, a
+quantitative evaluation metric that utilizes the capabilities of large
+
+8.1.1 Task Selection
+When selecting evaluation tasks, we take into account the capabilities indicated in Table 1. It is observed that most methods are
+capable of handling semantic and stylistic tasks while encountering challenges with structural editing. The potential reason is that
+many current T2I diffusion models, which most editing methods
+depend on, have difficulty in accurate spatial awareness [303].
+For example, they often generate inconsistent images with the
+prompts containing terms like “to the left of”, “underneath”, or
+“behind”. Considering these factors and the practical applications,
+we choose seven common tasks for our benchmark: object addition, object replacement, object removal, background replacement,
+style change, texture change, and action change, which aim to
+provide a thorough evaluation of the editing method’s performance
+from simple object edits to complex scene changes.
+8.1.2 Dataset Construction
+For image selection, we manually choose 150 images from Unsplash’s online repository of professional photographs, ensuring a
+wide diversity of subjects and scenes. These images are cropped
+to a square format, aligning with the input ratio for most editing
+models. We then categorize the chosen images into 7 groups, each
+associated with one of the specific editing tasks mentioned above.
+In generating prompts for each image, we employ an LMM
+to create a source prompt that describes the image’s content, a
+target prompt outlining the expected result of the editing, and a
+corresponding instruction to guide the editing process. This step
+is facilitated by providing GPT-4V, one of the most widely-used
+LMMs, with a detailed template that includes an example pair and
+several instructions. The example pair consists of a task indicator
+(e.g., “Object Removal”), a source image, a source description
+(e.g., “A cup of coffee on an unmade bed”), a target description
+(e.g., “An unmade bed”), and an instruction (e.g., “Remove the
+cup of coffee”). Along with this example, we feed GPT-4V clear
+instructions on our expectations for generating source descriptions, target descriptions, and instructions for new images and task
+indicators we upload. This method ensures that GPT-4V produces
+prompts and instructions that not only align with the specified
+editing task but also maintain diversity in scenes and subjects.
+After GPT-4V generates the initial prompts and instructions, we
+undertake a meticulous examination to ensure each prompt and
+the set of instructions is specific, clear, and directly applicable to
+the corresponding image and task.
+The final dataset, including the selected images, their source
+and target prompts, and the editing instructions, is available in the
+accompanying GitHub repository.
+8.1.3 Metric Design and Selection
+The field of image editing has traditionally relied on CLIPScore [304] as a major quantitative evaluation metric. Despite
+its effectiveness in assessing the alignment between images and
+corresponding textual prompts, CLIPScore may struggle in complicated scenes with many details and specific spatial relationships
+[301]. This limitation urges the need for a more versatile and
+encompassing metric that can be applied to broader image editing
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+17
+
+tasks. Hence, we propose LMM Score, a new metric by harnessing advanced visual-language understanding capabilities of large
+multimodal models (LMMs).
+To develop this metric, we first direct GPT-4 to conceive a
+quantitative metric and outline a framework that allows for objective evaluation for general image editing tasks through appropriate
+user prompts. Based on GPT-4’s recommendations, the evaluation
+framework encompasses the following elements, using a source
+image Isrc along with its text description tsrc , a collection of
+i
+edited images Itgt
+, i = 1, 2, ..., N generated by N methods,
+an editing prompt tedit , an editing instruction tinst , and a task
+indicator o. The criteria integrates four crucial factors:
+•
+
+•
+
+•
+
+•
+
+Editing Accuracy: Evaluate how closely the edited image
+i
+Itgt
+adheres to the specified editing prompt tedit and
+instruction tinst , measuring the precision of the editing.
+Contextual Preservation: Assess how well the edited imi
+age Itgt
+maintains the context of the source image Isrc
+that requires no changes.
+Visual Quality: Assess the overall quality of the edited
+i
+image Itgt
+, including factors like resolution, absence of
+artifacts, color accuracy, sharpness, etc.
+Logical Realism: Evaluate how logically realistic the
+i
+edited image Itgt
+is, in terms of adherence to natural laws
+like lighting consistency, texture continuity, etc.
+
+i
+As for evaluation, each edited image Itgt
+is evaluated on these
+factors, yielding four sub-scores (ranging from 1 to 10) denoted
+as Sacc , Spre , Squa , and Sreal . An overall score, SLM M , is
+computed as a weighted average of these sub-scores to reflect the
+overall editing quality:
+
+SLM M = 0.4Sacc + 0.3Spre + 0.2Squa + 0.1Sreal .
+
+(15)
+
+This weighted formula, suggested by GPT-4, aims to balance the
+relative importance of each evaluation factor.
+Following the proposed framework, we employ an LMM,
+specifically GPT-4V in this work, to carry out this evaluation.
+GPT-4V follows user-predefined instructions to calculate the subscores across the four evaluation factors for each edited image,
+obtaining the value of SLM M as in Eq. 15. To enable a userfriendly application of LMM Score, we provide a template that
+includes predefined instructions and necessary materials, which
+is accessible in our GitHub repository, facilitating its adoption in
+image editing evaluation.
+In addition to the objective evaluation provided by LMM
+Score, we conduct a user study to collect subjective feedback. This
+study engages 50 participants from diverse backgrounds, ensuring
+a wide range of perspectives. Each participant is presented with the
+source image, its description, the editing prompt and instruction,
+and a series of edited images. They are then asked to score
+each edited image according to the same four evaluation factors
+utilized by LMM Score. Each factor is scored from 1 to 10. The
+participants’ scores are then aggregated to calculate an overall
+User Score (SU ser ) for each image, with the same calculation in
+Eq. 15. The results from this user study complement the LMM
+Score evaluations, providing a comprehensive assessment of the
+performance of different editing methods.
+8.2
+
+Evaluation
+
+8.2.1 Method Selection
+For the evaluation of each editing task, we carefully select between 4 to 8 methods from Table 1, encompassing a range of
+
+Fig. 9: Quantitative performances of various methods across 7
+selected editing tasks. µ and σ denote the mean value and standard
+deviation of the scores, respectively.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+18
+
+Fig. 10: Pearson correlation coefficients between LMM Score and
+the user study.
+approaches including training-based, testing-time finetuning, and
+training & finetuning free methods. To ensure a fair and consistent
+comparison, our selection criteria are as follows: the method must
+require only text conditions, own the capability to handle specific
+tasks, and have open-source code available for implementation.
+We exclude domain-specific methods to avoid the constraints
+imposed by their limited applicability across diverse domains.
+These selected methods are specified in subsequent subsections.
+8.2.2 Comparative Analysis
+Performance Comparison. To present a thorough evaluation
+of the selected methods across the 7 selected editing tasks, we
+compute the mean and standard deviation of both SLM M and
+SU ser on all evaluation samples, as shown in Fig. 9. The color
+bars illustrate the range of scores from minimum to maximum.
+From the results, we can have several insights. First, there is no
+single method that outperforms others across all tasks. Second,
+most methods exhibit a wide range of fluctuating scores in each
+task, as evidenced by the broad span between the minimum
+and maximum values and the large standard deviations of both
+SLM M and SU ser . Such variability points to the unrobustness
+of these methods, suggesting that a method’s performance can
+be sample-dependent and may not consistently meet the editing
+requirements in various scenes. Third, some methods do exhibit
+stable and impressive performances for certain tasks. Last, the
+mean values of SLM M and SU ser are closely matched for each
+method within each task, suggesting that LMM Score well reflects
+users’ preferences. Although the methods’ performances fluctuate,
+the consistency between LMM Score and user perception across
+the tasks indicates that LMM Score is a reliable metric for image
+editing. Besides the quantitative results, we also present several
+visual examples for qualitative comparison in Fig. 12.
+Correlation Between LMM Score and User Study. To examine
+the effectiveness of LMM Score, we investigate the correlation
+between it and the user study. Specifically, we first calculate the 4
+sub-scores’ means of the collected user data on the 4 factors. Then,
+within each editing task, we compute the Pearson correlation
+coefficient on each factor between the LMM sub-scores and the
+user study sub-scores on each sample. Finally, these coefficients
+are averaged across all samples to obtain the overall correlation for
+each factor per task. The results, as illustrated in Fig. 10, reveal a
+significant alignment across the editing tasks, indicating a strong
+concordance between the objective LMM Score evaluation and the
+subjective human judgment.
+LMM Score vs. Other Metrics. To further assess the effectiveness of LMM Score, we compare it against three other
+
+Fig. 11: Comparison of Pearson correlation coefficients between
+four metrics and the user study.
+metrics—CLIPScore [304], Directional CLIP Similarity [266],
+and TIFA Score [305]—by examining their Pearson correlation
+coefficients with the user study results. Unlike CLIPScore and
+Directional CLIP Similarity, which measure the feature distance
+between text and image directly in the CLIP feature space, TIFA
+Score evaluates the faithfulness of a generated image to its text
+input using visual question answering (VQA). Specifically, TIFA
+Score generates several question-answer pairs based on the text
+input using a language model and then determines image faithfulness by verifying whether the current VQA model can accurately
+answer these questions using the generated image. Fig. 11 presents
+these comparisons. It reveals that both CLIPScore and Directional
+CLIP Similarity show limited correlation with user judgments.
+While TIFA Score demonstrates better performance in semantic
+editing tasks such as object addition, it struggles with stylistic
+editing like style change. In contrast, LMM Score consistently
+exhibits the highest correlation with user evaluations across all
+tasks. This indicates that LMM Score more accurately captures
+the quality and relevance of image edits in alignment with human
+judgment, making it a more reliable metric for diverse editing
+scenarios.
+
+9
+
+C HALLENGES AND F UTURE D IRECTIONS
+
+Despite the success achieved in image editing with diffusion
+models, there are still limitations to address in future work.
+Fewer-Step Model Inference. Most diffusion-based models require a significant number of steps to obtain the final image
+during inference, which is both time-consuming and computationally costly, bringing challenges in model deployment and user
+experience. To improve the inference efficiency, few-step or onestep generation diffusion models have been studied [91], [306],
+[307]. Recent methods in this field reduce the number of steps
+by distilling knowledge from a pretrained strong diffusion model
+so that the few-step model can mimic the behavior of the strong
+model. A more interesting yet challenging direction is to develop
+few-step models directly without relying on the pretrained models,
+such as consistency models [308], [309].
+Efficient Models. Training a diffusion model that can generate
+realistic results is computationally intensive and requires a large
+amount of high-quality data. This complexity makes developing
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+19
+
+Editing Type: Object Addition (“Add a glass of milk next to the cookies”)
+
+Source
+
+InstructPix2Pix [179] InstructDiffusionDisenDiffusion [183] tanglement [201]
+
+Editing Type: Object Removal
+
+Source
+
+Inst-Paint [186]
+
+DDPM
+LEDITS++ [221] ProxEdit [225]
+Inversion [219]
+
+AIDI [228]
+
+(“Remove the wooden house and dock”)
+
+InstructDiffusion [183]
+
+Editing Type: Object Replacement
+
+Source
+
+Imagic [210]
+
+LEDITS++ [221]
+
+ProxEdit [225]
+
+AIDI [228]
+
+( “Replace the llama toy with a floor lamp”)
+
+InstructPix2Pix [179] InstructDiffusionDisen- Null-Text [198]
+Diffusion [183] tanglement [201]
+
+Imagic [210]
+
+LEDITS++ [221] ProxEdit [225]
+
+AIDI [228]
+
+Editing Type: Background Change (“Change the city street to a dense jungle”)
+
+Source
+
+InstructPix2Pix [179] DDS [206]
+
+Null-Text [198]
+
+SINE [213]
+
+EDICT [227] LEDITS++ [221] ProxEdit [225]
+
+AIDI [228]
+
+Editing Type: Style Change (“Transform it to the Van Gogh style”)
+
+Source
+
+Instruct
+Pix2Pix [179]
+
+InstructNull-Text [198]
+Diffusion [183]
+
+Imagic [210]
+
+DDPM
+LEDITS++ [221] ProxEdit [225]
+Inversion [219]
+
+AIDI [228]
+
+Editing Type: Texture Change (“Turn the horse into a statue”)
+
+Source
+
+InstructPix2Pix [179] InstructDiffusionDisen- Null-Text [198]
+Diffusion [183] tanglement [201]
+
+Editing Type: Action Change
+
+Source
+
+Forgedit [212]
+
+Imagic [210]
+
+PnP [237]
+
+EBMs [241] CycleDiffusion [229]
+
+(“Let the bear raise its hand”)
+
+Imagic [210]
+
+MasaCtrl [87]
+
+Fig. 12: Visual comparison on 7 selected editing types.
+
+TIC [232]
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+20
+
+diffusion models for image editing very challenging. To reduce
+the training cost, recent works design more efficient network
+architectures as the backbones of diffusion models [310], [311].
+Besides, another important direction is to train only a portion of
+the parameters or freeze the original parameters and add a few
+new layers on top of the pretrained diffusion model [118], [312].
+Complex Object Structure Editing. Existing works can synthesize realistic colors, styles or textures when editing images.
+However, they still produce noticeable artifacts when dealing with
+complex structures, such as fingers, logos, and scene text. Attempts have been made to address these issues. Previous methods
+usually use negative prompting such as “six fingers, bad leg,
+etc.” to make the model avoid generating such images, which
+are effective in certain cases but not robust enough [313]. Recent
+works start to use layouts, edges, or dense labels as guidance for
+editing the global or local structures of images [102], [104].
+Complex Lighting and Shadow Editing. Editing the lighting
+or illumination of an image remains a challenging task [314],
+especially when aiming for realistic and consistent results. Traditional methods like Total Relighting [315] estimate normals,
+albedo, and shading to achieve realistic effects. Recent diffusionbased methods have advanced this area. For instance, DiffusionRig [316] and DiFaReli [317] estimate 3D parameters (e.g.,
+shape, expression, SH lighting) from portraits and use these to
+condition diffusion models for face relighting. Other approaches
+[318], [319] reconstruct relightable 3D face models from a single
+image using diffusion models, enabling 3D editing. However,
+since these methods focus primarily on portrait relighting, their
+applicability to broader natural images is limited. More recent
+methods [320]–[323] focus on training image-based, lightingconditioned diffusion models on synthetic datasets. Specifically,
+Lasagna [320] is trained on a self-rendered 3D object dataset relit
+from multiple light source locations to learn two lighting layers
+for luminosity adjustment. Similarly, both DiLightNet [321] and
+Neural Gaffer [323] train light-conditioned ControlNet models on
+synthetic datasets, where 3D objects are rendered with different
+lighting using Blender. Although these methods are not restricted
+to portrait relighting, they still rely heavily on strong lighting
+priors from 3D models. LightIt [322] focuses on outdoor relighting
+using shading maps estimated by determining the Sun’s direction,
+but it is less suitable for indoor scenes. In contrast, RetinexDiffusion [324] offers a training-free approach by reformulating
+the energy function of diffusion models based on the Retinex
+theory, allowing for lighting alterations without the need for
+3D priors. Similarly, ShadowDiffusion [49] explores generating
+visually pleasing shadows of objects using degradation priors.
+However, accurately editing the lighting or shadow of an object
+under different background conditions using diffusion models
+remains an unsolved problem.
+Unrobustness of Image Editing. Existing diffusion-based image
+editing models can synthesize realistic visual contents for a portion
+of given conditions. However, they still fail in many real-world
+scenarios [210]. The fundamental cause for this problem is that the
+model is not capable of accurately modeling all possible samples
+in the conditional distribution space. How to improve the models
+to generate artifact-free contents consistently remains a challenge.
+There are several ways to relieve this problem. First, scale up
+the data for model training to cover the challenging scenarios.
+This is an effective yet costly approach. In some situations, it
+is even very challenging to collect sufficient amount of data,
+such as medical images, visual inspection data, etc. Second,
+
+adapt the model to accept more conditions such as structural
+guidance [102], 3D-aware guidance [325], and textual guidance
+for more controllable and deterministic content creation. Third,
+adopt iterative refinement or multi-stage training to improve the
+initial results of the model progressively [44], [292], [326].
+High-Resolution Image Generation and Editing. Highresolution images, typically those with resolutions of 1024x1024
+pixels or higher, have become increasingly important in various
+applications. While several diffusion-based models focus on highresolution image generation, such as SDXL [93] and PixArt [94],
+specialized diffusion models for high-resolution image editing are
+relatively scarce. Some studies [210], [213], [327] have claimed
+the capability to perform high-resolution image editing, but few
+have demonstrated concrete results. One of the key challenges in
+high-resolution image editing is ensuring precise modifications.
+The model must achieve a high degree of accuracy, particularly
+in tasks involving pixel-level adjustments and edge refinement,
+where maintaining fine details is essential. This level of precision
+becomes increasingly demanding with higher resolutions. Another
+major challenge is maintaining computational efficiency. As resolution increases, the demand for GPU memory and processing
+power grows substantially, which puts pressure on both hardware
+resources and the model’s runtime performance. Therefore, it
+becomes essential to strike a balance between precision and speed
+to ensure the editing process remains efficient and smooth.
+Faithful Evaluation Metrics. Accurate evaluation is crucial for
+image editing to ensure that the edited contents are well aligned
+with the given conditions. However, although some quantitative
+metrics such as FID [328], KID [329], LPIPS [330], CLIP
+Score [268], PSNR, and SSIM have been used for this task as
+a reference, most of existing works still heavily rely on user
+study to provide relatively accurate perceptual evaluation for
+visual results, which is neither efficient nor scalable. Faithful
+quantitative evaluation metrics are still an open problem. Recently,
+more accurate metrics for quantifying the perceptual similarity
+of objects have been proposed. DreamSim [331] measures the
+mid-level similarity of two images considering layout, pose, and
+semantic contents and outperforms LPIPS. Similarly, foreground
+feature averaging (FFA) [332] provides a simple yet effective
+method for measuring the similarity of objects despite its pose,
+viewpoint, lighting conditions, or background. In this paper, we
+also propose an effective image editing metric LMM Score with
+the help of an LMM.
+
+10
+
+C ONCLUSION
+
+We have extensively overviewed diffusion model-based image
+editing methods, examining the field from multiple perspectives.
+Our analysis begins by categorizing over 100 methods into three
+main groups according to their learning strategies: training-based,
+test-time fine-tuning, and training and fine-tuning free approaches.
+We then classify image editing tasks into three distinct categories:
+semantic, stylistic, and structural editing, encompassing 12 specific types in total. We explore these methods and their contributions towards enhancing editing performance. An evaluation
+of 7 tasks alongside recent state-of-the-art methods is conducted
+within our image editing benchmark EditEval. Additionally, a new
+metric LMM Score is introduced for comparative analysis of these
+methods. Concluding our review, we highlight the broad potential
+within the image editing domain and suggest directions for future
+research.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+R EFERENCES
+[1]
+[2]
+[3]
+[4]
+[5]
+[6]
+[7]
+
+[8]
+[9]
+
+[10]
+
+[11]
+[12]
+[13]
+
+[14]
+
+[15]
+[16]
+[17]
+[18]
+[19]
+[20]
+
+[21]
+[22]
+
+[23]
+[24]
+
+[25]
+
+[26]
+
+[27]
+
+[28]
+
+[29]
+
+[30]
+
+D. P. Kingma and M. Welling, “Auto-encoding variational bayes,” arXiv
+preprint arXiv:1312.6114, 2013.
+A. Van Den Oord, N. Kalchbrenner, and K. Kavukcuoglu, “Pixel
+recurrent neural networks,” in ICML, pp. 1747–1756, 2016.
+D. Rezende and S. Mohamed, “Variational inference with normalizing
+flows,” in ICML, pp. 1530–1538, 2015.
+A. Van Den Oord, O. Vinyals, et al., “Neural discrete representation
+learning,” in NeurIPS, vol. 30, 2017.
+G. Papamakarios, T. Pavlakou, and I. Murray, “Masked autoregressive
+flow for density estimation,” in NeurIPS, vol. 30, 2017.
+P. Esser, R. Rombach, and B. Ommer, “Taming transformers for highresolution image synthesis,” in CVPR, pp. 12873–12883, 2021.
+A. Ramesh, M. Pavlov, G. Goh, S. Gray, C. Voss, A. Radford,
+M. Chen, and I. Sutskever, “Zero-shot text-to-image generation,” in
+ICML, pp. 8821–8831, 2021.
+J. Zhao, M. Mathieu, and Y. LeCun, “Energy-based generative adversarial network,” arXiv preprint arXiv:1609.03126, 2016.
+I. Goodfellow, J. Pouget-Abadie, M. Mirza, B. Xu, D. Warde-Farley,
+S. Ozair, A. Courville, and Y. Bengio, “Generative adversarial nets,” in
+NeurIPS, vol. 27, 2014.
+J. Sohl-Dickstein, E. Weiss, N. Maheswaranathan, and S. Ganguli,
+“Deep unsupervised learning using nonequilibrium thermodynamics,”
+in ICML, 2015.
+T. Karras, S. Laine, and T. Aila, “A style-based generator architecture
+for generative adversarial networks,” in CVPR, pp. 4401–4410, 2019.
+M. Mirza and S. Osindero, “Conditional generative adversarial nets,”
+arXiv preprint arXiv:1411.1784, 2014.
+P. Isola, J.-Y. Zhu, T. Zhou, and A. A. Efros, “Image-to-image translation with conditional adversarial networks,” in CVPR, pp. 1125–1134,
+2017.
+J.-Y. Zhu, T. Park, P. Isola, and A. A. Efros, “Unpaired image-toimage translation using cycle-consistent adversarial networks,” in ICCV,
+pp. 2223–2232, 2017.
+A. Brock, J. Donahue, and K. Simonyan, “Large scale gan training for
+high fidelity natural image synthesis,” in ICLR, 2019.
+J. Ho, A. Jain, and P. Abbeel, “Denoising diffusion probabilistic
+models,” in NeurIPS, vol. 33, pp. 6840–6851, 2020.
+A. Q. Nichol and P. Dhariwal, “Improved denoising diffusion probabilistic models,” in ICML, pp. 8162–8171, 2021.
+J. Song, C. Meng, and S. Ermon, “Denoising diffusion implicit models,”
+in ICLR, 2021.
+A. Hyvärinen and P. Dayan, “Estimation of non-normalized statistical
+models by score matching.,” JMLR, vol. 6, no. 4, 2005.
+P. Vincent, “A connection between score matching and denoising
+autoencoders,” Neural computation, vol. 23, no. 7, pp. 1661–1674,
+2011.
+Y. Song and S. Ermon, “Generative modeling by estimating gradients
+of the data distribution,” in NeurIPS, vol. 32, 2019.
+Y. Song, J. Sohl-Dickstein, D. P. Kingma, A. Kumar, S. Ermon,
+and B. Poole, “Score-based generative modeling through stochastic
+differential equations,” in ICLR, 2021.
+Y. Song and S. Ermon, “Improved techniques for training score-based
+generative models,” in NeurIPS, vol. 33, pp. 12438–12448, 2020.
+A. Kazerouni, E. K. Aghdam, M. Heidari, R. Azad, M. Fayyaz,
+I. Hacihaliloglu, and D. Merhof, “Diffusion models for medical image
+analysis: A comprehensive survey,” arXiv preprint arXiv:2211.07804,
+2022.
+Z. Xing, Q. Feng, H. Chen, Q. Dai, H. Hu, H. Xu, Z. Wu, and
+Y.-G. Jiang, “A survey on video diffusion models,” arXiv preprint
+arXiv:2310.10647, 2023.
+X. Li, Y. Ren, X. Jin, C. Lan, X. Wang, W. Zeng, X. Wang, and
+Z. Chen, “Diffusion models for image restoration and enhancement–
+a comprehensive survey,” arXiv preprint arXiv:2308.09388, 2023.
+B. B. Moser, A. S. Shanbhag, F. Raue, S. Frolov, S. Palacio, and
+A. Dengel, “Diffusion models, image super-resolution and everything:
+A survey,” arXiv preprint arXiv:2401.00736, 2024.
+J. Shi, C. Wu, J. Liang, X. Liu, and N. Duan, “Divae: Photorealistic
+images synthesis with denoising diffusion decoder,” arXiv preprint
+arXiv:2206.00386, 2022.
+A. Ramesh, P. Dhariwal, A. Nichol, C. Chu, and M. Chen, “Hierarchical
+text-conditional image generation with clip latents,” arXiv preprint
+arXiv:2204.06125, 2022.
+R. Rombach, A. Blattmann, D. Lorenz, P. Esser, and B. Ommer, “Highresolution image synthesis with latent diffusion models,” in CVPR,
+2022.
+
+21
+
+[31]
+
+[32]
+
+[33]
+
+[34]
+
+[35]
+
+[36]
+[37]
+
+[38]
+
+[39]
+
+[40]
+
+[41]
+
+[42]
+[43]
+
+[44]
+
+[45]
+
+[46]
+
+[47]
+
+[48]
+
+[49]
+
+[50]
+
+[51]
+
+[52]
+
+[53]
+[54]
+
+[55]
+[56]
+
+C. Saharia, W. Chan, S. Saxena, L. Li, J. Whang, E. Denton, S. K. S.
+Ghasemipour, B. K. Ayan, S. S. Mahdavi, R. G. Lopes, et al., “Photorealistic text-to-image diffusion models with deep language understanding,” in NeurIPS, 2022.
+J. Ho and T. Salimans, “Classifier-free diffusion guidance,” in NeurIPS
+2021 Workshop on Deep Generative Models and Downstream Applications, 2021.
+G. Batzolis, J. Stanczuk, C.-B. Schönlieb, and C. Etmann, “Conditional
+image generation with score-based diffusion models,” arXiv preprint
+arXiv:2111.13606, 2021.
+F. Bao, C. Li, J. Zhu, and B. Zhang, “Analytic-dpm: an analytic estimate
+of the optimal reverse variance in diffusion probabilistic models,” in
+ICLR, 2022.
+J. Ho, C. Saharia, W. Chan, D. J. Fleet, M. Norouzi, and T. Salimans,
+“Cascaded diffusion models for high fidelity image generation,” JMLR,
+vol. 23, no. 1, pp. 2249–2281, 2022.
+P. Dhariwal and A. Nichol, “Diffusion models beat gans on image
+synthesis,” in NeurIPS, vol. 34, pp. 8780–8794, 2021.
+X. Liu, D. H. Park, S. Azadi, G. Zhang, A. Chopikyan, Y. Hu, H. Shi,
+A. Rohrbach, and T. Darrell, “More control for free! image synthesis
+with semantic diffusion guidance,” in WACV, pp. 289–299, 2023.
+A. Q. Nichol, P. Dhariwal, A. Ramesh, P. Shyam, P. Mishkin, B. Mcgrew, I. Sutskever, and M. Chen, “Glide: Towards photorealistic image
+generation and editing with text-guided diffusion models,” in ICML,
+pp. 16784–16804, 2022.
+R. Rombach, A. Blattmann, and B. Ommer, “Text-guided synthesis
+of artistic images with retrieval-augmented diffusion models,” arXiv
+preprint arXiv:2207.13038, 2022.
+A. Bansal, E. Borgnia, H.-M. Chu, J. S. Li, H. Kazemi, F. Huang,
+M. Goldblum, J. Geiping, and T. Goldstein, “Cold diffusion: Inverting arbitrary image transforms without noise,” arXiv preprint
+arXiv:2208.09392, 2022.
+C. Meng, R. Rombach, R. Gao, D. Kingma, S. Ermon, J. Ho, and
+T. Salimans, “On distillation of guided diffusion models,” in CVPR,
+pp. 14297–14306, 2023.
+H. Phung, Q. Dao, and A. Tran, “Wavelet diffusion models are fast and
+scalable image generators,” in CVPR, pp. 10199–10208, 2023.
+X. Xu, Z. Wang, G. Zhang, K. Wang, and H. Shi, “Versatile diffusion:
+Text, images and variations all in one diffusion model,” in ICCV,
+pp. 7754–7765, 2023.
+C. Saharia, J. Ho, W. Chan, T. Salimans, D. J. Fleet, and M. Norouzi,
+“Image super-resolution via iterative refinement,” IEEE TPAMI, vol. 45,
+no. 4, pp. 4713–4726, 2022.
+C. Saharia, W. Chan, H. Chang, C. Lee, J. Ho, T. Salimans, D. Fleet,
+and M. Norouzi, “Palette: Image-to-image diffusion models,” in ACM
+SIGGRAPH, pp. 1–10, 2022.
+O. Özdenizci and R. Legenstein, “Restoring vision in adverse weather
+conditions with patch-based denoising diffusion models,” IEEE TPAMI,
+2023.
+S. Shang, Z. Shan, G. Liu, and J. Zhang, “Resdiff: Combining
+cnn and diffusion model for image super-resolution,” arXiv preprint
+arXiv:2303.08714, 2023.
+S. Gao, X. Liu, B. Zeng, S. Xu, Y. Li, X. Luo, J. Liu, X. Zhen, and
+B. Zhang, “Implicit diffusion models for continuous super-resolution,”
+in CVPR, pp. 10021–10030, 2023.
+L. Guo, C. Wang, W. Yang, S. Huang, Y. Wang, H. Pfister, and B. Wen,
+“Shadowdiffusion: When degradation prior meets diffusion model for
+shadow removal,” in CVPR, pp. 14049–14058, 2023.
+Z. Luo, F. K. Gustafsson, Z. Zhao, J. Sjölund, and T. B. Schön, “Image
+restoration with mean-reverting stochastic differential equations,” in
+ICML, 2023.
+B. Xia, Y. Zhang, S. Wang, Y. Wang, X. Wu, Y. Tian, W. Yang, and
+L. Van Gool, “Diffir: Efficient diffusion model for image restoration,”
+arXiv preprint arXiv:2303.09472, 2023.
+J. Choi, S. Kim, Y. Jeong, Y. Gwon, and S. Yoon, “Ilvr: Conditioning method for denoising diffusion probabilistic models,” in CVPR,
+pp. 14367–14376, 2021.
+B. Kawar, M. Elad, S. Ermon, and J. Song, “Denoising diffusion
+restoration models,” in NeurIPS, vol. 35, pp. 23593–23606, 2022.
+Y. Huang, J. Huang, J. Liu, Y. Dong, J. Lv, and S. Chen, “Wavedm:
+Wavelet-based diffusion models for image restoration,” IEEE TMM,
+2024.
+Y. Wang, J. Yu, and J. Zhang, “Zero-shot image restoration using
+denoising diffusion null-space model,” in ICLR, 2023.
+Z. Yue and C. C. Loy, “Difface: Blind face restoration with diffused
+error contraction,” arXiv preprint arXiv:2212.06512, 2022.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+[57]
+
+[58]
+[59]
+[60]
+
+[61]
+
+[62]
+
+[63]
+
+[64]
+
+[65]
+
+[66]
+
+[67]
+
+[68]
+
+[69]
+
+[70]
+
+[71]
+
+[72]
+
+[73]
+
+[74]
+
+[75]
+
+[76]
+
+[77]
+
+[78]
+
+[79]
+[80]
+
+H. Chung, B. Sim, D. Ryu, and J. C. Ye, “Improving diffusion models
+for inverse problems using manifold constraints,” in NeurIPS, vol. 35,
+pp. 25683–25696, 2022.
+H. Chung, J. Kim, M. T. Mccann, M. L. Klasky, and J. C. Ye, “Diffusion
+posterior sampling for general noisy inverse problems,” in ICLR, 2023.
+J. Ho, T. Salimans, A. Gritsenko, W. Chan, M. Norouzi, and D. J. Fleet,
+“Video diffusion models,” in NeurIPS, 2022.
+U. Singer, A. Polyak, T. Hayes, X. Yin, J. An, S. Zhang, Q. Hu, H. Yang,
+O. Ashual, O. Gafni, et al., “Make-a-video: Text-to-video generation
+without text-video data,” in ICLR, 2023.
+J. Ho, W. Chan, C. Saharia, J. Whang, R. Gao, A. Gritsenko, D. P.
+Kingma, B. Poole, M. Norouzi, D. J. Fleet, et al., “Imagen video:
+High definition video generation with diffusion models,” arXiv preprint
+arXiv:2210.02303, 2022.
+S. Ge, S. Nah, G. Liu, T. Poon, A. Tao, B. Catanzaro, D. Jacobs, J.-B.
+Huang, M.-Y. Liu, and Y. Balaji, “Preserve your own correlation: A
+noise prior for video diffusion models,” in ICCV, 2023.
+A. Blattmann, R. Rombach, H. Ling, T. Dockhorn, S. W. Kim, S. Fidler,
+and K. Kreis, “Align your latents: High-resolution video synthesis with
+latent diffusion models,” in CVPR, 2023.
+D. Zhou, W. Wang, H. Yan, W. Lv, Y. Zhu, and J. Feng, “Magicvideo:
+Efficient video generation with latent diffusion models,” arXiv preprint
+arXiv:2211.11018, 2022.
+S. Yin, C. Wu, H. Yang, J. Wang, X. Wang, M. Ni, Z. Yang, L. Li,
+S. Liu, F. Yang, et al., “Nuwa-xl: Diffusion over diffusion for extremely
+long video generation,” arXiv preprint arXiv:2303.12346, 2023.
+P. Esser, J. Chiu, P. Atighehchian, J. Granskog, and A. Germanidis,
+“Structure and content-guided video synthesis with diffusion models,”
+in ICCV, 2023.
+J. An, S. Zhang, H. Yang, S. Gupta, J.-B. Huang, J. Luo, and X. Yin,
+“Latent-shift: Latent diffusion with temporal shift for efficient text-tovideo generation,” arXiv preprint arXiv:2304.08477, 2023.
+J. Wang, H. Yuan, D. Chen, Y. Zhang, X. Wang, and
+S. Zhang, “Modelscope text-to-video technical report,” arXiv preprint
+arXiv:2308.06571, 2023.
+X. Li, W. Chu, Y. Wu, W. Yuan, F. Liu, Q. Zhang, F. Li, H. Feng,
+E. Ding, and J. Wang, “Videogen: A reference-guided latent diffusion
+approach for high definition text-to-video generation,” arXiv preprint
+arXiv:2309.00398, 2023.
+Y. He, T. Yang, Y. Zhang, Y. Shan, and Q. Chen, “Latent video diffusion
+models for high-fidelity video generation with arbitrary lengths,” arXiv
+preprint arXiv:2211.13221, 2022.
+Y. Wang, X. Chen, X. Ma, S. Zhou, Z. Huang, Y. Wang, C. Yang,
+Y. He, J. Yu, P. Yang, et al., “Lavie: High-quality video generation with
+cascaded latent diffusion models,” arXiv preprint arXiv:2309.15103,
+2023.
+J. Z. Wu, Y. Ge, X. Wang, S. W. Lei, Y. Gu, Y. Shi, W. Hsu, Y. Shan,
+X. Qie, and M. Z. Shou, “Tune-a-video: One-shot tuning of image
+diffusion models for text-to-video generation,” in ICCV, 2023.
+J. Lv, Y. Huang, M. Yan, J. Huang, J. Liu, Y. Liu, Y. Wen, X. Chen,
+and S. Chen, “Gpt4motion: Scripting physical motions in text-tovideo generation via blender-oriented gpt planning,” arXiv preprint
+arXiv:2311.12631, 2023.
+D. J. Zhang, J. Z. Wu, J.-W. Liu, R. Zhao, L. Ran, Y. Gu, D. Gao, and
+M. Z. Shou, “Show-1: Marrying pixel and latent diffusion models for
+text-to-video generation,” arXiv preprint arXiv:2309.15818, 2023.
+A. Blattmann, T. Dockhorn, S. Kulal, D. Mendelevitch, M. Kilian,
+D. Lorenz, Y. Levi, Z. English, V. Voleti, A. Letts, et al., “Stable video
+diffusion: Scaling latent video diffusion models to large datasets,” arXiv
+preprint arXiv:2311.15127, 2023.
+R. Girdhar, M. Singh, A. Brown, Q. Duval, S. Azadi, S. S. Rambhatla,
+A. Shah, X. Yin, D. Parikh, and I. Misra, “Emu video: Factorizing
+text-to-video generation by explicit image conditioning,” arXiv preprint
+arXiv:2311.10709, 2023.
+L. Yang, Z. Zhang, Y. Song, S. Hong, R. Xu, Y. Zhao, W. Zhang,
+B. Cui, and M.-H. Yang, “Diffusion models: A comprehensive survey
+of methods and applications,” ACM Computing Surveys, vol. 56, no. 4,
+pp. 1–39, 2023.
+H. Cao, C. Tan, Z. Gao, Y. Xu, G. Chen, P.-A. Heng, and
+S. Z. Li, “A survey on generative diffusion model,” arXiv preprint
+arXiv:2209.02646, 2022.
+F.-A. Croitoru, V. Hondru, R. T. Ionescu, and M. Shah, “Diffusion
+models in vision: A survey,” IEEE TPAMI, 2023.
+A. Ulhaq, N. Akhtar, and G. Pogrebna, “Efficient diffusion models for
+vision: A survey,” arXiv preprint arXiv:2210.09292, 2022.
+
+22
+
+[81]
+
+C. Zhang, C. Zhang, M. Zhang, and I. S. Kweon, “Text-toimage diffusion model in generative ai: A survey,” arXiv preprint
+arXiv:2303.07909, 2023.
+[82] T. Zhang, Z. Wang, J. Huang, M. M. Tasnim, and W. Shi, “A survey
+of diffusion based image generation models: Issues and their solutions,”
+arXiv preprint arXiv:2308.13142, 2023.
+[83] R. Po, W. Yifan, V. Golyanik, K. Aberman, J. T. Barron, A. H. Bermano,
+E. R. Chan, T. Dekel, A. Holynski, A. Kanazawa, et al., “State of
+the art on diffusion models for visual computing,” arXiv preprint
+arXiv:2310.07204, 2023.
+[84] H. Koo and T. E. Kim, “A comprehensive survey on generative diffusion
+models for structured data,” ArXiv, abs/2306.04139 v2, 2023.
+[85] H. Cao, C. Tan, Z. Gao, Y. Xu, G. Chen, P.-A. Heng, and S. Z. Li, “A
+survey on generative diffusion models,” IEEE TKDE, 2024.
+[86] C. Meng, Y. Song, J. Song, J. Wu, J.-Y. Zhu, and S. Ermon, “Sdedit:
+Image synthesis and editing with stochastic differential equations,” in
+ICLR, 2022.
+[87] M. Cao, X. Wang, Z. Qi, Y. Shan, X. Qie, and Y. Zheng, “Masactrl:
+Tuning-free mutual self-attention control for consistent image synthesis
+and editing,” arXiv preprint arXiv:2304.08465, 2023.
+[88] C.-H. Chao, W.-F. Sun, B.-W. Cheng, Y.-C. Lo, C.-C. Chang, Y.-L. Liu,
+Y.-L. Chang, C.-P. Chen, and C.-Y. Lee, “Denoising likelihood score
+matching for conditional score-based data generation,” in ICLR, 2022.
+[89] T. Karras, M. Aittala, T. Aila, and S. Laine, “Elucidating the design
+space of diffusion-based generative models,” in NeurIPS, vol. 35,
+pp. 26565–26577, 2022.
+[90] C. Lu, Y. Zhou, F. Bao, J. Chen, C. Li, and J. Zhu, “Dpm-solver: A
+fast ode solver for diffusion probabilistic model sampling in around 10
+steps,” in NeurIPS, vol. 35, pp. 5775–5787, 2022.
+[91] T. Salimans and J. Ho, “Progressive distillation for fast sampling of
+diffusion models,” in ICLR, 2022.
+[92] S. Gu, D. Chen, J. Bao, F. Wen, B. Zhang, D. Chen, L. Yuan, and
+B. Guo, “Vector quantized diffusion model for text-to-image synthesis,”
+in CVPR, pp. 10696–10706, 2022.
+[93] D. Podell, Z. English, K. Lacey, A. Blattmann, T. Dockhorn, J. Müller,
+J. Penna, and R. Rombach, “Sdxl: Improving latent diffusion models
+for high-resolution image synthesis,” arXiv preprint arXiv:2307.01952,
+2023.
+[94] J. Chen, J. Yu, C. Ge, L. Yao, E. Xie, Y. Wu, Z. Wang, J. Kwok, P. Luo,
+H. Lu, et al., “Pixart-α: Fast training of diffusion transformer for photorealistic text-to-image synthesis,” arXiv preprint arXiv:2310.00426,
+2023.
+[95] X. Dai, J. Hou, C.-Y. Ma, S. Tsai, J. Wang, R. Wang, P. Zhang,
+S. Vandenhende, X. Wang, A. Dubey, et al., “Emu: Enhancing image
+generation models using photogenic needles in a haystack,” arXiv
+preprint arXiv:2309.15807, 2023.
+[96] K. Sohn, N. Ruiz, K. Lee, D. C. Chin, I. Blok, H. Chang, J. Barber,
+L. Jiang, G. Entis, Y. Li, et al., “Styledrop: Text-to-image generation in
+any style,” arXiv preprint arXiv:2306.00983, 2023.
+[97] Y. Balaji, S. Nah, X. Huang, A. Vahdat, J. Song, K. Kreis, M. Aittala,
+T. Aila, S. Laine, B. Catanzaro, et al., “ediffi: Text-to-image diffusion models with an ensemble of expert denoisers,” arXiv preprint
+arXiv:2211.01324, 2022.
+[98] S. Ge, T. Park, J.-Y. Zhu, and J.-B. Huang, “Expressive text-to-image
+generation with rich text,” in CVPR, pp. 7545–7556, 2023.
+[99] Y. Li, H. Liu, Q. Wu, F. Mu, J. Yang, J. Gao, C. Li, and Y. J.
+Lee, “Gligen: Open-set grounded text-to-image generation,” in CVPR,
+pp. 22511–22521, 2023.
+[100] O. Gafni, A. Polyak, O. Ashual, S. Sheynin, D. Parikh, and Y. Taigman,
+“Make-a-scene: Scene-based text-to-image generation with human priors,” in ECCV, pp. 89–106, 2022.
+[101] O. Avrahami, T. Hayes, O. Gafni, S. Gupta, Y. Taigman, D. Parikh,
+D. Lischinski, O. Fried, and X. Yin, “Spatext: Spatio-textual representation for controllable image generation,” in CVPR, pp. 18370–18380,
+2023.
+[102] L. Zhang, A. Rao, and M. Agrawala, “Adding conditional control to
+text-to-image diffusion models,” in ICCV, pp. 3836–3847, 2023.
+[103] S. Zhao, D. Chen, Y.-C. Chen, J. Bao, S. Hao, L. Yuan, and K.-Y. K.
+Wong, “Uni-controlnet: All-in-one control to text-to-image diffusion
+models,” arXiv preprint arXiv:2305.16322, 2023.
+[104] C. Qin, S. Zhang, N. Yu, Y. Feng, X. Yang, Y. Zhou, H. Wang, J. C.
+Niebles, C. Xiong, S. Savarese, et al., “Unicontrol: A unified diffusion
+model for controllable visual generation in the wild,” arXiv preprint
+arXiv:2305.11147, 2023.
+[105] L. Huang, D. Chen, Y. Liu, Y. Shen, D. Zhao, and J. Zhou, “Composer:
+Creative and controllable image synthesis with composable conditions,”
+in ICML, 2023.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+23
+
+[106] C. Mou, X. Wang, L. Xie, J. Zhang, Z. Qi, Y. Shan, and X. Qie, “T2iadapter: Learning adapters to dig out more controllable ability for textto-image diffusion models,” arXiv preprint arXiv:2302.08453, 2023.
+[107] X. Xu, J. Guo, Z. Wang, G. Huang, I. Essa, and H. Shi, “Promptfree diffusion: Taking” text” out of text-to-image diffusion models,” in
+CVPR, pp. 8682–8692, 2024.
+[108] R. Gal, Y. Alaluf, Y. Atzmon, O. Patashnik, A. H. Bermano, G. Chechik,
+and D. Cohen-or, “An image is worth one word: Personalizing text-toimage generation using textual inversion,” in ICLR, 2023.
+[109] N. Ruiz, Y. Li, V. Jampani, Y. Pritch, M. Rubinstein, and K. Aberman,
+“Dreambooth: Fine tuning text-to-image diffusion models for subjectdriven generation,” in CVPR, pp. 22500–22510, 2023.
+[110] Y. Gu, X. Wang, J. Z. Wu, Y. Shi, Y. Chen, Z. Fan, W. Xiao,
+R. Zhao, S. Chang, W. Wu, et al., “Mix-of-show: Decentralized lowrank adaptation for multi-concept customization of diffusion models,”
+in NeurIPS, vol. 36, 2024.
+[111] N. Ruiz, Y. Li, V. Jampani, W. Wei, T. Hou, Y. Pritch, N. Wadhwa,
+M. Rubinstein, and K. Aberman, “Hyperdreambooth: Hypernetworks
+for fast personalization of text-to-image models,” in CVPR, pp. 6527–
+6536, 2024.
+[112] Z. Kong, Y. Zhang, T. Yang, T. Wang, K. Zhang, B. Wu,
+G. Chen, W. Liu, and W. Luo, “Omg: Occlusion-friendly personalized multi-concept generation in diffusion models,” arXiv preprint
+arXiv:2403.10983, 2024.
+[113] N. Kumari, B. Zhang, R. Zhang, E. Shechtman, and J.-Y. Zhu, “Multiconcept customization of text-to-image diffusion,” in CVPR, pp. 1931–
+1941, 2023.
+[114] A. Voronov, M. Khoroshikh, A. Babenko, and M. Ryabinin, “Is this loss
+informative? faster text-to-image customization by tracking objective
+dynamics,” in NeurIPS, 2023.
+[115] Y. Wei, Y. Zhang, Z. Ji, J. Bai, L. Zhang, and W. Zuo, “Elite: Encoding
+visual concepts into textual embeddings for customized text-to-image
+generation,” arXiv preprint arXiv:2302.13848, 2023.
+[116] Z. Liu, R. Feng, K. Zhu, Y. Zhang, K. Zheng, Y. Liu, D. Zhao,
+J. Zhou, and Y. Cao, “Cones: Concept neurons in diffusion models
+for customized generation,” in ICML, 2023.
+[117] W. Chen, H. Hu, Y. Li, N. Rui, X. Jia, M.-W. Chang, and W. W. Cohen,
+“Subject-driven text-to-image generation via apprenticeship learning,”
+arXiv preprint arXiv:2304.00186, 2023.
+[118] J. Shi, W. Xiong, Z. Lin, and H. J. Jung, “Instantbooth: Personalized
+text-to-image generation without test-time finetuning,” arXiv preprint
+arXiv:2304.03411, 2023.
+[119] Y. Tewel, R. Gal, G. Chechik, and Y. Atzmon, “Key-locked rank one
+editing for text-to-image personalization,” in ACM SIGGRAPH, pp. 1–
+11, 2023.
+[120] H. Chen, Y. Zhang, X. Wang, X. Duan, Y. Zhou, and W. Zhu, “Disenbooth: Identity-preserving disentangled tuning for subject-driven textto-image generation,” arXiv preprint arXiv:2305.03374, vol. 2, 2023.
+[121] J. Gu, Y. Wang, N. Zhao, T.-J. Fu, W. Xiong, Q. Liu, Z. Zhang,
+H. Zhang, J. Zhang, H. Jung, et al., “Photoswap: Personalized subject
+swapping in images,” arXiv preprint arXiv:2305.18286, 2023.
+[122] Z. Yuan, M. Cao, X. Wang, Z. Qi, C. Yuan, and Y. Shan, “Customnet:
+Zero-shot object customization with variable-viewpoints in text-toimage diffusion models,” arXiv preprint arXiv:2310.19784, 2023.
+[123] H. Lu, H. Tunanyan, K. Wang, S. Navasardyan, Z. Wang, and H. Shi,
+“Specialist diffusion: Plug-and-play sample-efficient fine-tuning of textto-image diffusion models to learn any unseen style,” in CVPR,
+pp. 14267–14276, 2023.
+[124] H. Ye, J. Zhang, S. Liu, X. Han, and W. Yang, “Ip-adapter: Text
+compatible image prompt adapter for text-to-image diffusion models,”
+arXiv preprint arXiv:2308.06721, 2023.
+[125] A. Jain, A. Xie, and P. Abbeel, “Vectorfusion: Text-to-svg by abstracting
+pixel-based diffusion models,” in CVPR, 2023.
+[126] X. Xing, C. Wang, H. Zhou, J. Zhang, Q. Yu, and D. Xu, “Diffsketcher:
+Text guided vector sketch synthesis through latent diffusion models,”
+NIPS, 2023.
+[127] Z. Zhao, Y. Chen, Z. Hu, X. Chen, and B. Ni, “Vector graphics
+generation via mutually impulsed dual-domain diffusion,” in CVPR,
+2024.
+[128] H. Li, Y. Yang, M. Chang, H. Feng, Z. hai Xu, Q. Li, and Y. ting
+Chen, “Srdiff: Single image super-resolution with diffusion probabilistic
+models,” Neurocomputing, vol. 479, pp. 47–59, 2022.
+[129] M. Özbey, S. U. Dar, H. A. Bedel, O. Dalmaz, Ş. Özturk, A. Güngör,
+and T. Çukur, “Unsupervised medical image translation with adversarial
+diffusion models,” arXiv preprint arXiv:2207.08208, 2022.
+
+[130] Z. Luo, F. K. Gustafsson, Z. Zhao, J. Sjölund, and T. B. Schön,
+“Refusion: Enabling large-size realistic image restoration with latentspace diffusion models,” in CVPR, pp. 1680–1691, 2023.
+[131] Z. Chen, Y. Zhang, D. Liu, B. Xia, J. Gu, L. Kong, and X. Yuan, “Hierarchical integration diffusion model for realistic image deblurring,”
+arXiv preprint arXiv:2305.12966, 2023.
+[132] F. Guth, S. Coste, V. De Bortoli, and S. Mallat, “Wavelet score-based
+generative modeling,” in NeurIPS, vol. 35, 2022.
+[133] J. Huang, Y. Liu, and S. Chen, “Bootstrap diffusion model curve
+estimation for high resolution low-light image enhancement,” arXiv
+preprint arXiv:2309.14709, 2023.
+[134] J. Wang, Z. Yue, S. Zhou, K. C. Chan, and C. C. Loy, “Exploiting
+diffusion prior for real-world image super-resolution,” arXiv preprint
+arXiv:2305.07015, 2023.
+[135] X. Lin, J. He, Z. Chen, Z. Lyu, B. Fei, B. Dai, W. Ouyang, Y. Qiao,
+and C. Dong, “Diffbir: Towards blind image restoration with generative
+diffusion prior,” arXiv preprint arXiv:2308.15070, 2023.
+[136] H. Sun, W. Li, J. Liu, H. Chen, R. Pei, X. Zou, Y. Yan, and Y. Yang,
+“Coser: Bridging image and language for cognitive super-resolution,”
+arXiv preprint arXiv:2311.16512, 2023.
+[137] F. Yu, J. Gu, Z. Li, J. Hu, X. Kong, X. Wang, J. He, Y. Qiao,
+and C. Dong, “Scaling up to excellence: Practicing model scaling
+for photo-realistic image restoration in the wild,” arXiv preprint
+arXiv:2401.13627, 2024.
+[138] J. Song, A. Vahdat, M. Mardani, and J. Kautz, “Pseudoinverse-guided
+diffusion models for inverse problems,” in ICLR, 2022.
+[139] J. Schwab, S. Antholzer, and M. Haltmeier, “Deep null space learning
+for inverse problems: convergence analysis and rates,” Inverse Problems, vol. 35, no. 2, p. 025008, 2019.
+[140] Y. Wang, Y. Hu, J. Yu, and J. Zhang, “Gan prior based null-space
+learning for consistent super-resolution,” in AAAI, vol. 37, pp. 2724–
+2732, 2023.
+[141] T. Islam, A. Miron, X. Liu, and Y. Li, “Deep learning in virtual try-on:
+A comprehensive survey,” IEEE Access, 2024.
+[142] D. Song, X. Zhang, J. Zhou, W. Nie, R. Tong, and A.-A. Liu, “Imagebased virtual try-on: A survey,” arXiv preprint arXiv:2311.04811, 2023.
+[143] X. Han, Z. Wu, Z. Wu, R. Yu, and L. S. Davis, “Viton: An image-based
+virtual try-on network,” in CVPR, pp. 7543–7552, 2018.
+[144] B. Wang, H. Zheng, X. Liang, Y. Chen, L. Lin, and M. Yang, “Toward
+characteristic-preserving image-based virtual try-on network,” in ECCV,
+pp. 589–604, 2018.
+[145] X. Han, X. Hu, W. Huang, and M. R. Scott, “Clothflow: A flow-based
+model for clothed person generation,” in ICCV, pp. 10471–10480, 2019.
+[146] Y. Ge, Y. Song, R. Zhang, C. Ge, W. Liu, and P. Luo, “Parser-free virtual
+try-on via distilling appearance flows,” in CVPR, pp. 8485–8493, 2021.
+[147] Z. Xie, Z. Huang, X. Dong, F. Zhao, H. Dong, X. Zhang, F. Zhu,
+and X. Liang, “Gp-vton: Towards general purpose virtual try-on via
+collaborative local-flow global-parsing learning,” in CVPR, pp. 23550–
+23559, 2023.
+[148] X. Li, M. Kampffmeyer, X. Dong, Z. Xie, F. Zhu, H. Dong, X. Liang,
+et al., “Warpdiffusion: Efficient diffusion model for high-fidelity virtual
+try-on,” arXiv preprint arXiv:2312.03667, 2023.
+[149] L. Zhu, D. Yang, T. Zhu, F. Reda, W. Chan, C. Saharia, M. Norouzi,
+and I. Kemelmacher-Shlizerman, “Tryondiffusion: A tale of two unets,”
+in CVPR, pp. 4606–4615, 2023.
+[150] D. Morelli, A. Baldrati, G. Cartella, M. Cornia, M. Bertini, and
+R. Cucchiara, “Ladi-vton: Latent diffusion textual-inversion enhanced
+virtual try-on,” in ACM MM, pp. 8580–8589, 2023.
+[151] J. Kim, G. Gu, M. Park, S. Park, and J. Choo, “Stableviton: Learning
+semantic correspondence with latent diffusion model for virtual try-on,”
+in CVPR, pp. 8176–8185, 2024.
+[152] X. Zhang, E. Lin, X. Li, Y. Luo, M. Kampffmeyer, X. Dong, and
+X. Liang, “Mmtryon: Multi-modal multi-reference control for highquality fashion generation,” arXiv preprint arXiv:2405.00448, 2024.
+[153] Z. Chong, X. Dong, H. Li, S. Zhang, W. Zhang, X. Zhang, H. Zhao,
+and X. Liang, “Catvton: Concatenation is all you need for virtual try-on
+with diffusion models,” arXiv preprint arXiv:2407.15886, 2024.
+[154] G. Kim, T. Kwon, and J. C. Ye, “Diffusionclip: Text-guided diffusion
+models for robust image manipulation,” in CVPR, pp. 2426–2435, 2022.
+[155] M. Kwon, J. Jeong, and Y. Uh, “Diffusion models already have a
+semantic latent space,” in ICLR, 2023.
+[156] N. Starodubcev, D. Baranchuk, V. Khrulkov, and A. Babenko, “Towards
+real-time text-driven image manipulation with unconditional diffusion
+models,” arXiv preprint arXiv:2304.04344, 2023.
+[157] N. Huang, Y. Zhang, F. Tang, C. Ma, H. Huang, W. Dong, and
+C. Xu, “Diffstyler: Controllable dual diffusion for text-driven image
+stylization,” IEEE TNNLS, 2024.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+24
+
+[158] Z. Wang, L. Zhao, and W. Xing, “Stylediffusion: Controllable disentangled style transfer via diffusion models,” in ICCV, pp. 7677–7689,
+2023.
+[159] H. Sasaki, C. G. Willcocks, and T. P. Breckon, “Unit-ddpm: Unpaired
+image translation with denoising diffusion probabilistic models,” arXiv
+preprint arXiv:2104.05358, 2021.
+[160] S. Xu, Z. Ma, Y. Huang, H. Lee, and J. Chai, “Cyclenet: Rethinking
+cycle consistency in text-guided diffusion for image manipulation,” in
+NeurIPS, 2023.
+[161] K. Preechakul, N. Chatthee, S. Wizadwongsa, and S. Suwajanakorn,
+“Diffusion autoencoders: Toward a meaningful and decodable representation,” in CVPR, pp. 10619–10629, 2022.
+[162] Z. Lu, C. Wu, X. Chen, Y. Wang, L. Bai, Y. Qiao, and X. Liu, “Hierarchical diffusion autoencoders and disentangled image manipulation,” in
+WACV, pp. 5374–5383, 2024.
+[163] M. Zhao, F. Bao, C. Li, and J. Zhu, “Egsde: Unpaired image-to-image
+translation via energy-guided stochastic differential equations,” arXiv
+preprint arXiv:2207.06635, 2022.
+[164] N. Matsunaga, M. Ishii, A. Hayakawa, K. Suzuki, and T. Narihira,
+“Fine-grained image editing by pixel-wise guidance using diffusion
+models,” arXiv preprint arXiv:2212.02024, 2022.
+[165] B. Yang, S. Gu, B. Zhang, T. Zhang, X. Chen, X. Sun, D. Chen,
+and F. Wen, “Paint by example: Exemplar-based image editing with
+diffusion models,” in CVPR, pp. 18381–18391, 2023.
+[166] K. Kim, S. Park, J. Lee, and J. Choo, “Reference-based image composition with sketch via structure-aware diffusion model,” arXiv preprint
+arXiv:2304.09748, 2023.
+[167] Y. Song, Z. Zhang, Z. Lin, S. Cohen, B. Price, J. Zhang, S. Y. Kim, and
+D. Aliaga, “Objectstitch: Object compositing with diffusion model,” in
+CVPR, pp. 18310–18319, 2023.
+[168] X. Zhang, J. Guo, P. Yoo, Y. Matsuo, and Y. Iwasawa, “Paste, inpaint
+and harmonize via denoising: Subject-driven image editing with pretrained diffusion model,” arXiv preprint arXiv:2306.07596, 2023.
+[169] S. Xie, Y. Zhao, Z. Xiao, K. C. Chan, Y. Li, Y. Xu, K. Zhang, and
+T. Hou, “Dreaminpainter: Text-guided subject-driven image inpainting
+with diffusion models,” arXiv preprint arXiv:2312.03771, 2023.
+[170] X. Chen, L. Huang, Y. Liu, Y. Shen, D. Zhao, and H. Zhao,
+“Anydoor: Zero-shot object-level image customization,” arXiv preprint
+arXiv:2307.09481, 2023.
+[171] X. Chen and S. Lathuilière, “Face aging via diffusion-based editing,” in
+BMCV, 2023.
+[172] V. Goel, E. Peruzzo, Y. Jiang, D. Xu, N. Sebe, T. Darrell, Z. Wang, and
+H. Shi, “Pair-diffusion: Object-level image editing with structure-andappearance paired diffusion models,” arXiv preprint arXiv:2303.17546,
+2023.
+[173] S. Xie, Z. Zhang, Z. Lin, T. Hinz, and K. Zhang, “Smartbrush: Text
+and shape guided object inpainting with diffusion model,” in CVPR,
+pp. 22428–22437, 2023.
+[174] Z. Zhang, J. Zheng, Z. Fang, and B. A. Plummer, “Text-to-image editing
+by image information removal,” in WACV, pp. 5232–5241, 2024.
+[175] J. Zhuang, Y. Zeng, W. Liu, C. Yuan, and K. Chen, “A task is worth
+one word: Learning with task prompts for high-quality versatile image
+inpainting,” arXiv preprint arXiv:2312.03594, 2023.
+[176] S. Wang, C. Saharia, C. Montgomery, J. Pont-Tuset, S. Noy, S. Pellegrini, Y. Onoe, S. Laszlo, D. J. Fleet, R. Soricut, et al., “Imagen editor
+and editbench: Advancing and evaluating text-guided image inpainting,”
+in CVPR, pp. 18359–18369, 2023.
+[177] J. Singh, J. Zhang, Q. Liu, C. Smith, Z. Lin, and L. Zheng, “Smartmask:
+Context aware high-fidelity mask generation for fine-grained object
+insertion and layout control,” arXiv preprint arXiv:2312.05039, 2023.
+[178] S. Yang, X. Chen, and J. Liao, “Uni-paint: A unified framework for
+multimodal image inpainting with pretrained diffusion model,” in ACM
+MM, pp. 3190–3199, 2023.
+[179] T. Brooks, A. Holynski, and A. A. Efros, “Instructpix2pix: Learning to
+follow image editing instructions,” in CVPR, pp. 18392–18402, 2023.
+[180] S. Li, C. Chen, and H. Lu, “Moecontroller: Instruction-based arbitrary
+image manipulation with mixture-of-expert controllers,” arXiv preprint
+arXiv:2309.04372, 2023.
+[181] Q. Guo and T. Lin, “Focus on your instruction: Fine-grained and
+multi-instruction image editing by attention modulation,” arXiv preprint
+arXiv:2312.10113, 2023.
+[182] T. Chakrabarty, K. Singh, A. Saakyan, and S. Muresan, “Learning to
+follow object-centric image editing instructions faithfully,” in EMNLP,
+pp. 9630–9646, 2023.
+[183] Z. Geng, B. Yang, T. Hang, C. Li, S. Gu, T. Zhang, J. Bao, Z. Zhang,
+H. Hu, D. Chen, et al., “Instructdiffusion: A generalist modeling
+interface for vision tasks,” arXiv preprint arXiv:2309.03895, 2023.
+
+[184] S. Sheynin, A. Polyak, U. Singer, Y. Kirstain, A. Zohar, O. Ashual,
+D. Parikh, and Y. Taigman, “Emu edit: Precise image editing via
+recognition and generation tasks,” arXiv preprint arXiv:2311.10089,
+2023.
+[185] J. Wei, S. Wu, X. Jiang, and Y. Wang, “Dialogpaint: A dialog-based
+image editing model,” arXiv preprint arXiv:2303.10073, 2023.
+[186] A. B. Yildirim, V. Baday, E. Erdem, A. Erdem, and A. Dundar, “Instinpaint: Instructing to remove objects with diffusion models,” arXiv
+preprint arXiv:2304.03246, 2023.
+[187] S. Zhang, X. Yang, Y. Feng, C. Qin, C.-C. Chen, N. Yu, Z. Chen,
+H. Wang, S. Savarese, S. Ermon, et al., “Hive: Harnessing human feedback for instructional visual editing,” arXiv preprint arXiv:2303.09618,
+2023.
+[188] S. Yasheng, Y. Yang, H. Peng, Y. Shen, Y. Yang, H. Hu, L. Qiu,
+and H. Koike, “Imagebrush: Learning visual in-context instructions for
+exemplar-based image manipulation,” in NeurIPS, 2023.
+[189] S. Li, H. Singh, and A. Grover, “Instructany2pix: Flexible visual editing via multimodal instruction following,” arXiv preprint
+arXiv:2312.06738, 2023.
+[190] T.-J. Fu, W. Hu, X. Du, W. Y. Wang, Y. Yang, and Z. Gan, “Guiding
+instruction-based image editing via multimodal large language models,”
+arXiv preprint arXiv:2309.17102, 2023.
+[191] Y. Huang, L. Xie, X. Wang, Z. Yuan, X. Cun, Y. Ge, J. Zhou, C. Dong,
+R. Huang, R. Zhang, et al., “Smartedit: Exploring complex instructionbased image editing with multimodal large language models,” arXiv
+preprint arXiv:2312.06739, 2023.
+[192] R. Bodur, E. Gundogdu, B. Bhattarai, T.-K. Kim, M. Donoser, and
+L. Bazzani, “iedit: Localised text-guided image editing with weak
+supervision,” arXiv preprint arXiv:2305.05947, 2023.
+[193] Y. Lin, Y.-W. Chen, Y.-H. Tsai, L. Jiang, and M.-H. Yang, “Text-driven
+image editing via learnable regions,” arXiv preprint arXiv:2311.16432,
+2023.
+[194] D. Yue, Q. Guo, M. Ning, J. Cui, Y. Zhu, and L. Yuan, “Chatface: Chatguided real face editing via diffusion latent space manipulation,” arXiv
+preprint arXiv:2305.14742, 2023.
+[195] D. Valevski, M. Kalman, Y. Matias, and Y. Leviathan, “Unitune: Textdriven image editing by fine tuning an image generation model on a
+single image,” arXiv preprint arXiv:2210.09477, 2022.
+[196] J. Choi, Y. Choi, Y. Kim, J. Kim, and S. Yoon, “Custom-edit: Textguided image editing with customized diffusion models,” arXiv preprint
+arXiv:2305.15779, 2023.
+[197] J. Huang, Y. Liu, J. Qin, and S. Chen, “Kv inversion: Kv embeddings
+learning for text-conditioned real image action editing,” arXiv preprint
+arXiv:2309.16608, 2023.
+[198] R. Mokady, A. Hertz, K. Aberman, Y. Pritch, and D. Cohen-Or, “Nulltext inversion for editing real images using guided diffusion models,” in
+CVPR, pp. 6038–6047, 2023.
+[199] K. Wang, F. Yang, S. Yang, M. A. Butt, and J. van de Weijer, “Dynamic
+prompt learning: Addressing cross-attention leakage for text-based
+image editing,” in NeurIPS, 2023.
+[200] Q. Wu, Y. Liu, H. Zhao, A. Kale, T. Bui, T. Yu, Z. Lin, Y. Zhang, and
+S. Chang, “Uncovering the disentanglement capability in text-to-image
+diffusion models,” in CVPR, pp. 1900–1910, June 2023.
+[201] W. Dong, S. Xue, X. Duan, and S. Han, “Prompt tuning inversion
+for text-driven image editing using diffusion models,” arXiv preprint
+arXiv:2305.04441, 2023.
+[202] S. Li, J. van de Weijer, T. Hu, F. S. Khan, Q. Hou, Y. Wang, and
+J. Yang, “Stylediffusion: Prompt-embedding inversion for text-based
+editing,” arXiv preprint arXiv:2303.15649, 2023.
+[203] Y. Zhang, N. Huang, F. Tang, H. Huang, C. Ma, W. Dong, and
+C. Xu, “Inversion-based style transfer with diffusion models,” in CVPR,
+pp. 10146–10156, June 2023.
+[204] C. Mou, X. Wang, J. Song, Y. Shan, and J. Zhang, “Dragondiffusion:
+Enabling drag-style manipulation on diffusion models,” arXiv preprint
+arXiv:2307.02421, 2023.
+[205] Y. Shi, C. Xue, J. Pan, W. Zhang, V. Y. Tan, and S. Bai, “Dragdiffusion:
+Harnessing diffusion models for interactive point-based image editing,”
+arXiv preprint arXiv:2306.14435, 2023.
+[206] A. Hertz, K. Aberman, and D. Cohen-Or, “Delta denoising score,” in
+ICCV, pp. 2328–2337, 2023.
+[207] G. Kwon and J. C. Ye, “Diffusion-based image translation using
+disentangled style and content representation,” in ICLR, 2023.
+[208] H. Nam, G. Kwon, G. Y. Park, and J. C. Ye, “Contrastive denoising
+score for text-guided latent diffusion image editing,” arXiv preprint
+arXiv:2311.18608, 2023.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+25
+
+[209] S. Yang, L. Zhang, L. Ma, Y. Liu, J. Fu, and Y. He, “Magicremover:
+Tuning-free text-guided image inpainting with diffusion models,” arXiv
+preprint arXiv:2310.02848, 2023.
+[210] B. Kawar, S. Zada, O. Lang, O. Tov, H. Chang, T. Dekel, I. Mosseri, and
+M. Irani, “Imagic: Text-based real image editing with diffusion models,”
+in CVPR, pp. 6007–6017, June 2023.
+[211] P. Li, Q. Huang, Y. Ding, and Z. Li, “Layerdiffusion: Layered controlled
+image editing with diffusion models,” arXiv preprint arXiv:2305.18676,
+2023.
+[212] S. Zhang, S. Xiao, and W. Huang, “Forgedit: Text guided image editing
+via learning and forgetting,” arXiv preprint arXiv:2309.10556, 2023.
+[213] Z. Zhang, L. Han, A. Ghosh, D. N. Metaxas, and J. Ren, “Sine: Single
+image editing with text-to-image diffusion models,” in CVPR, pp. 6027–
+6037, 2023.
+[214] H. Ravi, S. Kelkar, M. Harikumar, and A. Kale, “Preditor: Text guided
+image editing with diffusion prior,” arXiv preprint arXiv:2302.07979,
+2023.
+[215] Y. Lin, S. Zhang, X. Yang, X. Wang, and Y. Shi, “Regeneration learning
+of diffusion models with rich prompts for zero-shot image translation,”
+arXiv preprint arXiv:2305.04651, 2023.
+[216] S. Kim, W. Jang, H. Kim, J. Kim, Y. Choi, S. Kim, and G. Lee, “Userfriendly image editing with minimal text input: Leveraging captioning
+and injection techniques,” arXiv preprint arXiv:2306.02717, 2023.
+[217] Q. Wang, B. Zhang, M. Birsak, and P. Wonka, “Instructedit: Improving
+automatic masks for diffusion-based image editing with user instructions,” arXiv preprint arXiv:2305.18047, 2023.
+[218] A. Elarabawy, H. Kamath, and S. Denton, “Direct inversion:
+Optimization-free text-driven real image editing with diffusion models,”
+arXiv preprint arXiv:2211.07825, 2022.
+[219] I. Huberman-Spiegelglas, V. Kulikov, and T. Michaeli, “An edit
+friendly ddpm noise space: Inversion and manipulations,” arXiv preprint
+arXiv:2304.06140, 2023.
+[220] S. Nie, H. A. Guo, C. Lu, Y. Zhou, C. Zheng, and C. Li, “The blessing
+of randomness: Sde beats ode in general diffusion-based image editing,”
+arXiv preprint arXiv:2311.01410, 2023.
+[221] M. Brack, F. Friedrich, K. Kornmeier, L. Tsaban, P. Schramowski,
+K. Kersting, and A. Passos, “Ledits++: Limitless image editing using
+text-to-image models,” arXiv preprint arXiv:2311.16711, 2023.
+[222] S. Chen and J. Huang, “Fec: Three finetuning-free methods to enhance
+consistency for real image editing,” arXiv preprint arXiv:2309.14934,
+2023.
+[223] K. Joseph, P. Udhayanan, T. Shukla, A. Agarwal, S. Karanam,
+K. Goswami, and B. V. Srinivasan, “Iterative multi-granular image
+editing using diffusion models,” in WACV, pp. 8107–8116, 2024.
+[224] D. Miyake, A. Iohara, Y. Saito, and T. Tanaka, “Negative-prompt
+inversion: Fast image inversion for editing with text-guided diffusion
+models,” arXiv preprint arXiv:2305.16807, 2023.
+[225] L. Han, S. Wen, Q. Chen, Z. Zhang, K. Song, M. Ren, R. Gao,
+A. Stathopoulos, X. He, Y. Chen, et al., “Proxedit: Improving tuningfree real image editing with proximal guidance,” in WACV, pp. 4291–
+4301, 2024.
+[226] J. Zhao, H. Zheng, C. Wang, L. Lan, W. Huang, and W. Yang, “Null-text
+guidance in diffusion models is secretly a cartoon-style creator,” arXiv
+preprint arXiv:2305.06710, 2023.
+[227] B. Wallace, A. Gokul, and N. Naik, “Edict: Exact diffusion inversion
+via coupled transformations,” in CVPR, pp. 22532–22541, 2023.
+[228] Z. Pan, R. Gherardi, X. Xie, and S. Huang, “Effective real image editing
+with accelerated iterative diffusion inversion,” in ICCV, pp. 15912–
+15921, 2023.
+[229] C. H. Wu and F. De la Torre, “A latent space of stochastic diffusion
+models for zero-shot image editing and guidance,” in ICCV, pp. 7378–
+7387, 2023.
+[230] J. Jeong, M. Kwon, and Y. Uh, “Training-free content injection using
+h-space in diffusion models,” in WACV, pp. 5151–5161, 2024.
+[231] B. Meiri, D. Samuel, N. Darshan, G. Chechik, S. Avidan, and R. BenAri, “Fixed-point inversion for text-to-image diffusion models,” arXiv
+preprint arXiv:2312.12540, 2023.
+[232] X. Duan, S. Cui, G. Kang, B. Zhang, Z. Fei, M. Fan, and J. Huang,
+“Tuning-free inversion-enhanced control for consistent image editing,”
+arXiv preprint arXiv:2312.14611, 2023.
+[233] P. Gholami and R. Xiao, “Diffusion brush: A latent diffusion
+model-based editing tool for ai-generated images,” arXiv preprint
+arXiv:2306.00219, 2023.
+[234] D. Epstein, A. Jabri, B. Poole, A. A. Efros, and A. Holynski, “Diffusion self-guidance for controllable image generation,” arXiv preprint
+arXiv:2306.00986, 2023.
+
+[235] A. Hertz, R. Mokady, J. Tenenbaum, K. Aberman, Y. Pritch, and
+D. Cohen-or, “Prompt-to-prompt image editing with cross-attention
+control,” in ICLR, 2023.
+[236] G. Parmar, K. Kumar Singh, R. Zhang, Y. Li, J. Lu, and J.-Y. Zhu,
+“Zero-shot image-to-image translation,” in ACM SIGGRAPH, pp. 1–11,
+2023.
+[237] N. Tumanyan, M. Geyer, S. Bagon, and T. Dekel, “Plug-and-play
+diffusion features for text-driven image-to-image translation,” in CVPR,
+pp. 1921–1930, 2023.
+[238] S. Lu, Y. Liu, and A. W.-K. Kong, “Tf-icon: Diffusion-based trainingfree cross-domain image composition,” in ICCV, pp. 2294–2305, 2023.
+[239] O. Patashnik, D. Garibi, I. Azuri, H. Averbuch-Elor, and D. Cohen-Or,
+“Localizing object-level shape variations with text-to-image diffusion
+models,” arXiv preprint arXiv:2303.11306, 2023.
+[240] H. Lee, M. Kang, and B. Han, “Conditional score guidance for textdriven image-to-image translation,” arXiv preprint arXiv:2305.18007,
+2023.
+[241] G. Y. Park, J. Kim, B. Kim, S. W. Lee, and J. C. Ye, “Energy-based
+cross attention for bayesian context update in text-to-image diffusion
+models,” arXiv preprint arXiv:2306.09869, 2023.
+[242] D. H. Park, G. Luo, C. Toste, S. Azadi, X. Liu, M. Karalashvili,
+A. Rohrbach, and T. Darrell, “Shape-guided diffusion with insideoutside attention,” in WACV, pp. 4198–4207, 2024.
+[243] H. Manukyan, A. Sargsyan, B. Atanyan, Z. Wang, S. Navasardyan,
+and H. Shi, “Hd-painter: High-resolution and prompt-faithful textguided image inpainting with diffusion models,” arXiv preprint
+arXiv:2312.14091, 2023.
+[244] Z. Yu, H. Li, F. Fu, X. Miao, and B. Cui, “Fisedit: Accelerating textto-image editing via cache-enabled sparse diffusion inference,” arXiv
+preprint arXiv:2305.17423, 2023.
+[245] O. Avrahami, O. Fried, and D. Lischinski, “Blended latent diffusion,”
+ACM TOG, vol. 42, no. 4, pp. 1–11, 2023.
+[246] W. Huang, S. Tu, and L. Xu, “Pfb-diff: Progressive feature blending diffusion for text-driven image editing,” arXiv preprint arXiv:2306.16894,
+2023.
+[247] G. Couairon, J. Verbeek, H. Schwenk, and M. Cord, “Diffedit:
+Diffusion-based semantic image editing with mask guidance,” in ICLR,
+2023.
+[248] N. Huang, F. Tang, W. Dong, T.-Y. Lee, and C. Xu, “Regionaware diffusion for zero-shot text-driven image editing,” arXiv preprint
+arXiv:2302.11797, 2023.
+[249] Z. Liu, F. Zhang, J. He, J. Wang, Z. Wang, and L. Cheng, “Text-guided
+mask-free local image retouching,” in ICME, pp. 2783–2788, 2023.
+[250] E. Levin and O. Fried, “Differential diffusion: Giving each pixel its
+strength,” arXiv preprint arXiv:2306.00950, 2023.
+[251] A. Mirzaei, T. Aumentado-Armstrong, M. A. Brubaker, J. Kelly,
+A. Levinshtein, K. G. Derpanis, and I. Gilitschenski, “Watch your steps:
+Local image and scene editing by text instructions,” arXiv preprint
+arXiv:2308.08947, 2023.
+[252] O. Avrahami, D. Lischinski, and O. Fried, “Blended diffusion for textdriven editing of natural images,” in CVPR, pp. 18208–18218, 2022.
+[253] S. Li, B. Zeng, Y. Feng, S. Gao, X. Liu, J. Liu, L. Lin, X. Tang, Y. Hu,
+J. Liu, et al., “Zone: Zero-shot instruction-guided local editing,” arXiv
+preprint arXiv:2312.16794, 2023.
+[254] T. Yu, R. Feng, R. Feng, J. Liu, X. Jin, W. Zeng, and Z. Chen, “Inpaint
+anything: Segment anything meets image inpainting,” arXiv preprint
+arXiv:2304.06790, 2023.
+[255] M. Brack, P. Schramowski, F. Friedrich, D. Hintersdorf, and K. Kersting, “The stable artist: Steering semantics in diffusion latent space,”
+arXiv preprint arXiv:2212.06013, 2022.
+[256] M. Brack, F. Friedrich, D. Hintersdorf, L. Struppek, P. Schramowski,
+and K. Kersting, “Sega: Instructing diffusion using semantic dimensions,” arXiv preprint arXiv:2301.12247, 2023.
+[257] L. Tsaban and A. Passos, “Ledits: Real image editing with ddpm
+inversion and semantic guidance,” arXiv preprint arXiv:2307.00522,
+2023.
+[258] Z. Yang, D. Gui, W. Wang, H. Chen, B. Zhuang, and C. Shen, “Objectaware inversion and reassembly for image editing,” arXiv preprint
+arXiv:2310.12149, 2023.
+[259] V. Sarukkai, L. Li, A. Ma, C. Ré, and K. Fatahalian, “Collage diffusion,”
+in WACV, 2024.
+[260] Y. Song, Z. Zhang, Z. Lin, S. Cohen, B. Price, J. Zhang, S. Y.
+Kim, H. Zhang, W. Xiong, and D. Aliaga, “Imprint: Generative object
+compositing by learning identity-preserving representation,” in CVPR,
+2024.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+26
+
+[261] Y. Wang, W. Zhang, J. Zheng, and C. Jin, “Primecomposer: Faster
+progressively combined diffusion for image composition with attention
+steering,” ACMMM, 2024.
+[262] T. Karras, T. Aila, S. Laine, and J. Lehtinen, “Progressive growing of
+gans for improved quality, stability, and variation,” in ICLR, 2018.
+[263] Y. Choi, Y. Uh, J. Yoo, and J.-W. Ha, “Stargan v2: Diverse image
+synthesis for multiple domains,” in CVPR, pp. 8188–8197, 2020.
+[264] F. Yu, A. Seff, Y. Zhang, S. Song, T. Funkhouser, and J. Xiao, “Lsun:
+Construction of a large-scale image dataset using deep learning with
+humans in the loop,” arXiv preprint arXiv:1506.03365, 2015.
+[265] W. volunteer team, “Wikiart dataset.” https://www.wikiart.org/.
+[266] R. Gal, O. Patashnik, H. Maron, A. H. Bermano, G. Chechik, and
+D. Cohen-Or, “Stylegan-nada: Clip-guided domain adaptation of image
+generators,” ACM TOG, vol. 41, no. 4, pp. 1–13, 2022.
+[267] O. Patashnik, Z. Wu, E. Shechtman, D. Cohen-Or, and D. Lischinski,
+“Styleclip: Text-driven manipulation of stylegan imagery,” in ICCV,
+pp. 2085–2094, 2021.
+[268] A. Radford, J. W. Kim, C. Hallacy, A. Ramesh, G. Goh, S. Agarwal,
+G. Sastry, A. Askell, P. Mishkin, J. Clark, et al., “Learning transferable
+visual models from natural language supervision,” in ICML, pp. 8748–
+8763, 2021.
+[269] Y. Shen, J. Gu, X. Tang, and B. Zhou, “Interpreting the latent space of
+gans for semantic face editing,” in CVPR, pp. 9243–9252, 2020.
+[270] R. Abdal, Y. Qin, and P. Wonka, “Image2stylegan++: How to edit the
+embedded images?,” in CVPR, pp. 8296–8305, 2020.
+[271] T. Brown, B. Mann, N. Ryder, M. Subbiah, J. D. Kaplan, P. Dhariwal,
+A. Neelakantan, P. Shyam, G. Sastry, A. Askell, et al., “Language
+models are few-shot learners,” in NeurIPS, vol. 33, pp. 1877–1901,
+2020.
+[272] A. Kirillov, E. Mintun, N. Ravi, H. Mao, C. Rolland, L. Gustafson,
+T. Xiao, S. Whitehead, A. C. Berg, W.-Y. Lo, P. Dollar, and R. Girshick,
+“Segment anything,” in ICCV, pp. 4015–4026, 2023.
+[273] J. Wei, X. Wang, D. Schuurmans, M. Bosma, F. Xia, E. Chi, Q. V. Le,
+D. Zhou, et al., “Chain-of-thought prompting elicits reasoning in large
+language models,” in NeurIPS, vol. 35, pp. 24824–24837, 2022.
+[274] J. Li, D. Li, S. Savarese, and S. Hoi, “Blip-2: Bootstrapping languageimage pre-training with frozen image encoders and large language
+models,” in ICML, 2023.
+[275] K. Zhang, L. Mo, W. Chen, H. Sun, and Y. Su, “Magicbrush: A
+manually annotated dataset for instruction-guided image editing,” arXiv
+preprint arXiv:2306.10012, 2023.
+[276] H. Touvron, L. Martin, K. Stone, P. Albert, A. Almahairi, Y. Babaei,
+N. Bashlykov, S. Batra, P. Bhargava, S. Bhosale, et al., “Llama
+2: Open foundation and fine-tuned chat models,” arXiv preprint
+arXiv:2307.09288, 2023.
+[277] Y. Wang, Y. Kordi, S. Mishra, A. Liu, N. A. Smith, D. Khashabi,
+and H. Hajishirzi, “Self-instruct: Aligning language model with self
+generated instructions,” arXiv preprint arXiv:2212.10560, 2022.
+[278] S. Roller, E. Dinan, N. Goyal, D. Ju, M. Williamson, Y. Liu, J. Xu,
+M. Ott, E. M. Smith, Y.-L. Boureau, et al., “Recipes for building an
+open-domain chatbot,” in ACL, pp. 300–325, 2021.
+[279] D. A. Hudson and C. D. Manning, “Gqa: A new dataset for real-world
+visual reasoning and compositional question answering,” in CVPR,
+pp. 6700–6709, 2019.
+[280] Y. Wu, A. Kirillov, F. Massa, W.-Y. Lo, and R. Girshick, “Detectron2.”
+https://github.com/facebookresearch/detectron2, 2019.
+[281] X. Zhou, R. Girdhar, A. Joulin, P. Krähenbühl, and I. Misra, “Detecting twenty-thousand classes using image-level supervision,” in ECCV,
+2022.
+[282] Y. Zeng, Z. Lin, H. Lu, and V. M. Patel, “Cr-fill: Generative image inpainting with auxiliary contextual reconstruction,” in ICCV, pp. 14164–
+14173, 2021.
+[283] R. Girdhar, A. El-Nouby, Z. Liu, M. Singh, K. V. Alwala, A. Joulin,
+and I. Misra, “Imagebind: One embedding space to bind them all,” in
+CVPR, pp. 15180–15190, 2023.
+[284] W.-L. Chiang, Z. Li, Z. Lin, Y. Sheng, Z. Wu, H. Zhang, L. Zheng,
+S. Zhuang, Y. Zhuang, J. E. Gonzalez, et al., “Vicuna: An open-source
+chatbot impressing gpt-4 with 90%* chatgpt quality,” See https://vicuna.
+lmsys. org (accessed 14 April 2023), 2023.
+[285] H. Liu, C. Li, Q. Wu, and Y. J. Lee, “Visual instruction tuning,” in
+NeurIPS, vol. 36, 2023.
+[286] T. Lüddecke and A. Ecker, “Image segmentation using text and image
+prompts,” in CVPR, pp. 7086–7096, 2022.
+[287] H. Zhang, F. Li, S. Liu, L. Zhang, H. Su, J. Zhu, L. Ni, and H.-Y.
+Shum, “Dino: Detr with improved denoising anchor boxes for end-toend object detection,” in ICLR, 2023.
+
+[288] X. Pan, A. Tewari, T. Leimkühler, L. Liu, A. Meka, and C. Theobalt,
+“Drag your gan: Interactive point-based manipulation on the generative
+image manifold,” in ACM SIGGRAPH, pp. 1–11, 2023.
+[289] J. Li, D. Li, C. Xiong, and S. Hoi, “Blip: Bootstrapping language-image
+pre-training for unified vision-language understanding and generation,”
+in ICML, pp. 12888–12900, 2022.
+[290] M. A. Chan, S. I. Young, and C. A. Metzler, “Sud2 : Supervision by
+denoising diffusion models for image reconstruction,” arXiv preprint
+arXiv:2303.09642, 2023.
+[291] S. I. Young, A. V. Dalca, E. Ferrante, P. Golland, C. A. Metzler,
+B. Fischl, and J. E. Iglesias, “Supervision by denoising,” IEEE TPAMI,
+2023.
+[292] A. Lugmayr, M. Danelljan, A. Romero, F. Yu, R. Timofte, and
+L. Van Gool, “Repaint: Inpainting using denoising diffusion probabilistic models,” in CVPR, pp. 11461–11471, 2022.
+[293] A. Grechka, G. Couairon, and M. Cord, “Gradpaint: Gradient-guided
+inpainting with diffusion models,” arXiv preprint arXiv:2309.09614,
+2023.
+[294] J. Song, A. Vahdat, M. Mardani, and J. Kautz, “Pseudoinverse-guided
+diffusion models for inverse problems,” in ICLR, 2023.
+[295] B. Fei, Z. Lyu, L. Pan, J. Zhang, W. Yang, T. Luo, B. Zhang, and
+B. Dai, “Generative diffusion prior for unified image restoration and
+enhancement,” in CVPR, pp. 9935–9946, 2023.
+[296] G. Zhang, J. Ji, Y. Zhang, M. Yu, T. Jaakkola, and S. Chang, “Towards
+coherent image inpainting using denoising diffusion implicit models,”
+in ICML, pp. 41164–41193, 2023.
+[297] Z. Fabian, B. Tinaz, and M. Soltanolkotabi, “Diracdiffusion: Denoising
+and incremental reconstruction with assured data-consistency,” arXiv
+preprint arXiv:2303.14353, 2023.
+[298] M. Sandler, A. Howard, M. Zhu, A. Zhmoginov, and L.-C. Chen,
+“Mobilenetv2: Inverted residuals and linear bottlenecks,” in CVPR,
+pp. 4510–4520, 2018.
+[299] J. Xu, S. Motamed, P. Vaddamanu, C. H. Wu, C. Haene, J.-C. Bazin,
+and F. De la Torre, “Personalized face inpainting with diffusion models
+by parallel visual attention,” in WACV, pp. 5432–5442, 2024.
+[300] R. Suvorov, E. Logacheva, A. Mashikhin, A. Remizova, A. Ashukha,
+A. Silvestrov, N. Kong, H. Goka, K. Park, and V. Lempitsky,
+“Resolution-robust large mask inpainting with fourier convolutions,”
+in WACV, pp. 2149–2159, 2022.
+[301] S. Basu, M. Saberi, S. Bhardwaj, A. M. Chegini, D. Massiceti, M. Sanjabi, S. X. Hu, and S. Feizi, “Editval: Benchmarking diffusion based
+text-guided image editing methods,” arXiv preprint arXiv:2310.02426,
+2023.
+[302] T.-Y. Lin, M. Maire, S. Belongie, J. Hays, P. Perona, D. Ramanan,
+P. Dollár, and C. L. Zitnick, “Microsoft coco: Common objects in
+context,” in ECCV, pp. 740–755, 2014.
+[303] J. Betker, G. Goh, L. Jing, T. Brooks, J. Wang, L. Li, L. Ouyang,
+J. Zhuang, J. Lee, Y. Guo, et al., “Improving image generation with better captions,” Computer Science. https://cdn. openai. com/papers/dalle-3. pdf, vol. 2, no. 3, 2023.
+[304] J. Hessel, A. Holtzman, M. Forbes, R. Le Bras, and Y. Choi, “Clipscore:
+A reference-free evaluation metric for image captioning,” in EMNLP,
+pp. 7514–7528, 2021.
+[305] Y. Hu, B. Liu, J. Kasai, Y. Wang, M. Ostendorf, R. Krishna, and N. A.
+Smith, “Tifa: Accurate and interpretable text-to-image faithfulness evaluation with question answering,” in ICCV, pp. 20406–20417, 2023.
+[306] A. Sauer, D. Lorenz, A. Blattmann, and R. Rombach, “Adversarial
+diffusion distillation,” arXiv preprint arXiv:2311.17042, 2023.
+[307] Z. Geng, A. Pokle, and J. Z. Kolter, “One-step diffusion distillation via
+deep equilibrium models,” in NeurIPS, vol. 36, 2023.
+[308] Y. Song, P. Dhariwal, M. Chen, and I. Sutskever, “Consistency models,”
+in ICML, 2023.
+[309] S. Luo, Y. Tan, L. Huang, J. Li, and H. Zhao, “Latent consistency
+models: Synthesizing high-resolution images with few-step inference,”
+arXiv preprint arXiv:2310.04378, 2023.
+[310] Y. Zhao, Y. Xu, Z. Xiao, and T. Hou, “Mobilediffusion: Subsecond text-to-image generation on mobile devices,” arXiv preprint
+arXiv:2311.16567, 2023.
+[311] Y. Li, H. Wang, Q. Jin, J. Hu, P. Chemerys, Y. Fu, Y. Wang, S. Tulyakov,
+and J. Ren, “Snapfusion: Text-to-image diffusion model on mobile
+devices within two seconds,” in NeurIPS, vol. 36, 2023.
+[312] E. J. Hu, Y. Shen, P. Wallis, Z. Allen-Zhu, Y. Li, S. Wang, L. Wang, and
+W. Chen, “Lora: Low-rank adaptation of large language models,” arXiv
+preprint arXiv:2106.09685, 2021.
+[313] P. Schramowski, M. Brack, B. Deiseroth, and K. Kersting, “Safe latent
+diffusion: Mitigating inappropriate degeneration in diffusion models,”
+in CVPR, pp. 22522–22531, 2023.
+
+IEEE TRANSACTIONS ON PATTERN ANALYSIS AND MACHINE INTELLIGENCE
+
+[314] M. Ren, W. Xiong, J. S. Yoon, Z. Shu, J. Zhang, H. Jung, G. Gerig,
+and H. Zhang, “Relightful harmonization: Lighting-aware portrait background replacement,” arXiv preprint arXiv:2312.06886, 2023.
+[315] R. Pandey, S. O. Escolano, C. Legendre, C. Haene, S. Bouaziz, C. Rhemann, P. Debevec, and S. Fanello, “Total relighting: learning to relight
+portraits for background replacement,” ACM TOG, vol. 40, no. 4, pp. 1–
+21, 2021.
+[316] Z. Ding, X. Zhang, Z. Xia, L. Jebe, Z. Tu, and X. Zhang, “Diffusionrig:
+Learning personalized priors for facial appearance editing,” in CVPR,
+pp. 12736–12746, 2023.
+[317] P. Ponglertnapakorn, N. Tritrong, and S. Suwajanakorn, “Difareli:
+Diffusion face relighting,” in ICCV, pp. 22646–22657, 2023.
+[318] F. P. Papantoniou, A. Lattas, S. Moschoglou, and S. Zafeiriou, “Relightify: Relightable 3d faces from a single image via diffusion models,” in
+ICCV, pp. 8806–8817, 2023.
+[319] H. Zhang, T. Dai, Y. Xu, Y.-W. Tai, and C.-K. Tang, “Facednerf:
+semantics-driven face reconstruction, prompt editing and relighting with
+diffusion models,” in NeurIPS, vol. 36, 2023.
+[320] D. Bashkirova, A. Ray, R. Mallick, S. A. Bargal, J. Zhang, R. Krishna,
+and K. Saenko, “Lasagna: Layered score distillation for disentangled
+object relighting,” arXiv preprint arXiv:2312.00833, 2023.
+[321] C. Zeng, Y. Dong, P. Peers, Y. Kong, H. Wu, and X. Tong, “Dilightnet:
+Fine-grained lighting control for diffusion-based image generation,” in
+ACM SIGGRAPH 2024 Conference Papers, pp. 1–12, 2024.
+[322] P. Kocsis, J. Philip, K. Sunkavalli, M. Nießner, and Y. Hold-Geoffroy,
+“Lightit: Illumination modeling and control for diffusion models,” in
+CVPR, pp. 9359–9369, 2024.
+[323] H. Jin, Y. Li, F. Luan, Y. Xiangli, S. Bi, K. Zhang, Z. Xu, J. Sun, and
+N. Snavely, “Neural gaffer: Relighting any object via diffusion,” arXiv
+preprint arXiv:2406.07520, 2024.
+[324] X. Xing, V. T. Hu, J. H. Metzen, K. Groh, S. Karaoglu, and T. Gevers,
+“Retinex-diffusion: On controlling illumination conditions in diffusion
+models via retinex theory,” arXiv preprint arXiv:2407.20785, 2024.
+[325] J. Xiang, J. Yang, B. Huang, and X. Tong, “3d-aware image generation
+using 2d diffusion models,” arXiv preprint arXiv:2303.17905, 2023.
+[326] J. Ackermann and M. Li, “High-resolution image editing via multi-stage
+blended diffusion,” arXiv preprint arXiv:2210.12965, 2022.
+[327] S. Sheynin, A. Polyak, U. Singer, Y. Kirstain, A. Zohar, O. Ashual,
+D. Parikh, and Y. Taigman, “Emu edit: Precise image editing via
+recognition and generation tasks,” in CVPR, pp. 8871–8879, 2024.
+[328] M. Heusel, H. Ramsauer, T. Unterthiner, B. Nessler, and S. Hochreiter,
+“Gans trained by a two time-scale update rule converge to a local nash
+equilibrium,” in NeurIPS, vol. 30, 2017.
+[329] M. Bińkowski, D. J. Sutherland, M. Arbel, and A. Gretton, “Demystifying mmd gans,” arXiv preprint arXiv:1801.01401, 2018.
+[330] R. Zhang, P. Isola, A. A. Efros, E. Shechtman, and O. Wang, “The
+unreasonable effectiveness of deep features as a perceptual metric,” in
+CVPR, pp. 586–595, 2018.
+[331] S. Fu, N. Tamir, S. Sundaram, L. Chai, R. Zhang, T. Dekel, and P. Isola,
+“Dreamsim: Learning new dimensions of human visual similarity using
+synthetic data,” arXiv preprint arXiv:2306.09344, 2023.
+[332] K. Kotar, S. Tian, H.-X. Yu, D. Yamins, and J. Wu, “Are these the
+same apple? comparing images based on object intrinsics,” in NeurIPS,
+vol. 36, 2023.
+
+27
+
+
