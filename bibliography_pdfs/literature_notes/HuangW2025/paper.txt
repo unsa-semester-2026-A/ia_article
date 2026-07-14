@@ -1,0 +1,3545 @@
+Synthetic Object Compositions for Scalable and Accurate
+Learning in Detection, Segmentation, and Grounding
+
+arXiv:2510.09110v4 [cs.CV] 26 Jan 2026
+
+Weikai Huang1 Jieyu Zhang1 Taoyang Jia1 Chenhao Zheng1
+Ziqi Gao1 Jae Sung Park1 Winson Han2 Ranjay Krishna1,2
+1
+University of Washington 2 Allen Institute for Artificial Intelligence
+
+Model 
+
+Acc.
+Image
+
+Detection
+
+
+Segmentation
+
+SOC
+
+Grounding
+
+SOC
+
+Model
+
+Human 
+
+Annotated
+
+
+Data
+
+Pseudo
+
+Data
+
+Other 
+
+Synthetic
+data
+pipeline
+
+
+SOS composing image
+
+Box1: dog, [x1, y1, x2, y2] 
+
+
+Segment1: dog, mask: blue 
+
+
+Ref1: All the dogs in the scene
+
+
+Base  
+
+Box2: car, [x1, y1, x2, y2]
+
+
+Segment2: car, mask: green
+
+
+Ref2: The object in the back left
+
+
+...
+
+...
+
+...
+
+Data
+
+Add data
+
+Figure 1. SOC data examples. With SOC, we generate 20M object segments and compose them into 2M images via 3D geometric layout
+augmentation, producing accurate and diverse masks, bounding boxes, and referring expressions for object detection, instance segmentation,
+and visual grounding. Right: SOC surpasses both real and synthetic data generation pipelines and complements real datasets when combined.
+
+Abstract
+
+struction for different use cases and boosts performance in
+both low-data and closed-vocabulary scenarios. Augmenting LVIS and COCO with synthetic object segments delivers
+strong performance across different real data scales and
+yields even greater improvements when real data is extremely
+limited (+6.59 AP on 1% COCO data). Furthermore, this
+controllability enables targeted data generation for intraclass referring, a diagnostic grounding task we propose that
+requires fine-grained attribute discrimination.
+
+Visual grouping—operationalized through tasks such as instance segmentation, visual grounding, and object detection—enables applications ranging from robotic perception
+to photo editing. These fundamental problems in computer
+vision are powered by large-scale, painstakingly annotated
+datasets. Despite their impact, these datasets are costly to
+build, biased in coverage, and difficult to scale. Synthetic
+datasets offer a promising alternative but struggle with flexibility, accuracy, and compositional diversity. We introduce
+SOC, an accurate and scalable data synthesis pipeline via
+a novel object-centric composition strategy. It composes
+high-quality synthetic object segments into new images using 3D geometric layout augmentation and camera configuration augmentation with generative harmonization and
+mask-area-weighted blending, yielding accurate and diverse
+masks, boxes, and referring expressions. Models trained on
+just 100K of our synthetic images outperform those trained
+on larger real datasets (GRIT 20M, V3Det 200K) and synthetic pipelines (Copy-Paste, X-Paste, SynGround, SegGen
+by +24-36%)—achieving +10.9 AP on LVIS and +8.4 NAcc
+on gRefCOCO. SOC also enables controllable dataset con-
+
+1. Introduction
+Human perception is inherently structured: we naturally organize the visual world into coherent regions and objects
+based on principles of proximity, similarity, continuity, and
+closure—phenomena first formalized in Gestalt psychology [1, 2]. In computer vision, tasks such as object detection,
+instance segmentation, and referring expression grounding
+operationalize this capability and power a broad range of applications, from robotic perception and autonomous driving
+to photo editing and assistive technologies.
+Historically, the success of segmentation and detection
+1
+
+models remains heavily dependent on the quality, scale, and
+diversity of annotated datasets [3–5]. Existing annotated
+datasets are painstaking and expensive to expand. For example, COCO [6] required 2.2M worker hours to annotate
+only 100K images with 80 object categories. They are also
+biased toward a limited number of categories, and often fail
+to cover the full combinatorial diversity of scenes, objects,
+and referring expressions encountered in the real world.
+To overcome these challenges, researchers have turned
+to synthetic data. Synthetic datasets by rendering scenes in
+simulation [7–20] allow for full control and offer accurate
+dense ground truth at a large scale, but are still geared toward
+rigid domains like indoor or driving scenes and are limited
+in object diversity due to the scarcity of 3D object assets. On
+the other hand, model-annotated synthetic datasets on real
+or generated images [7–16] introduce greater variability in
+scene composition and object appearance, yet they inherit annotation noise from both the labeling models and the image
+generators.
+In this work, we introduce SOC (Figure 1): a scalable
+data synthesis pipeline that departs from prior paradigms.
+Rather than rendering entire scenes or relying on models to
+annotate images, we employ an object-centric composition
+strategy: we first collect high-quality synthetic object segments using a strong generative model; next, we compose
+new images by pasting segments according to designed layouts with 3D geometric layout augmentation and camera configuration augmentation to ensure diversity and robustness;
+finally, we apply generative harmonization with mask-areaweighted blending leveraging recent advances [11] to enhance the images’ photorealism. SOC not only provides controllability and accurate region annotations like simulationbased methods, but also offers the composition flexibility and
+scene diversity of model-annotated approaches. Specifically,
+we generate 20M synthetic object segments; using these, one
+can compose any number of synthetic images, each with
+corresponding mask, box, label, and referring expression
+annotations.
+In open-vocabulary detection and visual grounding, we
+show that SOC is an efficient and scalable approach to
+improve model performance, and complementary to real
+datasets. Even a small SOC dataset of 50K images delivers
+strong gains: it lifts LVIS [21] AP from 20.1 to 29.8 (+9.7)
+and rare-class AP from 10.1 to 23.5 (+13.4), exceeding the
++7.0 boost from 20M model generated data (GRIT [22])
+and matching the +10.5 gain from 200K human-annotated
+data (V3Det [22–24]). Scaling SOC from 50K to 400K further boosts LVIS AP to 31.4 (+1.6) and OdinW-35 mAP
+to 22.8 (+1.8), demonstrating the scalability of SOC. Additionally, SOC complements existing real datasets with more
+balanced category distribution, wider coverages, and compositions: adding 100K SOC images above model-generated
+data (GRIT) and human-annotated data (V3Det) still yields
+
+additive gains of +6.2 rare-class LVIS AP, and +2.8 average
+AP on OdinW-35.
+Next, augmenting instance segmentation datasets with
+SOC delivers consistent improvements across different data
+regimes. Incorporating 50K SOC images increases LVIS
+APrare from 40.87 to 44.70 (+3.83) and overall AP from
+46.96 to 48.48 (+1.52) compared to training on LVIS alone.
+In COCO, mixing synthetic SOC segments brings an average 3% performance boost, and yields a +6.59 AP gain in
+an extremely low-data setup when the model is trained on
+only 1% of COCO images. These results demonstrate that
+synthetic segments not only complement but amplify the real
+annotations in extremely limited-data regimes.
+Compared to other synthetic data generation pipelines,
+SOC substantially outperforms Copy-Paste (+36.1% on
+COCO instance segmentation), X-Paste (+36.0% on COCO),
+SynGround (+24.1% on COCO), and SegGen (+28.5%
+on COCO), demonstrating the effectiveness of our objectcentric composition approach with 3D geometric layout augmentation and generative harmonization.
+Finally, the controllability of SOC enables targeted improvements on the intra-class referring task, a diagnostic
+variant of the referring expression task where the model
+needs to distinguish objects of the same category but with
+different attributes. By generating a SOC dataset specifically
+with multiple objects of the same category but different attributes, we bring greater model performance increase than
+existing datasets (namely, GRIT or V3Det).
+To summarize, our contributions are three-fold: (1) We
+release SOC, a large-scale synthetic dataset comprising 20M
+object segments and 2M composed images with pixel-perfect
+annotations, representing the first large synthetic dataset to
+surpass real datasets across diverse models and tasks. (2)
+We demonstrate that SOC outperforms all existing synthetic
+data pipelines and complements real datasets across multiple
+benchmarks spanning object detection, instance segmentation, and visual grounding tasks. (3) We propose a new
+intra-class referring expression benchmark with human annotations and show that SOC’s controllability enables targeted
+data synthesis to effectively address this diagnostic task.
+
+2. Related work
+We position our contribution within the landscape of datasets
+and synthetic data generation methods for object detection,
+segmentation, and visual grounding. Detailed related work
+is provided in the Appendix.
+Datasets for object detection, segmentation, and referring expression. Detection and segmentation benchmarks include COCO [6], OpenImages [25], Object365 [26],
+LVIS [21], V3Det [24], and ODInW [27, 28]. Semantic segmentation datasets include COCO-Stuff [29], ADE20K [30,
+31], PASCAL VOC [32], PASCAL Context [33], and
+Cityscapes [4]. Referring expression benchmarks include
+2
+
+ReferItGame [34], RefCOCO/+/g [35, 36], Flickr30K Entities [37], Visual Genome [38], and GoldG [39].
+Synthetic data generation pipelines. Copy-paste methods [40–42] and X-Paste [43] paste segments onto backgrounds but lack photorealism. Diffusion-based approaches
+including ControlNet [44], LayoutDiffusion [45], MaskFactory [16], SegGen [15], and DatasetDM [13] generate images from masks or layouts but often produce inaccurate
+annotations. Pseudo-labeling methods including GRIT [46],
+SynGround [10], and Learning VG [9] apply detectors to real
+or generated images. In contrast, SOC uses object composition with 3D geometric layout augmentation and generative
+harmonization for pixel-perfect annotations.
+Image matting, blending, and harmonization. Image matting methods including Deep Image Matting [47], attentionguided matting [48], Human Instance Matting [49], Referring Image Matting [50], DFIMat [51], MP-Mat [52], and
+DIS [53] extract object segments with precise alpha mattes.
+We use DIS for segment extraction and IC-Light [11] for
+diffusion-based harmonization, combined with mask-areaweighted blending for photorealism.
+
+we adopt a 3D geometric layout augmentation strategy: we
+model each composite image as a 3D scene where depth
+and spatial position are sampled independently of object
+category, i.e., p(di , Xi , Yi |ci ) = p(di , Xi , Yi ). This ensures
+objects of the same category appear at diverse depths, sizes,
+and positions, preventing category-specific pictorial patterns.
+For each image, we sample 5-20 object segments (matching COCO/SA-1B distributions) using balanced category
+sampling to avoid bias.
+3D scene modeling with category-independent sampling.
+Each object category c has a commonsense physical size
+range (e.g., cars: 4-5m, cups: 10-20cm) generated by
+Qwen2.5-32B. We first sample camera focal length f ∼
+U(fmin , fmax ) and define a maximum depth Dmax = α · f
+(where α is a scaling constant) that scales with the focal
+length to ensure appropriate scene coverage. We then define
+three depth ranges (in meters): close [0.1Dmax , 0.3Dmax ],
+middle [0.3Dmax , 0.6Dmax ], and far [0.6Dmax , Dmax ]. For
+each object segment i of category ci , we sample its physical size Si ∼ N (µci , σci ) and depth di (in meters) from
+one of the three ranges, following the depth distribution
+observed in COCO/SA-1B (40% close, 35% middle, 25%
+far). We sample 3D position (Xi , Yi ) ∼ U(Xmin , Xmax ) ×
+U(Ymin , Ymax ) uniformly (in meters) and project to 2D via
+perspective projection:
+
+3. Method
+SOC introduces a simple yet scalable pipeline for creating
+object detection (OD), instance segmentation (SEG), and
+visual grounding (VG) datasets synthetically. Whereas existing methods begin with real or synthetic images and then
+rely on human annotators or automated models to generate
+bounding boxes, masks, or grounding labels, our pipeline
+(Figure 2) assembles scenes from the ground up. We first
+build a massive library of object segments, then composite
+them into images—automatically producing region annotations without post-hoc image labeling. We then apply
+generative harmonization and image blending algorithms to
+provide images without obvious artifacts.
+
+xi = f ·
+
+Xi
+,
+di
+
+yi = f ·
+
+Yi
+,
+di
+
+si = f ·
+
+Si
+di
+
+(1)
+
+where (xi , yi ) is the 2D center position and si is the apparent size in pixels. We enforce constraints on the projected objects: if an object’s apparent size is too small
+or too large, or if it completely occludes another object
+(IoU(Mi , Mj ) ≥ 0.9), we resample its 3D position and
+depth until valid placement is achieved. Our ablation (Section 4.7) validates this design: 10.03 AP vs. 8.60 AP (COCO
+layout) and 9.07 AP (random 2D layout).
+
+3.1. Synthesizing object segments
+
+3.3. Generative harmonization
+
+Given 46000+ object categories we collected, we and
+prompt Qwen 2.5-32B [54] to produce text descriptions
+for each of them. These prompts are then passed to
+FLUX-1-dev [55], a strong text-to-image generation model,
+yielding single-object images rendered on a uniform white
+background with randomly sampled viewpoints to achieve diverse visual info for each objects.. Finally, we apply DIS [53]
+to extract object segments from white-background images.
+We find that this setup produces cleaner mask boundaries
+than generating objects in cluttered scenes.
+
+Empirically, we find that naively pasting objects onto a
+background image often produces unnaturally sharp edges;
+segmentation models trained on these data can exploit
+these edge artifacts rather than truly learning semantics.
+To mitigate this shortcut, we employ IC-Light [11], a
+diffusion-based model that simultaneously performs background inpainting and global relighting to harmonize the
+composition. IC-Light generates a compatible background
+for the pasted objects and adjusts lighting conditions across
+the entire scene, producing more photorealistic images without simple edge-based artifacts. However, IC-Light sometimes distorts fine details of smaller objects or alters object
+colors (e.g. blue → red), breaking consistency with text
+descriptions. To address this, we re-blend the original segments with the harmonized images using a blending weight
+
+3.2. 3D geometric layout augmentation
+Models trained on real datasets often exploit spurious correlations between object categories and pictorial cues (e.g.,
+“cars appear large and near the bottom”) [56], rather than
+learning robust semantic features. To break these shortcuts,
+3
+
+1. Object Segments Generation
+
+3. Generative Harmonization
+
+2. 3D Geometry Layout
+Sample Size
+Far
+
+1x0.5 m
+
+Middle
+
+1.2x0.6 m
+
+Close
+
+3x1.5m
+
+1x0.37m
+
+2x5.1 m
+
+Camera
+K
+
+Inpainting + Relighting +
+Mask-area-weighted-blending
+
+Z
+
+4. Camera Config Augmentation
+
+Original Image
+
+Zoom-In
+
+5. Ground Truth Generation
+
+Depth of Field
+
+Detection
+
+Segmentation
+
+Grounding
+
+Box1: dog, [x1, y1, x2, y2]
+Box2: car, [x1, y1, x2, y2]
+...
+
+Mask1: dog, mask: blue
+Mask2: car, mask: green
+...
+
+Ref1: All dogs in scene
+Ref2: The back left obj
+...
+
+Figure 2. Overview of SOC Pipeline. (1) Object Segments Generation. Generating object segments in diverse categories. (2) 3D
+Geometric Layout Augmentation. Sample and place 5–20 segments per image with category-independent 3D scene modeling. (3)
+Generative Harmonization. Apply inpainting, global relighting, and mask-area-weighted blending to enhance realism and prevent
+models from learning only the edge without semantics. (4) Camera Configuration Augmentation. Apply random scaling, cropping, and
+depth-of-field blur to simulate diverse camera configurations. (5) Generating Region Annotations. Compute final masks, bounding boxes,
+and dense referring expressions.
+
+αi ∈ [0, 1] for each object mask Mi , where smaller objects
+receive higher αi to preserve their original appearance. Finally, we apply a lightweight soft matting step that converts
+the binary masks into soft alpha mattes to smooth object
+boundaries and better integrate the foregrounds into the harmonized background. This blending procedure yields a 2.3%
+AP boost on LVIS-mini-val (Fig. 3).
+
+Input
+
+Pasting to Background
+
+Inpainting 
+
++ Relighting
+AP: 36.3 on LVIS-Mini
+
+random scaling with factor s ∼ U(1.0, 4.0) followed by random cropping to simulate camera zoom in. For a composite
+image I of size H × W , we first resize to sH × sW (modifying the focal length to f ′ = s · f ), then randomly crop
+back to H × W . This operation ensures that object scale is
+not a reliable cue for category recognition.
+Depth-of-field blur. To simulate realistic depth-of-field effects controlled by aperture size, we apply selective Gaussian
+blur based on object depth. We randomly sample a focal
+plane depth dfocal from the scene’s depth distribution and
+an f-number N ∼ U(1.4, 16) representing the aperture size
+(smaller f-numbers correspond to larger apertures and shallower depth-of-field). The blur kernel size for each object at
+depth d is computed via the circle of confusion formula:
+
+IP + RL + Blending
+AP: 38.6 (+2.3) on LVIS-MINI
+
+Figure 3. Comparison of Generative Harmonization Strategies.
+From left to right: (1) input foreground images, (2) naively pasted
+onto a background, (3) Inpainting and Inpainting and global relighting with IC-Light (AP = 36.3 on LVIS-Mini), and (4) Inpainting
+plus relintiingng plus relighting plus mask-area-weighted blending
+(AP = 38.6 (+2.3) on LVIS-Mini). Blending notably preserves
+fine details of small objects and color fidelity and improves model
+performance.
+
+σ(d) =
+
+|d − dfocal |
+f2
+·
+N · dfocal
+d
+
+(2)
+
+where f is the focal length sampled during layout generation. Objects near the focal plane remain sharp (σ ≈ 0),
+while those farther away are progressively blurred. Smaller
+f-numbers (e.g., f/1.4) produce strong background blur mimicking portrait photography, while larger f-numbers (e.g.,
+f/16) keep most objects in focus, simulating landscape photography.
+These camera configuration augmentations, combined
+with our 3D geometric layout augmentation strategy, create
+a rich distribution of visual configurations that force models
+to learn robust, view-invariant representations rather than
+exploiting simple pictorial shortcuts.
+
+3.4. Camera configuration augmentation
+After composing and relighting the scene, we apply camera
+configuration augmentation to simulate diverse camera intrinsics and viewing conditions, further decorrelating object
+appearance from semantic content.
+Random zoom (scaling and cropping). Starting from the
+focal length f sampled during layout generation, we apply
+4
+
+Table 1. Qualitative comparison of other data generation approaches. We categorize existing methods by their data generation
+paradigm and compare key capabilities. SOC uniquely combines accurate pixel-level annotations, fine-grained controllability, multi-object
+composition, and open-vocabulary coverage at scale. Quantitative comparison with representative methods from each category is shown in
+each subsection.
+Method Category
+
+Example Methods
+
+Multi-object
+
+Accurate Annotation
+
+Controllability
+
+Open-vocab
+
+Scale
+
+Compared in
+
+Human-annotated
+
+COCO [6], LVIS [21], V3Det [24]
+
+✓
+
+✓
+
+✗
+
+Limited
+
+∼1M
+
+Sec 4.1–4.5
+
+Real Image + Pseudo annotator
+
+GRIT [46]
+
+✓
+
+✗ (bbox only)
+
+✗
+
+✓
+
+∼20M
+
+Diffusion Image + Pseudo annotator
+
+SynGround [10]
+
+✓
+
+✗ (pseudo)
+
+Limited
+
+✓
+
+Unlimited (current 1.2M)
+
+Sec 4.6
+
+Mask/Layout control Diffusion Image
+
+MaskFactory [16], SegGen [15]
+
+Limited
+
+Limited
+
+Limited
+
+✓
+
+Unlimited (current 1M)
+
+Sec 4.6
+
+Simple-Copy-Paste
+
+Simple-Copy-Paste [42], X-Paste [43]
+
+✓
+
+✓
+
+✓
+
+Limited (∼1K)
+
+Depends on real background
+
+Sec 4.6
+
+SOC (Ours)
+
+–
+
+✓
+
+✓
+
+✓
+
+✓ (∼46K)
+
+Unlimited (current 2.4M)
+
+–
+
+Sec 4.1, 4.2, 4.5
+
+Table 2. (Section 4.1) Comparison of applying different data
+for MM-Grounding-DINO on open-vocabulary detection tasks
+LVIS and ODINW-35. Key findings: a small SOC dataset (50K)
+yields larger LVIS AP gains than 20M GRIT and matches 200K
+V3Det; scaling SOC to 400K provides additional gains in LVIS
+(31.4) and ODINW-35 (22.8). SOC complements the existing
+dataset as combining SOC with V3Det and GRIT still brings more
+gain.
+
+3.5. Generating region annotations
+We generate annotations for object detection (OD), instance
+segmentation (SEG), and visual grounding (VG). For OD
+and SEG, we compute bounding boxes and masks by subtracting occluded pixels from each object’s original mask.
+For VG, we prompt QwQ-32B [57] with each object’s bounding box, mask, category, and generation prompt to produce
+3-6 attribute-based and spatial-based referring expressions
+per type, yielding at least 9 dense expressions per image.
+
+Data
+
+LVIS
+
+Data Scale
+
+O365+GoldG (Baseline)
+
+1.4M
+
+OdinW-35
+
+AP
+
+APrare
+
+APcommon
+
+APfrequent
+
+APavg
+
+20.1
+
+10.1
+
+15.3
+
+29.9
+
+20.3
+
+22.6
+25.5
+
+36.4
+40.2
+
+22.8
+21.4
+
+26.9
+27.5
+27.8
+28.5
+28.2
+
+35.9
+36.7
+36.8
+36.1
+36.5
+
+20.5
+21.0
+21.0
+21.2
+22.8
+
+Adding human (V3Det) or model (GRIT) annotated datasets.
+
+3.6. The SOC segments and datasets
+
++GRIT
++V3Det
+
++20M
++200K
+
+27.1
+30.6
+
+17.3
+21.5
+
+Adding various scale SOC datasets.
+
+Synthetic object segments. We generate 20M object segments in two groups: (1) 10M frequent-category segments
+covering 1.6K categories from LVIS, COCO, and ADE20K,
+with 200 prompts per category; (2) 10M general-category
+segments covering 40K categories from LAION, GQA, and
+Flickr30K, with 10 prompts per category. For each prompt,
+we synthesize three segments using FLUX with different
+random seeds.
+SOC datasets. We compose these segments into five synthetic datasets: SOC-FC/SOC-GC use frequent/general category segments (Sec. 4.1, 4.2); SOC-LVIS-Category uses
+only LVIS categories (Sec. 4.3); SOC-SFC/SOC-SGC contain single-category images with multiple instances of varied
+attributes for intra-class referring (Sec. 4.5); SOC-COCOMix mixes COCO segments with our synthetic segments for
+closed-vocabulary evaluation. We use FC-X to denote X
+images from FC (e.g., FC-50K = 50K images).
+
++SOC-FC-50K
++SOC-FC-50K+SOC-GC-50K
++SOC-FC-100K
++SOC-FC-200K + SOC-GC-200K
++SOC-FC-400K
+
++50K
++100K
++100K
++400K
++400K
+
+29.8
+30.8
+31.0
+31.4
+31.0
+
+23.5
+25.6
+26.3
+27.9
+25.4
+
+Combining human (V3Det) and model (GRIT) annotated datasets with SOC datasets.
+O365+GoldG+GRIT+V3Det
++SOC-FC-50K+SOC-GC-50K
+
+21.6M
++100K
+
+31.9
+33.2
+
+23.6
+29.8
+
+27.6
+30.0
+
+40.5
+38.3
+
+23.2
+23.1
+
+synthetic data generation methods, we evaluate SOC against
+copy-paste, diffusion-based, and segment-based approaches
+(Sec. 4.6). (4) We provide fine-grained ablation studies on
+layout strategies, generative harmonization, and synthetic
+segment quality (Sec. 4.7).
+We first provide a qualitative comparison of SOC with
+existing synthetic data generation paradigms in Table 1, highlighting the key advantages of our object composition approach.
+
+4.1. Task 1: Open-vocabulary object detection
+
+4. Experiments
+
+To study the efficacy of SOC data on open-vocabulary object
+detection, we use MM-Grounding-DINO [23], a strong openvocabulary detector and visual grounding model that handles
+various types of textual input and provides bounding boxes.
+We initialize the model with real-data pretrained weights
+and continue training on our synthetic dataset. We report
+performance on two benchmarks: (1). LVIS [21] for openvocabulary detection, reporting AP on the LVIS 1.0 Full
+Val split (including APrare , APcommon , and APfrequent ); (2).
+OdinW-35 [27, 28] for scene-specific detection, evaluating
+across 35 diverse scenarios and reporting the average AP.
+Baselines. We compare with 4 baseline training datasets:
+
+We demonstrate the effectiveness of SOC from following
+experiments: (1) We compare SOC with large-scale real
+datasets on open-vocabulary detection (MM-GroundingDINO on LVIS and OdinW-35), visual grounding (MMGrounding-DINO on RefCOCO/+/g, gRefCOCO, and DoD),
+and instance segmentation (APE on LVIS), and also test in
+low-real-data regimes (Mask2Former on COCO) to show
+SOC’s effectiveness (Secs. 4.1, 4.2, 4.3, 4.4). (2) We propose
+the intra-class referring (ICR) task and benchmark, and show
+that SOC with its controllability can improve performance
+on this challenging task (Sec. 4.5). (3) To compare with other
+5
+
+Table 3. (Section 4.2) Comparison of applying different data for MM-Grounding-DINO on visual grounding benchmarks gRefCOCO,
+DoD (FULL), and RefCOCO/+/g avg. Key findings: Existing datasets only yield marginal performance due to a lack of high-quality
+referring expression data. SOC yields significantly larger gains on gRefCOCO, DoD, and RefCOCO avg compared with 20M GRIT and
+200K V3Det. It is also complementary to the existing dataset.
+Data
+O365+GoldG (Baseline)
+
+Data Scale
+1.4M
+
+gRefCOCO
+
+DoD (FULL)
+
+RefCOCO avg.
+
+P@1 (F1 =1, IoU0.5)
+
+Nacc
+
+mAP
+
+mAPshort
+
+mAPmid
+
+mAPlong
+
+mAPvery_long
+
+P@1
+
+P@5
+
+P@10
+
+39.8
+
+89.3
+
+15.6
+
+17.3
+
+16.7
+
+14.3
+
+13.1
+
+54.3
+
+89.3
+
+94.6
+
+18.0
+18.0
+
+15.7
+15.7
+
+15.7
+15.7
+
+56.5
+55.0
+
+90.5
+89.4
+
+95.4
+94.6
+
+17.1
+20.4
+18.1
+
+15.7
+17.8
+15.7
+
+14.5
+16.9
+14.8
+
+54.3
+54.0
+55.0
+
+90.3
+90.4
+89.9
+
+95.1
+94.9
+94.9
+
+18.3
+20.5
+
+14.7
+15.9
+
+13.8
+14.3
+
+56.4
+55.1
+
+90.9
+89.8
+
+95.8
+94.8
+
+Adding human (GRIT) or model (V3Det) annotated datasets.
++GRIT
++V3Det
+
++20M
++200K
+
++SOC-FC-50K
++SOC-FC-100K
++SOC-FC-50K+SOC-GC-50K
+
++50K
++100K
++100K
+
+O365+GoldG+GRIT+V3Det
++GRIT+V3Det+SOC-FC-50K+SOC-GC-50K
+
+21.6M
++100K
+
+40.7
+40.3
+
+89.3
+89.3
+
+17.0
+16.7
+
+17.7
+17.7
+
+Adding various-scale SOC datasets.
+41.2
+41.3
+40.9
+
+93.9
+97.7
+93.0
+
+16.6
+19.4
+17.3
+
+18.3
+22.0
+20.0
+
+Combining human, model-annotated, and SOC datasets.
+41.0
+40.9
+
+89.3
+94.4
+
+(1). Object365+GoldG: trains on Object365 [26] (600K
+images, 365 open-vocabulary categories) together with
+GoldG [39] (800 K vision–grounding examples mixing
+GQA [58] and Flickr30K Entities [37]); (2).
+Object365+GoldG+GRIT: adds GRIT [59], a 20M example
+visual grounding dataset curated from LAION-2B [60] and
+COYO-700M [61]; (3). Object365+GoldG+V3Det: augments Object365+GoldG with V3Det [24], a 200k humanannotated detection dataset covering 13K categories; and (4).
+Object365+GoldG+V3Det+GRIT: combines all four real
+datasets [46].
+Small amount of SOC efficiently brings strong gain. Even
+at a small scale, SOC delivers substantial improvements over
+the Object365+GoldG baseline. With only 50K synthetic examples, SOC boosts LVIS AP from 20.1 to 29.8 (+9.7), and
+rare-class AP from 10.1 to 23.5 (+13.4), far exceeding the
++7.0 gain of GRIT (20M real examples) and matching—or
+even surpassing—the +10.5 gain of V3Det (200K real data).
+These results demonstrate that a relatively small, targeted
+synthetic dataset can yield gains comparable to orders of
+magnitude more real data, especially in the crucial rare and
+common categories where real-data coverage is limited. On
+OdinW-35, SOC-50K also improves average AP by 0.2
+points and increases the number of scenarios exceeding the
+baseline in 20 out of 35 cases, confirming its effectiveness
+even in scene-specific detection settings.
+Scaling up SOC data leads to better performance. Doubling SOC from 50K to 100K synthetic examples yields
+a clear uplift on LVIS—overall AP climbs from 29.8 to
+31.0 (+1.2) with rare-class AP rising from 23.5 to 26.3
+(+2.8)—matching the improvement achieved by adding a
+200K real-data V3Det split (+10.5 on LVIS AP). Scaling
+SOC further to 400K synthetic examples pushes overall AP
+to 31.4 (+1.6 over 100K) with rare-class AP rising to 27.9
+(+1.6), and increases the OdinW-35 mean AP from 21.0 at
+100K to 22.8 at 400K (+1.8). These results demonstrate that
+SOC scales efficiently in low-annotation regimes for LVIS
+(rare category) and continues to generalize across diverse,
+
+17.5
+18.9
+
+23.4
+23.7
+
+scene-specific contexts as its size grows.
+SOC is complementary to the real datasets. SOC complements large-scale real datasets rather than simply duplicating their benefits. When combined with GRIT and V3Det,
+adding 100K synthetic examples further raises LVIS AP
+from 31.9 to 33.2 (+1.3) and rare-class AP from 23.6 to 29.8
+(+6.2). Crucially, this synthetic augmentation yields consistent gains on OdinW-35 as well—improving the average
+AP by 2.8 points over the Object365+GoldG baseline even
+in the presence of both GRIT and V3Det. These additive
+effects indicate that SOC introduces novel vocabulary and
+contextual variations not captured by existing real datasets,
+thereby broadening the model’s coverage and robustness.
+
+4.2. Task 2: Visual grounding
+To study the visual grounding task, we use MM-GroundingDINO and the same baseline and model training recipe as
+Sec. 4.1. We report results on the RefCOCO, RefCOCO+
+and RefCOCOg [34, 35] validation splits using Precision@K
+(K=1,5,10); on the gRefCOCO [62, 63] validation split using Precision@(F1 = 1, IoU≥0.5) and no-target accuracy
+(how often the model correctly recognizes that there is no object to refer to); and for DoD [64] benchmark, we use mAP
+across all lengths of description (short, mid, long, very long).
+Throughout the paper, we treat Referring Expression Comprehension (REC) and Visual Grounding (VG) as equivalent
+and use the terms interchangeably.
+Existing large detection and grounding datasets yield
+only marginal improvements. Large detection datasets
+like V3Det and massive model-generated grounding datasets
+generated from caption pools like GRIT offer either precise labels or sheer scale, but neither delivers the targeted,
+precise, sentence and phrase-level supervision needed for
+reliable referring-expression grounding. Adding V3Det to
+Object365+GoldG yields only +0.5 P@1 on gRefCOCO (a
+newer dataset, distinct from RefCOCOg) and no improvement in no-target accuracy, while GRIT’s model-generated
+caption-box pairs boost DoD FULL mAP by just +1.4 de6
+
+Pipeline
+
+AP
+
+Ablating scene layout (w/o camera aug)
+Random 2D layout
+COCO layout
+LayoutGPT
+3D geometric layout augmentation
+
+9.07
+8.60
+8.82
+10.03 (+16.6%)
+
+Ablating camera configuration augmentation
+w/o camera configuration augmentation
+w/ camera configuration augmentation
+
+10.03
+10.58 (+5.5%)
+
+Ablating generative harmonization
+w/o generative harmonization
+w/ inpainting and relighting
+w/ inpainting and relighting & blending
+
+6.28
+10.58
+12.79 (+103.7%)
+
+Ablating object segments
+Real segments only
+Real + SOC synthetic segments
+
+7.03
+12.79 (+81.9%)
+
+Figure 4. (Sec. 4.3) SOC consistently im- Figure 5. (Sec. 4.4) Combining SOC synproves LVIS instance segmentation, with the thetic segments with real COCO segments Table 4. (Sec. 4.7) Ablation on zero-shot
+COCO instance segmentation AP.
+largest gains on rare categories.
+increases AP over all COCO data scales.
+
+APfrequent has a +0.31 improvement. This pattern occurs
+because synthetic data can be generated to cover underrepresented classes, thereby mitigating the LVIS long-tail imbalance, whereas frequent classes already have ample real
+examples and thus benefit less from additional synthetic
+augmentation.
+
+spite 400× more examples.
+SOC provides diverse, high-quality referring expressions
+that yield strong gains. SOC generates precise referring
+pairs by inferring from object attributes and spatial relationships from ground truth annotations generated through the
+image composing process without any human label. It immediately improves gRefCOCO no-target accuracy by +4.6
+and DoD FULL mAP by +1.0. Scaling to 100K (SOC-FC100K) further raises no-target accuracy by +8.4 and DoD
+FULL mAP by +3.8. These gains per synthetic example
+far outperform those from GRIT (20M) and V3Det (200K),
+demonstrating that automatically synthesized, accurate expressions can exceed real data in both efficiency and quality.
+Moreover, our pipeline synthesizes expressions across different types of balance: attribute-based (“red round ball”),
+spatial (“to the left of the tree”), and mix-type (“red object to
+the right of the child”). This targeted diversity ensures broad
+linguistic coverage and unlocks consistently high grounding
+performance across multiple benchmarks.
+
+4.4. Task 4: Small-vocabulary, limited-data regimes
+Real-world segmentation applications (e.g., surveillance
+cameras) only need a small set of categories and have limited annotation budgets for the dataset curation, in this section, we evaluate SOC specifically in a small-vocabulary,
+limited-data regime to investigate its effectiveness under
+these practical constraints. We adopt Mask2Former [66],
+a widely-used closed-vocabulary segmentation model, for
+the instance segmentation task. Specifically, we compare
+a Mask2Former-ResNet-50 [67] baseline trained solely on
+COCO instance-segmentation subsets across 4 different data
+scales (1K 1%), (10K (10%), 50K (50%), or all COCO
+images) against a setting augmented with our SOC data.
+This augmented data is generated by mixing real segments
+collected from corresponding splits and synthetic segments
+from SOC synthetic segments within 80 COCO categories.
+SOC consistently improves models at different real data
+scales and extremely well on limited-data regimes. SOC
+consistently improves model performance across different
+real-data scales and is particularly effective in limited-data
+regimes. As Figure 5 shows, COCO + SOC performs exceptionally well when using only 1% of COCO data, yielding
+a 6.59% gain. Moreover, the boost grows by roughly 3% at
+each subsequent data scale, suggesting that our augmentation
+approach is effective across all scales.
+
+4.3. Task 3: Instance segmentation
+We study mask-based supervision with SOC for the instance segmentation task. We adopt APE [65], a state-ofthe-art open-vocabulary segmentation and detection model
+pre-trained on LVIS. Since APE already sees LVIS during
+pre-training, this setup lets us evaluate whether our synthetic
+SOC masks still boost performance. Our fine-tuning protocol has two stages: (1) train APE on 50K synthetic SOC
+images that cover the same LVIS categories; (2) continue
+training on the LVIS v1 train split to close the domain gap.
+We compare this two-stage approach to a baseline trained
+solely on LVIS under the same FLOPs budget. All models
+are evaluated on the LVIS v1 validation set using overall AP,
+as well as APrare , APcommon , and APfrequent .
+SOC continuously improve the model’s performance on
+LVIS. As could be seen from Figure 4, incorporating 50K
+synthetic SOC images yields a particularly large gain on
+rare categories: APrare increases from 40.87 to 44.70 (+3.83),
+while overall AP rises from 46.96 to 48.48 (+1.52) and
+
+4.5. Task 5: Intra-class referring expression, a challenging visual grounding task
+Intra-class Referring Expression. Current visual grounding benchmarks—such as RefCOCO—can be circumvented.
+For example, to locate a “green car,” a model might ignore
+the attribute “green” and rely solely on the noun “car.” This
+7
+
+Method
+
+Figure 6. (Section 4.5) Intra-class referring demands fine-grained attribute discrimination among same-category instances (e.g., picking out the "charcoal-grey
+cat"). Augmenting with SOC synthetic pairs (+SOC-FC-50K+SOC-GC-50K)
+yields the largest improvements in both metrics.
+
+COCO Seg
+
+LVIS-Mini Det
+
+gRefCOCO VG
+
+Copy-Paste [42]
+X-Paste [43]
+SegGen [15]
+SynGround [10]
+
+9.32
+9.41
+9.73
+–
+
+35.2
+37.2
+36.8
+–
+
+–
+–
+–
+40.1 / 89.2
+
+SOC (Ours)
+
+12.79
+
+38.6
+
+41.2 / 93.9
+
+Table 5. (Section 4.6) Quantitative comparison with
+synthetic baselines. COCO Seg uses Mask2Former
+(AP), LVIS-Mini Det and gRefCOCO VG use MMGrounding-DINO (AP for Det, P@1/N_Acc for
+VG).
+
+Key advantages. SOC uniquely combines: (1) Openvocabulary coverage (40K+ categories vs. ∼1.3K for copypaste methods), (2) Pixel-accurate annotations (unlike diffusion methods where generated images deviate from input
+masks), (3) Multi-object composition with realistic lighting
+(vs. single-object focus in Subject200K), and (4) Multitask support (detection, segmentation, and grounding vs.
+single-task diffusion methods).
+
+shortcut breaks down when multiple cars of different colors
+and makes are present in the scene. We call this scenario
+intra-class referring, since it requires fine-grained attribute
+discrimination and is therefore more challenging. To systematically evaluate this use case, we curate an “intra-class
+referring expression” benchmark from COCO and OpenImages V7 [68] by selecting around 100 images that contain
+multiple instances of the same category exhibiting distinct
+attributes (colour, shape/pose, subtype). Each instance is
+tightly boxed and manually labeled with its key attribute
+variation (e.g. “red” vs. “blue”, “round” vs. “elongated”),
+yielding per-instance category labels, bounding-box coordinates, and fine-grained attribute annotations. We propose
+two metrics for this new task: Average Gap: For each image,
+we compare the model’s confidence of the correct box (IoU
+≥ 0.5) against the highest-scoring same-category distractor.
+The gap between these two confidence scores measures how
+much more certain the model is about the true object than
+about any distractor. We report the average of this margin
+across all images; Positive Gap Ratio: We also calculate the
+percentage of images in which the ground-truth box receives
+the highest confidence score of all same-category candidates.
+This tells us in how many cases the model correctly prioritizes the intended instance over its distractors.
+SOC can generate data that targetly addresses intra-class
+referring errors. As shown in Figure 6, adding large-scale
+auxiliary data (GRIT, V3Det, or both) yields a negligible or
+negative impact on AvgGap (down to 34.6–36.7) and only
+slight Positive Gap Ratio gains. By contrast, fine-tuning on
+100 K targeted SOC-SFC-50K+SOC-SGC-50K samples
+raises AvgGap by 3.1 points to 40.6. It boosts the Positive
+Gap Ratio to 90%, proving that synthetic data tailored to
+intra-class attribute is essential for improvement.
+
+4.7. Ablation study
+We conduct an ablation study on COCO instance segmentation using Mask2Former trained only on 10K SOC data
+from scratch (Table 4), ablating four key components: (1)
+scene layout strategies, (2) camera configuration augmentation, (3) generative harmonization, and (4) synthetic object
+segment quality. Our 3D geometric layout augmentation
+(10.03 AP) outperforms random 2D layout (9.07), COCO
+layout (8.60), and LayoutGPT (8.82). Adding camera configuration augmentation improves to 10.58 AP (+5.5%). Generative harmonization yields the largest gain: without it, AP is
+6.28; with inpainting and relighting, 10.58; adding blending
+reaches 12.79 (+103.7%). Our synthetic segments (12.79
+AP) substantially outperform real segments alone (7.03 AP,
++81.9%). We use the optimal configuration for all subsequent
+experiments. More analysis in the Appendix.
+
+5. Conclusion
+We presented SOC, a scalable pipeline that turns synthetic
+object segments into richly annotated images for detection,
+instance segmentation, and visual grounding. By composing
+segments with 3D geometric layout augmentation and camera configuration augmentation, generative harmonization
+with mask-area-weighted blending, SOC yields pixel-perfect
+masks, boxes, and diverse referring expressions—without
+human labeling. We show through experiments that across
+three common tasks (open-vocabulary detection, instance
+segmentation, referring expression) a small slice of SOC
+data consistently outperforms or complements much larger
+real or synthetic image corpora. We additionally show that
+SOC is effective in a limited-data regime and can help a diagnostic visual grounding task with targeted data synthesis.
+
+4.6. Comparison with other synthetic pipelines
+As shown in Table 5 and Table 1, SOC substantially outperforms copy-paste baselines: on COCO instance segmentation (Mask2Former), SOC achieves 12.79 AP vs. 9.3
+AP for Copy-Paste and 9.4 AP for X-Paste; on LVIS-Mini
+open-vocabulary detection (MM-Grounding-DINO), SOC
+reaches 38.6 AP vs. 35.2 AP for Copy-Paste and 37.2 AP
+for X-Paste.
+8
+
+Appendix
+
+revolutionized end-to-end detection. Recent advances in
+vision-language models trained via contrastive language
+supervision [77, 78] have expanded detection to openvocabulary settings [79]. Approaches include distillation of pretrained vision-language knowledge into regionlevel representations [80, 81], adapting contrastive models for detection [82], integrating language-conditioned
+queries into DETR framework [83], and leveraging abundant
+image-level annotations to overcome detection annotation
+scarcity [84, 85]. Building upon these approaches, scaling pre-training datasets has significantly advanced openvocabulary models [27, 86, 87]. GLIP [27] combines detection with grounded language-image pretraining, introducing
+the ODInW benchmark [27, 28]. Datasets like V3Det [24],
+with over 13,000 categories, further push open-vocabulary
+capabilities. MM-Grounding-DINO [23, 88], a combination
+of DINO [74] and grounded pretraining, represents stateof-the-art performance alongside real-time solutions like
+Yolo-World [89]. Similarly, open-vocabulary segmentation
+(OVS) models [90–93] now incorporate language supervision, evaluated on standard semantic segmentation datasets
+(COCO-Stuff [29], ADE20K [30, 31], PASCAL VOC [32],
+PASCAL Context [33], and Cityscapes [4]). Universal models like APE [65] unify grounding, segmentation, and detection under diverse prompts [94, 95].
+
+A. Limitations and Future Work
+Synthetic–real domain gap. Our relighting and blending
+strategies bring synthetic images closer to real photographs
+than directly pasting segments onto images. The remaining
+differences in surface texture, material response, and global
+illumination are subtle. These minor artifacts have a limited
+impact on downstream tasks compared to the performance
+boost we observed relative to real data, and they can be
+further reduced in future work by integrating state-of-the-art
+diffusion models.
+3D Coherence. Although we operate on standalone 2D
+object segments and directly paste them into images without explicit 3D constraints, this simplification poses little
+difficulty for current 2D-focused benchmarks (e.g., detection, segmentation, referring expressions). For applications
+requiring full 3D coherence, such as depth estimation or
+novel-view synthesis, future extensions could incorporate
+3D geometry priors or 3D assets into the generation pipeline.
+Object Interactions. For tasks such as detection, grounding, and segmentation, inter-object relations are not a primary domain feature. Therefore, for simplicity, our pipeline
+currently treats objects independently and does not model
+inter-object relations. In practice, this has a negligible impact
+on object-centric recognition tasks, and future work could
+address this by adding fine-grained relation control—using
+diffusion models in our pipeline—if we wish to extend it to
+relation recognition.
+
+B. Detailed Related work
+
+Referring expression and Grounding. Referring expression comprehension involves localizing image objects using
+natural language descriptions [35]. Early datasets, such
+as ReferItGame [34], evolved into standard benchmarks
+like RefCOCO, RefCOCO+, and RefCOCOg [35, 36], annotated over COCO images. Flickr30K Entities [37] and
+Visual Genome [38] facilitate visual grounding with detailed region annotations. Earlier methods employed modular decomposition [96] (e.g., subject and relationships
+detected individually in MattNet [97]), but transformerbased models now dominate [98–103]. MDETR introduced a modulated detector conditioned directly on textual
+queries [103]. Recent open-vocabulary models, including
+GLIP and MM-Grounding-DINO, have also been adapted to
+this task [23, 27, 76, 88, 102, 104]. Concurrently, the introduction of datasets like GoldG [39] provides essential human
+annotations for grounding tasks. Multimodal large language
+models (MLLMs) have achieved state-of-the-art REC performance by directly generating bounding box coordinates from
+text [22, 105, 106]. Recent efforts like KOSMOS-2 [8] leverage synthetic data to overcome annotation scarcity, although
+verifying synthetic annotations remains challenging [107].
+
+Open-Vocabulary detection and segmentation. Traditional object detection [69, 70] and segmentation [66, 71]
+methods typically target predefined categories from standard benchmarks (e.g., COCO [6], OpenImages [25], Object365 [26], LVIS [21]). Transformer-based architectures, such as DETR [72] and its derivatives [73–76], have
+
+Synthetic datasets for detection, segmentation, and visual grounding. Synthetic datasets have emerged to provide
+large-scale annotations without manual labeling, with early
+examples such as SYNTHIA [108] and GTA5 [109] offering useful segmentation labels via game-engine rendering
+but revealed domain gaps when applied to real-world im-
+
+Panoptic segmentation. In this work, we focus on objectlevel recognition. We produce high-quality object segments
+for discrete “things,” but do not yet annotate amorphous
+“stuff” regions or enforce an all-pixel partitioning, as we are
+aiming to improve on object detection, instance segmentation, and visual grounding. This limitation does not impede
+most instance-level or semantic benchmarks, and can be
+readily addressed by integrating off-the-shelf “stuff” predictors or by extending our annotation pipeline to include
+full-scene panoptic labels in future releases.
+
+1
+
+C. Ablation of Scaling Only Object Segments
+or Images
+
+ages. Virtual KITTI 2 [18] and Synscapes [17] significantly
+improved realism for driving scenes through photorealistic
+and physically-based rendering, and Hypersim [19] offered
+extensive indoor data with dense segmentation, depth, and
+normal annotations. More recently, diffusion-based synthesis has produced high-resolution, photorealistic images
+with controllable layouts [110–113], realistic illumination
+variations [11, 114], and scalability to open-vocabulary and
+pseudo-labeled data [7, 8, 44, 115–122].
+
+In our main experiment, since we generate 20M object segments, we simultaneously scale the number of object segments and the number of images—each object segment is
+used only once within the composed images—and observe
+that larger datasets yield better performance. To disentangle the individual effects of scaling images versus object
+segments, we conduct two ablation studies:
+
+Early efforts at synthetic data relied heavily on 3D simulators, which require painstakingly crafted assets and still
+struggle to capture the diversity of real-world scenes. For
+purely 2D approaches, one branch resorts to simple copyand-paste augmentations, transplanting segmented objects
+into real images [40–42]. However, such methods remain
+constrained by the quality of available segments and produce
+conspicuous seams around pasted regions, causing models
+to exploit edge cues rather than true object semantics. XPaste [43] improves segment integrity and diversity by using
+diffusion models to enrich object segments before pasting,
+but it still randomly places segments and therefore does not
+fully resolve realism or seam-artifact issues. Moreover, because these methods are defined as augmentation pipelines
+applied to existing images, they are limited by the scale of
+the real data and restricted to a narrow set of categories (e.g.,
+only 1.3 K categories on LVIS and COCO).
+
+Fixing the number of images and scaling object segments.
+We fix the image count at 50 K and vary the total number of
+object segments through four settings: 100 K, 200 K, 500 K,
+and 1 M. In each case, we sample 20 segments per image.
+Consequently, when only 100 K segments are available, each
+segment must be reused 20 × 50 K / 100 K = 10 times; with
+200 K segments the reuse factor falls to 5 times; at 500 K
+it drops to 2 times; and at 1 M segments every sampled
+segment is unique. As shown in Figure 7 (left), AP increases
+monotonically from 0.3842 at 100 K segments to 0.4013 at
+1 M segments, with the largest incremental gain occurring
+between 500 K and 1 M segments. This pattern indicates
+diminishing returns beyond 500 K but still underscores the
+benefit of richer segment diversity.
+Fixing the number of segments and scaling images. Conversely, we fix the segment count at 100 K and scale the number of images through 50 K, 100 K, 200 K, and 400 K, mirroring the unlimited-segment setup in our main experiments.
+Under this fixed–100 K–segment regime (Figure 7, right,
+blue curve), AP climbs modestly from 0.3882 to 0.3947 as
+images quadruple, reflecting the limited benefit of reusing
+the same segments. In contrast, when we allow an unlimited
+pool of segments (red curve), AP grows more strongly from
+0.3942 to 0.4033 over the same image range. The larger gap
+under the unlimited-segment condition demonstrates that
+adding fresh segments is crucial to fully leverage additional
+images.
+
+A complementary line of work generates entire scenes
+with diffusion models or directly using real images, but
+applies off-the-shelf detectors to harvest pseudo-labels for
+bounding boxes. Wang et al. [9] automatically produce
+referring annotations using VLMs. He et al. [10] leverage
+diffusion models to create varied images and use detectors
+to generate bounding-box labels. While these approaches
+achieve higher image fidelity, their pseudo-labels are noisy
+and yield smaller performance gains compared to real-image
+annotations, and also limit them to only high-level grounding
+tasks, instead of dense segmentation and detection tasks.
+In contrast, our framework generates over 20 million highquality object segments across more than 46K categories,
+each annotated with fine-grained metadata. We integrate generative harmonization (IC-Light for background inpainting
+and global relighting) and mask-area-weighted blending to
+boost photorealism and to provide precise masks, bounding
+boxes, and referring expressions. This strategy combines
+the advantages of both copy-paste and diffusion-based approaches while avoiding unrealistic artifacts and inaccurate
+labels. It not only overcomes the scale and category limitations of prior augmentation methods but also delivers data
+that is fully suitable for open-vocabulary detection, segmentation, and visual grounding in authentic real-world scenes.
+
+Analysis. These ablation studies reveal that, while scaling
+images alone yields modest gains when segment diversity
+is capped, increasing the number of unique object segments
+provides larger improvements in AP. The strongest performance arises when both image count and segment diversity
+are scaled together, confirming the advantage of our joint
+scaling strategy for open-vocabulary detection and segmentation.
+
+D. Compare with Other Synthetic Method
+We position SOC within the broader synthetic landscape
+through qualitative comparisons in Table 6 and Table 8.
+2
+
+0.410
+
+Fixed 50k Images
+
+Fixed vs Unlimited Segments
+0.410
+0.405
+0.400
+0.395
+0.390
+0.385
+
+AP
+
+0.400
+0.395
+
+AP
+
+0.405
+
+Fixed 100k Segments
+Unlimited Segments
+
+0.390
+0.385
+100k
+200k
+500k
+1M
+Number of Object Segments
+
+50k
+
+100k
+Number of Images
+
+400k
+
+Figure 7. Impact of scaling object segments (left) and images (right) on AP. In the left plot, we fix the number of images to 50 K and vary
+segments from 100 K to 1 M; in the right plot, we compare fixed–100 K segments versus an unlimited-segment regime as we scale images
+from 50 K to 400 K. Models are evaluated on LVIS-Mini Val and report AP.
+
+D.1. Comparison with Synthetic Object Segments
+
+pre-built domains (mostly driving or indoor scenes) and a
+closed object vocabulary; a noticeable photo-to-sim gap still
+emerges when models are applied to real photographs.
+
+Subjects 200K [123] contains roughly 200K
+FLUX-generated segments, but they cover <1K categories and are captured from only a handful of canonical
+viewpoints. Because the library offers neither broad category
+coverage nor multi-view variation, it limits the semantic and
+geometric diversity attainable when composing new scenes.
+By contrast, SOC delivers 20M segments spanning 46K+
+categories and explicitly samples multiple camera angles for
+every object prompt, ensuring rich viewpoint diversity. This
+two-orders-of-magnitude increase in scale—coupled with
+fine-grained control over category and viewpoint—unlocks
+far more varied, photorealistic composites than any prior
+segment library.
+
+Copy-paste families such as Simple Copy-Paste [42],
+InstaBoost [41], and the diffusion-refined X-Paste [43] transplant real segments into new images. They are inexpensive
+and controllable, but the pasted objects often betray seam
+artefacts or lighting clashes. Because the pipeline augments
+a fixed real corpus, its scale is capped by the number of host
+images and its category list rarely exceeds ~1.3 K classes
+from LVIS/COCO.
+Diffusion-plus-pseudo-label pipelines invert the recipe.
+Methods like SynGround [10] and Learning VG [9] first
+synthesise entire scenes with text-to-image models [110–
+112], then harvest boxes or phrases via detectors or VLMs.
+Although the images are photorealistic and open-vocabulary,
+the labels inherit detector noise and therefore suit only coarse
+grounding rather than dense segmentation.
+
+Quantitative comparison with Subject200K. To validate
+the quality advantage of our synthetic object segments, we
+conduct a controlled experiment on COCO instance segmentation using Mask2Former trained on 10K synthetic images.
+As shown in Table 7, when combining real segments with
+synthetic object segments, SOC achieves 12.79 AP, outperforming Subject200K (12.06 AP) by +0.73 AP (+6.1%
+relative improvement). This demonstrates that our object
+segment pipeline—with its broader category coverage (46K+
+vs. <1K) and multi-view diversity—produces higher-quality
+segments that lead to better downstream performance.
+
+SOC is best seen as an object-centric composition
+pipeline. The detailed comparisons are shown in Table 6 and
+Table 8.
+The outcome is a dataset that matches simulators in annotation fidelity, rivals diffusion images in photorealism,
+and, through open-vocabulary, layout-controlled synthesis,
+vastly outstrips prior copy-paste methods in diversity and
+scale. These qualities underpin the improvements reported
+in Sec. 4.1–4.5, where SOC demonstrates strong performance against both synthetic-based methods and real-image
+training data (e.g., GRIT, V3Det)—a stark contrast to existing synthetic datasets that are commonly treated as mere
+complements to real data.
+
+D.2. Comparison with Synthetic Data Pipelines
+Simulator-rendered
+datasets—SYNTHIA
+[108],
+GTA5 [109], Virtual KITTI 2 [18], Synscapes [17], and
+the indoor-focused Hypersim [19]—deliver pixel-accurate
+masks and boxes by design, yet they remain confined to
+3
+
+Table 6. Qualitative comparison of synthetic object-segment libraries. SOC offers orders-of-magnitude more segments, explicit category
+control, and multi-view diversity—key to the photorealistic, richly annotated composites described in § 4.1.
+
+Library
+
+Diffusion model
+
+Category
+
+Scale (segments)
+
+Viewpoint diversity
+
+Subject 200K
+
+FLUX
+
+Less than 1000
+
+200K
+
+✗
+
+SOC (ours)
+
+FLUX
+
+46K+
+
+20M
+
+✓
+
+Table 7. Quantitative comparison with Subject200K on COCO
+instance segmentation (Mask2Former, zero-shot). All models are
+trained on 10K synthetic images composed from real segments +
+synthetic object segments.
+
+Object Segments
+
+AP
+
+APS
+
+APM
+
+APL
+
+Real segments only
+Real + Subject200K
+Real + SOC (ours)
+
+7.03
+12.06
+12.79
+
+0.55
+1.43
+1.58
+
+3.15
+6.53
+7.71
+
+7.22
+14.57
+15.74
+
+Improvement
+
++0.73
+
++0.15
+
++1.18
+
++1.17
+
+process: We introduce a blending weight αi ∈ [0, 1] for each
+object mask Mi , which controls the degree of relighting
+applied to that object. Smaller objects receive higher αi ,
+preserving more of their original appearance; larger objects
+receive lower αi , allowing more of the relit image to show
+through.
+1. S IZE - BASED WEIGHTING .
+area(Mi ) − Amin
+,
+ri ∈ [0, 1],
+Amax − Amin
+
+αi = αmin + (αmax − αmin ) σ s (ri − 12 ) .
+ri =
+
+Smaller objects (low ri ) get higher αi (milder relighting).
+The sigmoid groups “small” segments together instead of
+scaling linearly by size.
+2. L AB - SPACE BLEND .
+For p ∈ Mi , convert
+IO (p), IR (p) → (LO , aO , bO ), (LR , aR , bR ). Blend
+lightness and chroma separately:
+
+D.3. Visual Realism: FID Score Analysis
+To quantify the visual realism of our synthetic images, we
+computed Fréchet Inception Distance (FID) [124] scores on
+a 1K-sample subset comparing SOC against Copy-Paste and
+X-Paste baselines. As shown in Table 9, SOC achieves an
+FID of 131.93, substantially lower than both Simple CopyPaste (165.55) and X-Paste (166.03). This indicates that
+even without explicitly optimizing for photorealism, SOC
+produces images that are more distributionally aligned with
+natural image statistics than alternative synthetic pipelines.
+We note that SOC optimizes for annotation accuracy
+(pixel-perfect masks), compositional diversity (46K+ categories), and training effectiveness rather than photorealism
+alone. The strong downstream performance against both
+synthetic-based and non-synthetic-based methods (Sec. 4.1)
+validates this design choice.
+
+Lout = αi LO + (1 − αi )LR ,
+cout = (1 − βi ) cO + βi cR ,
+
+c = (a, b), βi ≪ 1,
+
+then convert (Lout , cout ) back to RGB.
+BACKGROUND PASSTHROUGH . Iout (p) = IR (p) for p ∈
+/
+3. S
+M
+.
+i
+i
+This segment-area-aware blending ensures that small segments avoid over-relighting by IC-Light (preserving detail)
+while larger ones receive stronger adjustments, and by blending only the luminance (with a small chroma factor βi ) in
+CIELAB space, we maintain perfect color fidelity and small
+object details, but also increase the photorealism.
+
+E. Details of SOC Pipeline
+E.1. Details of Mask-Area-Weighted Blending Algorithm
+
+E.2. Details of 3D Geometric Layout Augmentation
+Robustness-first design: Why photorealistic layouts are
+not our goal. A central design principle of SOC is that
+photorealistic spatial layouts are neither necessary nor desirable for training robust vision models. Real-world photographs contain strong statistical regularities (e.g., cars appear large and near image bottoms, small objects cluster
+on surfaces) that models can exploit as shortcuts. Our 3D
+geometric layout augmentation deliberately breaks these
+correlations by sampling object depth, size, and position
+independently of category, creating compositions that may
+appear “unnatural” but force models to learn view-invariant,
+category-robust representations.
+
+To achieve realistic lighting, we adopt IC-Light [11], a
+foreground-conditioned diffusion model that ingests an image containing foreground objects, generates a matching
+background with a text prompt, and relights the composite
+to achieve photorealism.
+However, IC-Light introduces two challenges in multiobject scenes: (1) strong relighting may distort fine details of
+small objects, making them unrecognizable, and (2) excessive relighting can alter object colors, breaking consistency
+with color-based descriptions from the original data.
+To address this, we use a segment-area-aware blending
+4
+
+Table 8. Qualitative comparison of complete synthetic-data pipelines. SOC is the only approach that simultaneously offers fine-grained
+control, open-vocabulary coverage, realistic integration (relighting + blending), and pixel-accurate annotations across all dense-vision tasks.
+Pipeline
+
+Method
+
+Fine-grained control
+
+Open-vocabulary
+
+Realistic integration
+
+Accurate masks/boxes
+
+Simulator-rendered (e.g. SYNTHIA)
+Simple Copy-Paste
+X-Paste
+SynGround
+Learning VG
+
+Game-engine scenes
+Paste onto real images
+Paste onto real images
+Diffusion images
+Diffusion images
+
+✓
+✓
+✓
+✗
+✗
+
+✗
+✗
+✗
+✓
+✓
+
+✓
+✗
+✗
+✓
+✓
+
+✓
+✓
+✓
+✗
+✗
+
+DET, SEG
+DET, SEG
+DET, SEG
+VG
+VG
+
+SOC (ours)
+
+Composing new images
+
+✓
+
+✓
+
+✓
+
+✓
+
+DET, SEG, VG
+
+Table 9. FID scores (lower is better) comparing visual realism
+of synthetic data generation methods. Computed on 1K samples
+against real image distribution.
+
+Method
+
+• Close: [0.1Dmax , 0.3Dmax ]
+• Middle: [0.3Dmax , 0.6Dmax ]
+• Far: [0.6Dmax , Dmax ]
+4. For each object segment i of category ci :
+• Sample physical size: Si ∼ N (µci , σci )
+• Sample depth di from one of the three ranges, following
+COCO/SA-1B distribution (40% close, 35% middle,
+25% far)
+• Sample 3D position: (Xi , Yi ) ∼ U (Xmin , Xmax ) ×
+U(Ymin , Ymax ) (in meters)
+• Project to 2D via perspective projection:
+
+FID Score
+
+Simple Copy-Paste
+X-Paste
+
+165.55
+166.03
+
+SOC (Ours)
+
+131.93
+
+Supported task(s)
+
+Generative harmonization plays a complementary role: it
+eliminates low-level copy-paste artifacts (lighting inconsistencies, boundary discontinuities) that would provide trivial
+cues for distinguishing synthetic data, without constraining
+spatial layouts to match photographic distributions. This
+separation is intentional—harmonization ensures sufficient
+visual coherence to avoid shortcut learning from obvious artifacts, while our layout strategy ensures sufficient diversity
+to avoid shortcut learning from statistical priors.
+The effectiveness of this approach is demonstrated by our
+results (Sec. 4.1–4.5), where SOC-trained models outperform both synthetic-based methods and models trained on
+real images (GRIT, V3Det). These results suggest that photorealistic layouts may actually be detrimental to robustness, as
+they reintroduce the pictorial biases that limit generalization.
+
+xi = f ·
+
+Xi
+,
+di
+
+yi = f ·
+
+Yi
+,
+di
+
+si = f ·
+
+Si
+di
+
+where (xi , yi ) is the 2D center position and si is the
+apparent size in pixels
+5. Enforce constraints: If an object’s apparent size is too
+small/large, or if it completely occludes another object
+(IoU(Mi , Mj ) ≥ 0.9), resample its 3D position and
+depth
+This approach ensures that object scale is determined by
+3D geometry (depth + physical size) rather than category,
+breaking spurious correlations like “cars appear large and
+near the bottom.”
+
+E.3. Details of Camera Configuration Augmentation
+
+3D scene modeling with category-independent sampling.
+Our 3D geometric layout augmentation strategy models each
+composite image as a 3D scene where depth and spatial position are sampled independently of object category. This
+ensures objects of the same category appear at diverse depths,
+sizes, and positions, preventing category-specific pictorial
+patterns. For each image, we sample 5-20 object segments
+(matching COCO/SA-1B distributions) using balanced category sampling to avoid bias.
+Each object category c has a commonsense physical
+size range (e.g., cars: 4-5m, cups: 10-20cm) generated by
+Qwen2.5-32B. The complete pipeline is:
+
+After composing and relighting the scene, we apply camera
+configuration augmentation to simulate diverse camera intrinsics and viewing conditions. Each augmentation (random
+zoom and depth-of-field blur) is applied independently with
+30% probability.
+Random zoom (scaling and cropping). Starting from
+the focal length f sampled during layout generation, we
+apply random scaling with factor s ∼ U(1.0, 4.0) followed
+by random cropping to simulate camera zoom in. For a
+composite image I of size H × W :
+1. Resize to sH × sW (modifying the focal length to f ′ =
+s · f)
+2. Randomly crop back to H × W
+
+1. Sample camera focal length: f ∼ U(fmin , fmax )
+2. Define maximum depth: Dmax = α · f (where α is a
+scaling constant in meters/pixel)
+3. Define depth ranges (in meters):
+5
+
+This operation ensures that object scale is not a reliable cue
+for category recognition.
+
+(with additional pretraining on O365 + GoldG + GRIT +
+V3Det as complementary data). During the SOC syntheticdata stage, we use a batch size of 128: for each batch, 70% of
+the samples are drawn from our SOC dataset and 30% from
+Object365 or GoldG to improve training stability. When
+training on both the FC and GC splits, we sample 35% from
+each split to form the 70% synthetic-data portion. Furthermore, for each synthetic bounding-box annotation, 66% are
+paired with the category label (e.g., apple) and the remaining 33% with a short phrase (e.g., the red apple) to diversify the training signal. This configuration is applied at the
+50K, 100K, and 400K SOC data scales, each run lasting 10
+epochs. We use an initial learning rate of 4 × 10−4 , reduced
+to 4 × 10−5 at the sixth epoch, and apply a learning-rate
+multiplier of 0.1 to both the visual and language backbones.
+Due to the syn2real gap, this stage does not directly improve benchmark performance but injects SOC information
+into the model. Afterward, we fine-tune the model on the
+original Object365 and GoldG datasets for 3 epochs, sampling equally from Object365, GoldG, and our synthetic data
+(1:1:1). We use a learning rate of 2 × 10−4 , again scaling
+the visual and language backbone rates to 0.1 of the overall
+rate. After this stage, we observed strong performance gains
+over benchmarks. For the baseline with V3Det and GRIT,
+we directly use the weights provided by the MM-GroundingDINO repo.
+To validate that any performance gains stem from SOC
+rather than extended training on real data, we also test on
+using only Object365 and GoldG, but matched for FLOPs
+and learning rates of synthetic data training, which only
+keeps the performance on pretrained weights, demonstrating
+the effectiveness of SOC data.
+
+Depth-of-field blur. To simulate realistic depth-of-field effects controlled by aperture size, we apply selective Gaussian
+blur based on object depth:
+1. Generate a depth map for the composed image: We first
+use Depth Anything V2 to predict relative depth for the
+entire scene, then scale it such that the predicted depth of
+the farthest object matches its sampled depth dmax from
+the 3D scene modeling. Finally, we replace each object
+region with its exact sampled depth di . This approach ensures physical consistency with the layout while allowing
+natural depth variation in the background
+2. Randomly sample a focal plane depth dfocal from the
+scene’s depth distribution
+3. Sample an f-number N ∼ U (1.4, 16) representing the
+aperture size (smaller f-numbers = larger apertures =
+shallower depth-of-field)
+4. Compute blur kernel size for each pixel at depth d via the
+circle of confusion formula:
+σ(d) =
+
+f2
+|d − dfocal |
+·
+N · dfocal
+d
+
+where f is the focal length sampled during layout generation and d is the absolute depth in meters from the depth
+map
+Objects near the focal plane remain sharp (σ ≈ 0), while
+those farther away are progressively blurred. Smaller fnumbers (e.g., f/1.4) produce strong background blur mimicking portrait photography, while larger f-numbers (e.g.,
+f/16) keep most objects in focus, simulating landscape photography.
+These camera configuration augmentations, combined
+with our 3D geometric layout augmentation strategy, create
+a rich distribution of visual configurations that force models
+to learn robust, view-invariant representations.
+
+F.2. Details of Task 2: Visual Grounding
+Training details. We follow the same setup as Task 1
+for Visual Grounding, but after the original synthetic-data
+stages, we further train the models for five epochs on the
+same images, but using referring expressions as the training
+signal. And then follow the same real data fine-tune stage.
+We also test that training with our data in Task 1 (using category and short phrase as signal instead of referring
+expression) doesn’t improve model performance on the visual grounding benchmark. Only training on SOC referring
+expressions brings the performance boost.
+
+E.4. Prompts used in SOC
+We provide our prompts used in belowing images.
+
+F. Details of Experiments
+In this section, we provide the training and evaluation details
+of the experiments conducted in the previous sections.
+
+F.3. Details of Task 3: Instance Segmentation
+
+F.1. Details of Task 1: Open Vocabulary Object
+Detection
+
+Data generation. For 50K SOC-LVIS-Category we used.
+We generated only by using the synthetic object segments
+that are in the LVIS categories. The other data configurations
+are the same as the SOC-FC and SOC-GC.
+
+Training details. We use the training scripts provided by
+the official repo of MM-Grounding-DINO, with 8xH100
+GPUs; We use the MM-Grounding-DINO-Tiny model, initialized with pretrained weights on Object365 and GoldG
+
+Training details. All experiments were conducted using
+the training scripts provided by the official APE repository
+6
+
+Zoom-in Aug.
+
+Original
+
+2.0X
+
+1.5X
+
+3.0X
+
+Figure 8. Examples of random zoom augmentation. Starting from the composed image (left), we apply random scaling with factor
+s ∼ U(1.0, 4.0) followed by random cropping (right). This simulates camera zoom in and ensures object scale is not a reliable cue for
+category recognition.
+Depth of Field Aug.
+
+Original
+
+f/5.6
+
+f/16
+
+f/1.4
+
+Figure 9. Examples of depth-of-field blur augmentation. Starting from the composed image (left), we apply selective Gaussian blur based on
+depth (right). Objects near the focal plane remain sharp while those farther away are progressively blurred, simulating realistic camera
+aperture effects with varying f-numbers.
+
+on 4 NVIDIA H100 GPUs. We initialized this from the APEL_A checkpoint, which was pre-trained jointly on LVIS,
+COCO, Object365, OpenImages, and Visual Genome. We
+load those weights, set a batch size of 8, and apply a halved
+learning-rate schedule compared to the default (the official
+APE training uses batch size 16). We sample LVIS and
+SOC-LVIS-Category data equally (50% each) and train for
+30000 steps, then continue training solely on LVIS for an
+additional 10000 steps. For the baseline, we train directly on
+LVIS for 40000 steps.
+
+zero-shot on the COCO validation set and report AP.
+LVIS-Mini open-vocabulary detection (MM-GroundingDINO). For the comparison with synthetic baselines
+(§4.7), we train MM-Grounding-DINO on 50K synthetic
+images generated by each method. We follow the same training setup as Task 1 (§4.1) and evaluate on the LVIS-Mini
+validation set, reporting AP.
+Visual grounding on gRefCOCO (MM-GroundingDINO). For the comparison with synthetic baselines
+(§4.7), we train MM-Grounding-DINO on 50K synthetic images with referring expressions. We follow the same training
+setup as Task 2 (§4.2) and evaluate on gRefCOCO, reporting
+Precision@(F1 =1, IoU≥0.5) and no-target accuracy.
+
+F.4. Details of Comparison with Synthetic Baselines
+and Ablation Study
+COCO instance segmentation (Mask2Former). For both
+the comparison with synthetic baselines (§4.7) and the ablation study (§4.8), we use the same experimental setup to
+ensure fair comparison. All models are trained on 10K synthetic images generated by each method, initialized from
+ImageNet-pretrained ResNet-50 weights, and trained from
+scratch without using any COCO images. We use the official
+Mask2Former training scripts on 4 A100 GPUs with batch
+size 32 and learning rate 0.0001. All models are evaluated
+
+F.5. Details of Task 4: Small-Vocabulary, LimitedData Regimes
+Training details. We train Mask2Former (R–50 backbone) using the official Mask2Former training scripts on
+4 A100 GPUs. Because the repository does not include
+a four-GPU configuration, we initialize only from the
+7
+
+Generate {count} creative and distinct descriptions for the subject '{subject}'.
+
+Each description should be a detailed sentence describing only the '{subject}' itself. It can include adjectives and
+descriptive visuable details (for example, 'a nice rounded apple with a rotted dot on its surface'), but it must not include
+any additional subjects or environment description (phrases like 'apple over the tree' or 'apple in a starry night' 'apple
+that are sweet with each bites' are NOT GOOD and TOTALLY FORBIDDEN).
+
+The descriptions should be creative and unique from each other, and vary in length, with some being simple like 'a blue
+apple' and some more detailed, but don't be too long. Diversity is the key.
+
+The descriptions should be suitable for a caption of an image containing the subject, and should be detailed enough to
+be useful for someone who can't see the image. It should emphasize on visuable feature like color, material, shape,
+pattern.
+
+Your descriptions must contain the '{subject}' word.
+
+Return the output as a JSON object with a single key 'descriptions' mapping to an array of descriptions.
+
+Now generate descriptions for '{subject}' with rules above:
+
+Figure 10. Prompt for generating diverse text descriptions.
+
+Given the following description, perform two tasks:
+
+1. Create a "short phrase" summarizing the description in at most 7 words.
+
+2. Extract the features or attributes mentioned in the description.
+
+Return the result in JSON format with keys "short phrase" and "features" (a list of phrases).
+
+Description: "{description}"
+
+Example output:
+
+{
+
+"short phrase": "an minimalist façade air conditioner",
+
+"features": ["minimalist façade", "circular control buttons"]
+
+}
+
+Only output the JSON.
+
+Figure 11. Prompt for extracting features and generating shortening phrases.
+
+SOC-SFC and SOC-SGC, which are images with samecategory-different-attributes objects specifically generated
+to solve the intra-class problems.
+
+ImageNet-pretrained ResNet-50 weights and train the remaining components from scratch. We apply the same batch
+size (32) and learning rate (0.0001) to both our method and
+the baseline, ensuring a fair comparison.
+The baseline model is trained solely on COCO and is
+stopped when its validation AP has not improved for 2,000
+consecutive iterations.
+For our setup, we first perform 4,000 training iterations
+on real COCO images at each data scale (1K, 10K, 50K,
+and the full COCO set) to obtain an initial representation.
+Training then continues exclusively on our COCOMIX data
+until the training loss fails to decrease for 2,000 iterations,
+signalling a plateau. Finally, we fine-tune the model on its
+scale of COCO data and terminate once the performance on
+the test set no longer improves.
+
+G. Real Segments Filtering Pipeline
+Our pipeline provides the flexibility of using both synthetic
+object segments and real object segments collected from a
+segmentation dataset, We demonstrate that SOC pipeline can
+incorporate real segments from the COCO dataset. Therefore, we build the following real object segments collecting
+pipeline for future exploration:
+Masks extracted directly from the above datasets are frequently occluded, truncated, or loosely bounded, making
+them unsuitable as composable assets. We therefore introduce a three-stage pipeline that first filters low-quality
+instances and then enriches the survivors with additional
+metadata.
+Filtering. For every candidate segment we predict three
+independent quality scores:
+
+F.6. Details of Task 5: Intra-class referring
+Training details. We follow the setup from Task 1, but instead of training over SOC-FC and SOC-GC, we train over
+8
+
+{ViewPoint (Left view, Top view, Bottom view ....)} {description} with pure white background.generate the entire object
+instead of a part of it. Don't contain any other objects, generate with the full structure of the object, in high quality with
+photorealistic details, accurate textures.
+Figure 12. Prompt for generating object segments.
+You are a referring expression detection data generator. I will provide you with a list of objects WITHIN an IMAGE, and you will generate referring expressions similar to RefCOCO, RefCOCO+, RefCOCOg, and GrefCOCO.
+
+
+We categorized referring expressions into 3 types: attribute-based, spatial-based, and reasoning-based.
+
+**Requirements**:
+
+- Attribute-based: ask about `features`, `category`, or `short_phrase` of exactly one object. (e.g. The white dog)
+
+- Spatial-based: infer absolute or relative positions strictly from the `bbox` values (e.g. left/right, above/below, center). (e.g. The dog left to the people with brown shirt)
+
+- Reasoning-based: combine features, `short_phrase`, `category` and spatial bbox relationships between objects. (e.g. The white animal left to the person with brown shirt)
+
+- Use `short_phrase` or `features` preferentially to refer to objects; also can use `category` with some features to refer it.
+
+- Return ONE JSON block matching the schema exactly, with **exactly** the requested counts per bucket. No extra keys.
+
+
+For each referring expression, we have 3 types of returning objects:
+
+1. **Single object**: Expression refers to exactly one object in the image. (e.g. The white dog)
+
+2. **Multi-object**: Expression refers to 2 or more objects in the image. (e.g. All the white dogs in the image)
+
+
+# ### Example segments and expressions
+
+# Example annotation 
+
+[ID: 7377552] tongs | short_phrase: tongs with rough iron texture | features: [rough iron texture] | description: tongs with a rough iron texture, painted in old bronze | bbox: [318, 535, 128, 282]  
+
+[ID: 10569372] bath_towel | short_phrase: bath towel with tribal flair | features: [geometric tribal flair] | description: a bath_towel with geometric tribal flair in coppery tones | bbox: [474, 10, 493, 879]  
+
+[ID: 2187630] Canned | short_phrase: cylindrical can of recycled aluminum | features: [cylindrical, recycled aluminum] | description: A cylindrical can made of recycled aluminum. | bbox: [376, 217, 102, 247]  
+
+[ID: 10733385] shovel | short_phrase: shovel with gleaming blade | features: [gleaming blade] | description: a shovel with a blade that gleams like polished alabaster | bbox: [424, 726, 48, 184]  
+
+[ID: 519546] knitting_needle | short_phrase: knitting needle with glossy finish | features: [glossy finish] | description: a knitting_needle with a glossy, clear finish and a spiral ridge | bbox: [0, 80, 97, 125]  
+
+[ID: 4995055] strap | short_phrase: slim clear strap with blue stripe | features: [clear, blue stripe] | description: a slim, clear strap with a spray-painted blue stripe | bbox: [725, 178, 54, 60]  
+
+[ID: 9339368] teakettle | short_phrase: teakettle with glass body | features: [glass body] | description: A teakettle with a round glass body and a charming, twisted copper handle. | bbox: [324, 789, 103, 117]  
+
+[ID: 8109537] cushion | short_phrase: hunter green leather cushion | features: [hunter green leather] | description: A hunter green, sleek leather cushion. | bbox: [684, 219, 89, 79]  
+
+[ID: 4123758] raspberry | short_phrase: glossy raspberry with maroon tinge | features: [glossy, maroon tinge] | description: a glossy raspberry with a subtle maroon tinge | bbox: [183, 324, 134, 140]  
+
+[ID: 9903309] dropper | short_phrase: dropper with matte black body | features: [matte black body] | description: A dropper with a matte black body and a glossy dropper tip | bbox: [204, 868, 93, 122]  
+
+[ID: 2998739] snowmobile | short_phrase: snowmobile with white surface | features: [white surface, longitudinal red strips] | description: a snowmobile with a glossy white surface decorated with longitudinal red strips | bbox: [898, 451, 63, 38]  
+
+[ID: 13570439] box | short_phrase: box with bold stripes and smiley | features: [bold stripes, smiley] | description: a box painted in bold stripes with a quirky smiley face | bbox: [305, 837, 46, 42]  
+
+[ID: 232766] ram_animal | short_phrase: compact ram with patchwork wool | features: [patchwork wool] | description: a compact ram boasting an intricate pattern of color on its wool, resembling patchwork | bbox: [152, 704, 35, 36]  
+
+[ID: 15801147] birthday_card | short_phrase: cheerful pirate ship with map | features: [cheerful pirate shi] | description: A birthday_card featuring a cheerful pirate ship with a colorful map. | bbox: [34, 924, 45, 46]  
+
+[ID: 8631767] Egg_tart | short_phrase: marigold custard egg tart | features: [marigold-colored custard] | description: An egg tart with a marigold-colored custard that slightly spills over around the cornflower-blue border. | bbox: [442, 207, 43, 44]  
+
+[ID: 12491521] cornbread | short_phrase: crispy cornbread with golden flecks | features: [golden flecks] | description: A crispy slice of cornbread, with a myriad of shimmering, golden flecks and patches. | bbox: [191, 621, 42, 42]  
+
+[ID: 7054199] wooden_spoon | short_phrase: stout wooden spoon for dough | features: [stout] | description: a stout, thick wooden_spoon with a hefty feel, perfect for tackling hefty dough mixtures | bbox: [207, 292, 46, 40]  
+
+[ID: 2379817] motor | short_phrase: tiny pink motor with meta plates | features: [pink, with meta plates] | description: a tiny, delicate motor painted in a pastel pink with tiny meta plates | bbox: [95, 812, 40, 25]  
+
+
+# Example generated expression
+
+{
+
+"single_object": {
+
+"attribute": [
+
+{ "q": "The glossy raspberry with maroon tinge", "ids": [4123758] },
+
+{ "q": "The slim clear strap with blue stripe", "ids": [4995055] },
+
+{ "q": "The cylindrical can of recycled aluminum", "ids": [2187630] },
+
+{ "q": "The hunter green leather cushion", "ids": [8109537] }
+
+],
+
+"spatial": [
+
+{ "q": "The knitting needle with glossy finish on the far left", "ids": [519546] },
+
+{ "q": "The snowmobile with white surface on the far right", "ids": [2998739] }
+
+],
+
+"reasoning": [
+
+{ "q": "The teakettle with glass body below the shovel with the gleaming blade", "ids": [9339368] },
+
+{ "q": "The box with bold stripes and smiley to the left of the snowmobile with white surface", "ids": [13570439] },
+
+{ "q": "The glossy raspberry with maroon tinge to the left of the cylindrical can of recycled aluminum", "ids": [4123758] },
+
+{ "q": "The slim clear strap with blue stripe on the bath towel with tribal flair", "ids": [4995055] },
+
+{ "q": "The stout wooden spoon for dough above the shovel with the gleaming blade", "ids": [7054199] }
+
+]
+
+},
+
+"multi_object": {
+
+"attribute": [
+
+{ "q": "All the objects with a glossy finish", "ids": [519546, 4123758] },
+
+{ "q": "All the striped objects", "ids": [13570439, 2998739] },
+
+{ "q": "All the containers", "ids": [2187630, 13570439] }
+
+],
+
+"spatial": [
+
+{
+
+"q": "All the objects above the horizontal midpoint of the image",
+
+"ids": [10569372, 2187630, 4995055, 8109537, 4123758, 8631767, 7054199, 519546]
+
+},
+
+{
+
+"q": "All the objects that span the central vertical band of the image",
+
+"ids": [7054199, 4123758, 2187630, 7377552, 2998739]
+
+},
+
+{
+
+"q": "All the objects to the left of center and above the shovel with gleaming blade",
+
+"ids": [7377552, 2187630, 519546, 4123758, 7054199, 13570439, 232766, 2379817, 8631767]
+
+},
+
+{
+
+"q": "All the objects surrounding the cylindrical can of recycled aluminum",
+
+"ids": [7377552, 7054199, 8631767, 4123758]
+
+}
+
+],
+
+"reasoning": [
+
+{ "q": "All the metallic objects to the left of the bath towel with tribal flair", "ids": [7377552, 2187630, 2379817] },
+
+{ "q": "All the objects with a glossy finish above the box with bold stripes and smiley", "ids": [519546, 4123758] },
+
+{ "q": "All the containers to the right of the knitting needle with glossy finish", "ids": [2187630, 13570439] }
+
+]
+
+}
+
+}
+
+
+### Here is the objects in the image we want to annotate (Bounding Box is provided in XYWH COCO format, you should compare them in COCO’s way):
+
+{User annotations}
+
+
+### Numbers of expressions to generate
+
+{counts}
+
+Figure 13. Prompt for generating referring expressions.
+
+9
+
+(a) Multiple donuts.
+
+(b) Multiple kites.
+
+Figure 14. Examples for the intra-class referring benchmark.
+
+(a) Traininig data sampling from SOC-SFC and SOC-SGC.
+
+(b) Traininig data sampling from SOC-SFC and SOC-SGC.
+
+Figure 15. Examples for our target-generated training data.
+
+• Integrity: Is the object complete and unfragmented?
+• IsObject: Does the mask depict a discrete “thing” (e.g.,
+car) rather than amorphous “stuff” (e.g., road)?
+• Mask Quality: How accurately does the mask separate
+foreground from background?
+
+chain-of-thought prompts—for ground truth and train three
+ViT-B/16 classifiers, one per dimension [125]. At inference,
+we average the predicted scores and retain the top 30% of
+segments. We use this pipeline to filter the SA-1B, COCO,
+VOC, ADE20K, and get a total of 10M of real object
+segments for future exploration.
+
+We annotate 4,000 samples—with GPT-4o-assisted
+10
+
+H. Quality of Synthetic Segments
+Rather than extracting segments from existing photographs,
+we generate synthetic objects one at a time, ensuring that
+each segment is complete and free of occlusion. To evaluate
+quality, we conducted a human-annotation study in which
+annotators reviewed 200 randomly sampled segments; 92%
+were judged correct.
+Because annotators considered the vast majority of synthetic segments high-quality, we include all of them when
+composing synthetic images—and have already observed a
+significant performance boost in downstream models. Additionally, our codebase also includes a lightweight pipeline
+that uses the CLIP score to measure the semantic similarity between each segment and its caption. We left more
+exploration on filtering for further work.
+
+11
+
+I. Gallery of Object Segments
+
+12
+
+snowmobile
+
+bear
+
+sleek white snowmobile, matte finish
+
+giant polar bear with white fur
+
+wet_suit
+
+toaster_oven
+
+blue-black striped wet suit
+
+green toaster oven with simple knobs
+
+13
+
+Slippers
+
+Fishing_Rod
+
+slippers with floral patterns
+
+sleek silver fishing rod
+
+houseboat
+
+potato
+
+glass-paneled houseboat with rainbows
+
+elongated potato, smooth like marble
+
+14
+
+visor
+
+calf
+
+sleek black visor with shine
+
+calf with bright silver eyes
+
+toaster_oven
+
+orange
+
+sleek toaster oven with chrome
+
+small spherical orange with green
+
+15
+
+bonnet
+
+Speed_Limit_Sign
+
+bonnet with tiny flowers
+
+speed limit sign, distressed edges
+
+soup_bowl
+
+Cosmetics_Brush_and_Eyeliner_Pencil
+silver brush with dark eyeliner
+
+cracked aged soup_bowl rustic charm
+
+16
+
+tag
+
+Scallop
+
+small shiny silver circular tag
+
+irregular scallop with sea specks
+
+minibike_motorbike
+minibike with bronze hue
+
+koala with mosaic fur
+
+koala
+
+17
+
+table
+
+walrus
+
+huge wooden table with carvings
+
+large walrus with thick skin
+
+string_cheese
+
+spice_rack
+
+creamy white string_cheese coiled
+
+rustic spice rack with patterns
+
+18
+
+tachometer
+
+vacuum_cleaner
+
+sleek tachometer with all-glass
+
+upright vacuum with chevron pattern
+
+road_map
+
+cappuccino
+
+dotted auburn lines, rural routes
+
+balanced cappuccino with harmonious elements
+
+19
+
+pingpong_ball
+
+food_processor
+
+bright yellow ping-pong ball
+
+colorful food processor with gradient
+
+ashtray
+
+pegboard
+
+ashtray shaped like spaceship
+
+teal pegboard with white pegs
+
+20
+
+string_cheese
+
+kilt
+
+golden thin string cheese swirling
+
+vibrant tartan kilt with clasps
+
+cistern
+
+water_bottle
+
+shimmering copper cistern mirror finish
+
+rustic bamboo-like water bottle
+
+21
+
+Herculanum
+
+kite
+
+crumbling stone city with plaster walls
+
+colorful fish kite shimmering
+
+palm_palm_tree
+
+Soyabean_leaf
+
+towering palm with smooth trunk
+
+vibrant green soyabean leaf
+
+22
+
+parchment
+
+beanie
+
+weathered parchment with old ink
+
+knitted beanie in rainbow colors
+
+Noteworthy
+
+drumstick
+
+bold statement in sienna hues
+
+sleek carbon fiber drumstick
+
+23
+
+frisbee
+
+booth
+
+round alloy frisbee
+
+gold booth with ornate engravings
+
+potato
+
+manger
+
+potato with pebble-like eyes
+
+rustic wooden manger with cross
+
+24
+
+strawberry
+
+bean_curd
+
+petite strawberry with glossy surface
+
+bean curd with translucent sheen
+
+eyepatch
+
+beetle
+
+eyepatch embroidered with silver threads
+
+beetle with rainbow wings
+
+25
+
+bead
+
+Rice_Cooker
+
+vibrant turquoise teardrop bead
+
+compact rice cooker with curves
+
+dogenglish_setter
+
+clock
+
+graceful white markings on brown
+
+clock with visible ticking gears
+
+26
+
+dogenglish_cocker_spaniel
+
+saucer
+
+fluffy dark-brown spaniel with wavy fur
+
+wooden saucer with carvings
+
+hog
+
+earring
+
+fluffy white hog like cloud
+
+vintage pearl earring with floral
+
+27
+
+catBritish_Shorthair
+
+earplug
+
+silver grey British Shorthair cat
+
+beige foam earplug, teardrop shape
+
+doggreat_pyrenees
+large white dog with spots
+
+rugged chopping board with marbling
+
+chopping_board
+
+28
+
+rodent
+
+potholder
+
+tiny rodent with sleek coat
+
+red potholder with white dots
+
+dogpug
+
+prune
+
+adorable dog-pug with square eyes
+
+small wrinkled prune
+
+29
+
+crowbar
+
+key
+
+weathered crowbar with rust stains
+
+sparkly silver key with lock
+
+trampoline
+
+stylus
+
+oversized red trampoline with springs
+
+sleek black stylus with silver tip
+
+30
+
+slipper_footwear
+
+cabin_car
+
+duck-shaped slipper with vibrant feathers
+
+cabin car with floral patterns
+
+igniter
+
+Game_board
+
+red igniter with burning coals
+
+mahogany game board with sheen
+
+31
+
+bookmark
+
+celery
+
+velvet bookmark with floral embroidery
+
+curved stalk celery with greens
+
+wineglass
+
+dispenser
+
+sleek transparent wineglass with etchings
+
+colorful animated explosion dispenser
+
+32
+
+bag
+
+pony
+
+sturdy green messenger bag
+
+pony with flowing sunset mane
+
+sculpture
+
+underwear
+
+bronze sculpture shimmering under light
+
+black lacy underwear with stretch
+
+33
+
+horned_cow
+
+passport
+
+radiant horned cow with shimmering coat
+
+passport in soft leather
+
+fishbowl
+
+Chicken
+
+glossy marbled fishbowl turquoise
+
+chicken with white feathers and red comb
+
+34
+
+bouquet
+
+space_shuttle
+
+dahlias in vibrant hues
+
+space shuttle with solar panels
+
+motorcycle
+
+gemstone
+
+sleek black motorcycle with chrome
+
+clear gemstone reflecting like galaxy
+
+35
+
+trade_name
+
+recliner
+
+sleek bold letters black background
+
+vintage brown recliner with detailing
+
+Folder
+
+soccer_ball
+
+sleek metallic folder
+
+soccer ball with floral pattern
+
+36
+
+Red_Cabbage
+
+baseball
+
+red cabbage with purple tones
+
+baseball with minor scratches
+
+forklift
+
+gazelle
+
+sleek modern forklift with chrome
+
+tawny spotted gazelle under sunlight
+
+37
+
+J. Gallery of Training Data (Before Camera
+Configuration Augmentation)
+Note: Camera configuration augmentation (random zoom
+and depth-of-field blur) is applied on-the-fly during training. The images shown here are before this augmentation
+step.
+
+38
+
+Image
+
+Segmentation Mask
+
+Detections:
+
+{"tongs": [[318, 535, 446, 817]], "bath_towel": [[474, 10,
+967, 889]], "Canned": [[376, 217, 478, 464]], "shovel":
+[[424, 726, 472, 910]], "strap": [[725, 178, 779, 238]],
+"teakettle": [[324, 789, 427, 906]], "cushion": [[684, 219,
+773, 298]], "raspberry": [[183, 324, 317, 464]], "dropper":
+[[204, 868, 297, 990]], "snowmobile": [[898, 451, 961,
+489]], "box": [[305, 837, 351, 879]], "ram_animal": [[152,
+704, 187, 740]], "birthday_card": [[34, 924, 79, 970]],
+"Egg_tart": [[442, 207, 485, 251]], "cornbread": [[191, 621,
+233, 663]], "wooden_spoon": [[207, 292, 253, 332]], "motor":
+[[95, 812, 135, 837]]}
+
+Expression:
+
+The birthday card with cheerful pirate ship at the bottom:
+[34, 924, 45, 46]; All glossy objects above the shovel:
+[[183, 324, 134, 140], [324, 789, 103, 117]]; All striped
+containers to the right of the wooden spoon: [[898, 451, 63,
+38], [305, 837, 46, 42]]; The snowmobile with white surface
+on the far right: [898, 451, 63, 38]; The wooden spoon for
+dough near the cornbread with golden flecks: [207, 292, 46,
+40]; The tongs with rough iron
+texture: [318, 535, 128,
+39
+282]; All containers: [[376, 217,
+102, 247], [324, 789, 103,
+117], [305, 837, 46, 42]]; The egg tart with marigold
+custard on the left side: [442, 207, 43, 44]; The hunter
+green leather cushion: [684, 219, 89, 79]
+
+Image
+
+Segmentation Mask
+
+Detections:
+
+{"remote_control": [[106, 491, 378, 718]], "Board_Eraser":
+[[648, 31, 856, 242]], "earring": [[380, 96, 441, 156]],
+"hookah": [[796, 110, 825, 201]], "Dixie_cup": [[900, 376,
+942, 432]], "ottoman": [[312, 260, 376, 307]], "turtle":
+[[738, 407, 796, 437]], "detergent": [[123, 444, 145, 517]],
+"root_beer": [[245, 545, 262, 587]], "Swan": [[838, 330,
+864, 365]]}
+
+Expression:
+
+All the containers below the turtle with stardust shell:
+[[106, 491, 272, 227], [123, 444, 22, 73], [245, 545, 17,
+42]]; The Dixie cup shaped like bell: [900, 376, 42, 56];
+The hookah on the far right: [796, 110, 29, 91]; All the
+objects to the left of center: [[106, 491, 272, 227], [123,
+444, 22, 73], [245, 545, 17, 42]]; The industrial-styled
+hookah with grays above the Dixie cup shaped like bell:
+[796, 110, 29, 91]; The detergent bottle on the far left:
+[123, 444, 22, 73]; All the objects with metallic finishes:
+[[796, 110, 29, 91], [312, 260, 64, 47], [648, 31, 208,
+211]]; All the metallic objects40to the right of the
+detergent bottle: [[796, 110, 29, 91], [312, 260, 64, 47]];
+All the containers: [[106, 491, 272, 227], [123, 444, 22,
+73], [245, 545, 17, 42], [900, 376, 42, 56]]
+
+Image
+
+Segmentation Mask
+
+Detections:
+
+{"army_tank": [[475, 48, 966, 280]], "Seal": [[1, 119, 267,
+388]], "boom_microphone": [[612, 86, 724, 383]], "deer":
+[[138, 631, 514, 1004]], "choker": [[702, 573, 792, 632]],
+"fireplace": [[780, 898, 894, 983]], "tank_top_clothing":
+[[400, 273, 431, 331]], "bottle": [[522, 44, 553, 107]],
+"papaya": [[618, 343, 714, 487]], "Papyrus": [[174, 586,
+215, 635]], "raccoons": [[530, 629, 586, 677]], "Gas_stove":
+[[500, 391, 538, 434]], "Apple_rust_leaf": [[244, 223, 268,
+265]], "soap": [[190, 780, 231, 820]], "basket": [[952, 297,
+990, 337]], "machine_gun": [[415, 936, 465, 950]]}
+
+Expression:
+
+The graceful and agile deer beside the raccoons with
+detailed fur masks: [138, 631, 376, 373]; The ringed seal
+with round rings on the far left: [1, 119, 266, 269]; The
+vibrant red boom microphone: [612, 86, 112, 297]; The
+vibrant red boom microphone on the right side: [612, 86,
+112, 297]; All items with intricate patterns or carvings:
+[[475, 48, 491, 232], [612, 86, 112, 297], [415, 936, 50,
+14], [400, 273, 31, 58]]; All objects to the left of the
+vibrant paisley print tank top: [[1, 119, 266, 269], [522,
+44, 31, 63], [174, 586, 41, 49], [530, 629, 56, 48]]; The
+army tank suggesting speed above the ringed seal with round
+rings: [475, 48, 491, 232]; All41objects in the top half of
+the image: [[475, 48, 491, 232], [1, 119, 266, 269], [612,
+86, 112, 297], [522, 44, 31, 63], [618, 343, 96, 144]]; All
+objects with smooth finishes: [[702, 573, 90, 59], [190,
+780, 41, 40], [618, 343, 96, 144]]
+
+Image
+
+Segmentation Mask
+
+Detections:
+
+{"coffeepot": [[109, 28, 615, 503]], "label": [[426, 141,
+1003, 435]], "Dumpling": [[374, 486, 862, 1008]],
+"Board_Eraser": [[623, 225, 800, 354]], "lemon": [[940, 646,
+1005, 704]], "Notepaper": [[649, 339, 710, 424]],
+"hand_towel": [[127, 267, 161, 328]], "bathtub": [[207, 983,
+240, 1002]], "bunk_bed": [[114, 339, 166, 379]],
+"dental_floss": [[368, 569, 413, 609]], "bedspread": [[499,
+792, 545, 819]], "dartboard": [[540, 807, 593, 860]]}
+
+Expression:
+
+The plump dumpling steaming with anticipation below the
+label of glittering sequins: [374, 486, 488, 522]; The
+metallic silver eraser with swirls to the right of the
+notepaper: [623, 225, 177, 129]; The reed dartboard with
+patterns at the bottom center: [540, 807, 53, 53]; All blue
+items with patterns: [[109, 28, 506, 475], [374, 486, 488,
+522], [499, 792, 46, 27]]; The marble print hand towel
+elegance near the top left corner: [127, 267, 34, 61]; The
+squashed lemon with green hint beside the dental floss in
+black: [940, 646, 65, 58]; The blue coffeepot with swirling
+pattern next to the label of glittering
+sequins: [109, 28,
+42
+506, 475]; The marble print hand
+towel elegance above the
+bathtub made of recycled paper: [127, 267, 34, 61]; All
+items made from recycled materials: [[109, 28, 506, 475],
+[207, 983, 33, 19]]
+
+Image
+
+Segmentation Mask
+
+Detections:
+
+{"coconut": [[615, 240, 796, 409]], "swivel_chair": [[810,
+633, 955, 767]], "Optima": [[546, 605, 646, 710]], "truck":
+[[442, 214, 492, 236]], "eagle": [[887, 284, 924, 329]]}
+
+Expression:
+
+The slate gray swivel chair with armrest at the bottom, near
+the truck: [810, 633, 145, 134]; The eagle with dark glossy
+feathers: [887, 284, 37, 45]; The eagle with dark glossy
+feathers above the truck: [887, 284, 37, 45]; All objects
+above the truck: [[615, 240, 181, 169], [546, 605, 100,
+105], [887, 284, 37, 45]]; All objects with dark or black
+color: [[442, 214, 50, 22], [887, 284, 37, 45]]; All objects
+near the bottom: [[810, 633, 145, 134], [442, 214, 50, 22]];
+The glossy black truck with flames: [442, 214, 50, 22]; The
+coconut with faint rings next to the eagle with dark glossy
+feathers: [615, 240, 181, 169]
+43
+
+Image
+
+Segmentation Mask
+
+Detections:
+
+{"arctic_type_of_shoe": [[303, 696, 632, 1014]], "Dessert":
+[[664, 223, 845, 407]], "Other_Shoes": [[310, 298, 707,
+588]], "coffee_maker": [[113, 191, 522, 500]], "bait":
+[[672, 861, 807, 917]], "shopping_cart": [[177, 576, 235,
+634]], "receipt": [[701, 51, 805, 183]], "crib": [[121, 634,
+231, 735]], "tiger": [[71, 213, 178, 270]], "ladle": [[199,
+242, 335, 388]], "crawfish": [[771, 333, 808, 360]],
+"aquarium": [[901, 805, 947, 860]], "loveseat": [[451, 677,
+507, 707]], "eyepatch": [[406, 453, 446, 474]], "Gas_stove":
+[[847, 506, 916, 543]], "cart": [[103, 936, 162, 978]],
+"sugarcane_plant": [[396, 255, 428, 292]],
+"sparkler_fireworks": [[589, 907, 607, 933]]}
+
+Expression:
+
+The rustic burlap shoes with textures: [310, 298, 397, 290];
+All items with patterns: [[664, 223, 181, 184], [71, 213,
+107, 57], [103, 936, 59, 42]]; The bait with color-changing
+scales below the pastel pink cart with soft glow: [672, 861,
+135, 56]; The arctic shoe with leather upper: [303, 696,
+329, 318]; The thin sparkler with glittering tail at the
+bottom edge: [589, 907, 18, 26]; The loveseat with classic
+elegance near the center: [451, 677, 56, 30]; All metallic
+objects above the gas stove with
+44 spiral etchings: [[303,
+696, 329, 318], [113, 191, 409,
+309]]; The receipt with
+jagged edges at the top center: [701, 51, 104, 132]; All
+items along the right edge: [[771, 333, 37, 27], [901, 805,
+46, 55], [589, 907, 18, 26]]
+
+Image
+
+Segmentation Mask
+
+Detections:
+
+{"ashtray": [[101, 468, 506, 853]], "Candy": [[674, 352,
+922, 569]], "gondola_boat": [[557, 141, 956, 341]],
+"sharpener": [[82, 830, 190, 937]], "turtle": [[666, 644,
+782, 782]], "Sailboat": [[646, 382, 685, 493]],
+"catRussian_Blue": [[520, 370, 565, 434]], "dog": [[135,
+665, 244, 798]], "brussels_sprouts": [[248, 449, 304, 491]],
+"lambchop": [[264, 320, 299, 364]], "dognewfoundland":
+[[313, 620, 360, 666]], "Green_Onion": [[360, 645, 390,
+687]], "myright": [[438, 175, 472, 233]], "saddle_blanket":
+[[238, 720, 287, 759]]}
+
+Expression:
+
+The gondola boat in the upper middle: [557, 141, 399, 200];
+The geometric ashtray with sharp angles: [101, 468, 405,
+385]; The sturdy gondola in emerald green: [557, 141, 399,
+200]; All items to the right of the ashtray: [[674, 352,
+248, 217], [557, 141, 399, 200], [666, 644, 116, 138], [520,
+370, 45, 64], [135, 665, 109, 133], [360, 645, 30, 42]]; All
+objects with a glossy finish: [[101, 468, 405, 385], [674,
+352, 248, 217], [557, 141, 399, 200], [666, 644, 116, 138],
+[135, 665, 109, 133]]; The shimmering pink candy above the
+sailboat with black hull: [674,45352, 248, 217]; The large
+tan dog with lion appearance: [135, 665, 109, 133]; The
+shimmering pink jelly candy: [674, 352, 248, 217]; All food
+items to the left of the turtle: [[248, 449, 56, 42], [264,
+320, 35, 44], [360, 645, 30, 42]]
+
+Image
+
+Segmentation Mask
+
+Detections:
+
+{"padlock": [[714, 681, 875, 927]], "shoulder_bag": [[233,
+261, 765, 787]], "fighter_jet": [[643, 266, 1016, 631]],
+"mint_candy": [[860, 62, 976, 179]], "street_sign": [[560,
+268, 608, 375]], "gravestone": [[277, 313, 328, 387]],
+"desk": [[601, 238, 680, 281]], "perfume": [[210, 850, 243,
+899]], "pool_table_billiard_table_snooker_table": [[536,
+418, 573, 432]], "ram_animal": [[297, 133, 344, 188]],
+"packet": [[272, 602, 316, 654]]}
+
+Expression:
+
+The ram with rugged flesh at the top left: [297, 133, 47,
+55]; Vibrant items to the right of the jet: [[860, 62, 116,
+117], [272, 602, 44, 52]]; The desk with red surface near
+the center: [601, 238, 79, 43]; The packet with holographic
+shimmer: [272, 602, 44, 52]; All items to the left of the
+center: [[233, 261, 532, 526], [277, 313, 51, 74], [297,
+133, 47, 55]]; The matte black padlock with elegance: [714,
+681, 161, 246]; Containers near the center with red
+surfaces: [[601, 238, 79, 43], [210, 850, 33, 49]]; The
+46 bag: [233, 261, 532, 526];
+quirky yellow cartoon character
+The pool table with black walnut on the right side: [536,
+418, 37, 14]
+
+Image
+
+Segmentation Mask
+
+Detections:
+
+{"Rice_Cooker": [[387, 288, 847, 718]], "necklace": [[93,
+214, 398, 607]], "broach": [[120, 514, 230, 625]],
+"wedding_cake": [[738, 37, 807, 137]],
+"bow_decorative_ribbons": [[335, 191, 487, 329]],
+"tablecloth": [[623, 223, 685, 261]], "machine_gun": [[275,
+60, 333, 85]], "ski_pole": [[864, 864, 868, 900]]}
+
+Expression:
+
+The necklace shimmering opalescent beads on the far left:
+[93, 214, 305, 393]; The aubergine bow with floral
+embroidery between the rice cooker and the tablecloth: [335,
+191, 152, 138]; The angular, geometric silver-black
+machine_gun near the top left corner: [623, 223, 62, 38];
+All the red items near the center of the image: [[387, 288,
+460, 430], [120, 514, 110, 111]]; The red finish rice cooker
+with silver: [387, 288, 460, 430]; The red broach with Tudor
+rose below the necklace and to the left of the machine_gun:
+[120, 514, 110, 111]; All the items with red accents: [[387,
+288, 460, 430], [93, 214, 305, 393], [120, 514, 110, 111]];
+All the decorative items with 47floral patterns: [[335, 191,
+152, 138], [120, 514, 110, 111]]; All the objects near the
+bottom right corner: [[864, 864, 4, 36], [738, 37, 69, 100]]
+
+Image
+
+Segmentation Mask
+
+Detections:
+
+{"elk": [[478, 224, 921, 844]], "label": [[31, 330, 547,
+725]], "bracelet": [[510, 200, 739, 403]], "breechcloth":
+[[838, 719, 969, 876]], "Soyabean_leaf": [[447, 224, 592,
+380]], "birdhouse": [[396, 662, 458, 768]], "saltshaker":
+[[336, 197, 409, 343]], "blinder_for_horses": [[899, 464,
+941, 501]], "awning": [[947, 892, 998, 924]], "cabinet":
+[[169, 118, 197, 156]], "dogenglish_setter": [[564, 315,
+586, 352]], "Kohlrabi": [[35, 768, 79, 814]],
+"hotair_balloon": [[106, 394, 139, 443]]}
+
+Expression:
+
+The fashionable leather bracelet with studs: [510, 200, 229,
+203]; The dense label with barcode: [31, 330, 516, 395]; The
+recycled tin birdhouse in red, blue: [396, 662, 62, 106];
+The crisp thin soyabean leaf gradients near the recycled tin
+birdhouse: [447, 224, 145, 156]; All vibrant-colored objects
+surrounding the majestic setter with layered coat: [[478,
+224, 443, 620], [31, 330, 516, 395], [510, 200, 229, 203]];
+The cabinet with glass panels below the marine blue awning:
+[169, 118, 28, 38]; The silver fabric hot-air balloon above
+the center: [106, 394, 33, 49];48All objects along the left
+edge of the image: [[31, 330, 516, 395], [447, 224, 145,
+156], [35, 768, 44, 46]]; The saltshaker at the bottom left
+corner: [336, 197, 73, 146]
+
+References
+
+Hengshuang Zhao. Freemask: Synthetic images with dense
+annotations make stronger segmentation models, 2023.
+[15] Hanrong Ye, Jason Kuen, Qing Liu, Zhe Lin, Brian Price,
+and Dan Xu. Seggen: Supercharging segmentation models
+with text2mask and mask2img synthesis, 2024. 3, 5, 8
+[16] Haotian Qian, YD Chen, Shengtao Lou, Fahad Shahbaz
+Khan, Xiaogang Jin, and Deng-Ping Fan. Mask factory:
+Towards high-quality synthetic data generation for dichotomous image segmentation, 2024. 2, 3, 5
+[17] Magnus Wrenninge and Jonas Unger. Synscapes: A photorealistic synthetic dataset for street scene parsing. arXiv
+preprint arXiv:1810.08705, 2018. 2, 3
+[18] Yohann Cabon, Naila Murray, and Martin Humenberger.
+Virtual KITTI 2. arXiv preprint arXiv:2001.10773, 2020. 2,
+3
+[19] Mike Roberts, Jason Ramapuram, Anurag Ranjan, Atulit
+Kumar, Miguel A. Bautista, Nathan Paczan, Russ Webb,
+and Joshua M. Susskind. Hypersim: A photorealistic synthetic dataset for holistic indoor scene understanding. In
+Proceedings of the IEEE/CVF International Conference on
+Computer Vision (ICCV), pages 10912–10922, 2021. 2, 3
+[20] Runtao Liu, Chenxi Liu, Yutong Bai, and Alan Yuille.
+CLEVR-Ref+: Diagnosing visual reasoning with referring
+expressions. In Proceedings of the IEEE/CVF Conference
+on Computer Vision and Pattern Recognition (CVPR), pages
+4185–4195, 2019. 2
+[21] Agrim Gupta, Piotr Dollár, and Ross Girshick. Lvis: A
+dataset for large vocabulary instance segmentation, 2019. 2,
+5, 1
+[22] Jialian Wu, Jianfeng Wang, Zhengyuan Yang, Zhe Gan,
+Zicheng Liu, Junsong Yuan, and Lijuan Wang. Grit: A generative region-to-text transformer for object understanding.
+ArXiv, abs/2212.00280, 2022. 2, 1
+[23] Xiangyu Zhao, Yicheng Chen, Shilin Xu, Xiangtai Li, Xinjiang Wang, Yining Li, and Haian Huang. An open and
+comprehensive pipeline for unified object grounding and
+detection. arXiv preprint arXiv:2401.02361, 2024. 5, 1
+[24] Jiaqi Wang, Pan Zhang, Tao Chu, Yuhang Cao, Yujie Zhou,
+Tong Wu, Bin Wang, Conghui He, and Dahua Lin. V3det:
+Vast vocabulary visual detection dataset, 2023. 2, 5, 6, 1
+[25] Alina Kuznetsova, Hassan Rom, Neil Alldrin, Jasper Uijlings, Ivan Krasin, Jordi Pont-Tuset, Shahab Kamali, Stefan
+Popov, Matteo Malloci, Alexander Kolesnikov, Tom Duerig,
+and Vittorio Ferrari. The open images dataset v4: Unified
+image classification, object detection, and visual relationship
+detection at scale. International Journal of Computer Vision,
+128(7):1956–1981, March 2020. 2, 1
+[26] Shuai Shao, Zeming Li, Tianyuan Zhang, Chao Peng, Gang
+Yu, Xiangyu Zhang, Jing Li, and Jian Sun. Objects365: A
+large-scale, high-quality dataset for object detection. In 2019
+IEEE/CVF International Conference on Computer Vision
+(ICCV), pages 8429–8438, 2019. 2, 6, 1
+[27] Liunian Harold Li*, Pengchuan Zhang*, Haotian Zhang*,
+Jianwei Yang, Chunyuan Li, Yiwu Zhong, Lijuan Wang,
+Lu Yuan, Lei Zhang, Jenq-Neng Hwang, Kai-Wei Chang,
+and Jianfeng Gao. Grounded language-image pre-training.
+In CVPR, 2022. 2, 5, 1
+
+[1] Max Wertheimer. Untersuchungen zur lehre von der gestalt,
+ii. Psychologische Forschung, 4(1):301–350, 1923. 1
+[2] Gaetano Kanizsa. Organization in Vision: Essays on Gestalt
+Perception. Praeger, 1979. 1
+[3] Tsung-Yi Lin, Michael Maire, Serge Belongie, James
+Hays, Pietro Perona, Deva Ramanan, Piotr Doll’ar, and
+C. Lawrence Zitnick. Microsoft COCO: Common objects
+in context. In European Conference on Computer Vision
+(ECCV), pages 740–755, 2014. 2
+[4] Marius Cordts, Mohamed Omran, Sebastian Ramos, Timo
+Rehfeld, Markus Enzweiler, Rodrigo Benenson, Uwe
+Franke, Stefan Roth, and Bernt Schiele. The cityscapes
+dataset for semantic urban scene understanding. In Proceedings of the IEEE Conference on Computer Vision and
+Pattern Recognition (CVPR), pages 3213–3223, 2016. 2, 1
+[5] Agrim Gupta, Piotr Doll’ar, and Ross Girshick. LVIS: A
+dataset for large vocabulary instance segmentation. In Proceedings of the IEEE/CVF Conference on Computer Vision
+and Pattern Recognition (CVPR), pages 5356–5364, 2019.
+2
+[6] Tsung-Yi Lin, Michael Maire, Serge Belongie, Lubomir
+Bourdev, Ross Girshick, James Hays, Pietro Perona, Deva
+Ramanan, C. Lawrence Zitnick, and Piotr Dollár. Microsoft
+coco: Common objects in context, 2015. 2, 5, 1
+[7] Haojun Jiang, Yuanze Lin, Dongchen Han, Shiji Song, and
+Gao Huang. Pseudo-q: Generating pseudo language queries
+for visual grounding. 2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pages 15492–
+15502, 2022. 2
+[8] Zhiliang Peng, Wenhui Wang, Li Dong, Yaru Hao, Shaohan
+Huang, Shuming Ma, and Furu Wei. Kosmos-2: Grounding
+multimodal large language models to the world. ArXiv,
+abs/2306.14824, 2023. 1, 2
+[9] Shijie Wang, Dahun Kim, Ali Taalimi, Chen Sun, and Weicheng Kuo. Learning visual grounding from generative
+vision and language model. 2025 IEEE/CVF Winter Conference on Applications of Computer Vision (WACV), pages
+8057–8067, 2024. 3, 2
+[10] Ruozhen He, Ziyan Yang, Paola Cascante-Bonilla, Alexander C. Berg, and Vicente Ordonez. Learning from synthetic
+data for visual grounding, 2024. 3, 5, 8, 2
+[11] Lvmin Zhang, Anyi Rao, and Maneesh Agrawala. Scaling
+in-the-wild training for diffusion-based illumination harmonization and editing by imposing consistent light transport.
+In The Thirteenth International Conference on Learning
+Representations, 2025. 2, 3, 4
+[12] Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao,
+Chloe Rolland, Laura Gustafson, Tete Xiao, Spencer Whitehead, Alexander C. Berg, Wan-Yen Lo, Piotr Dollár, and
+Ross Girshick. Segment anything, 2023.
+[13] Weijia Wu, Yuzhong Zhao, Hao Chen, Yuchao Gu, Rui Zhao,
+Yefei He, Hong Zhou, Mike Zheng Shou, and Chunhua Shen.
+Datasetdm: Synthesizing data with perception annotations
+using diffusion models, 2023. 3
+[14] Lihe Yang, Xiaogang Xu, Bingyi Kang, Yinghuan Shi, and
+
+49
+
+[28] Chunyuan Li, Haotian Liu, Liunian Harold Li, Pengchuan
+Zhang, Jyoti Aneja, Jianwei Yang, Ping Jin, Yong Jae Lee,
+Houdong Hu, Zicheng Liu, et al. Elevater: A benchmark and
+toolkit for evaluating language-augmented visual models.
+arXiv preprint arXiv:2204.08790, 2022. 2, 5, 1
+[29] Holger Caesar, Jasper R. R. Uijlings, and Vittorio Ferrari. Coco-stuff: Thing and stuff classes in context. 2018
+IEEE/CVF Conference on Computer Vision and Pattern
+Recognition, pages 1209–1218, 2016. 2, 1
+[30] Bolei Zhou, Hang Zhao, Xavier Puig, Sanja Fidler, Adela
+Barriuso, and Antonio Torralba. Scene parsing through
+ade20k dataset. In 2017 IEEE Conference on Computer
+Vision and Pattern Recognition (CVPR), pages 5122–5130,
+2017. 2, 1
+[31] Bolei Zhou, Hang Zhao, Xavier Puig, Tete Xiao, Sanja
+Fidler, Adela Barriuso, and Antonio Torralba. Semantic
+understanding of scenes through the ade20k dataset, 2018.
+2, 1
+[32] Mark Everingham and John Winn. The pascal visual object
+classes challenge 2012 (voc2012) development kit. Technical Report, 2011. 2, 1
+[33] Roozbeh Mottaghi, Xianjie Chen, Xiaobai Liu, Nam-Gyu
+Cho, Seong-Whan Lee, Sanja Fidler, Raquel Urtasun, and
+Alan Loddon Yuille. The role of context for object detection
+and semantic segmentation in the wild. 2014 IEEE Conference on Computer Vision and Pattern Recognition, pages
+891–898, 2014. 2, 1
+[34] Sahar Kazemzadeh, Vicente Ordonez, Mark Matten, and
+Tamara Berg. ReferItGame: Referring to objects in photographs of natural scenes. In Alessandro Moschitti,
+Bo Pang, and Walter Daelemans, editors, Proceedings of
+the 2014 Conference on Empirical Methods in Natural Language Processing (EMNLP), pages 787–798, Doha, Qatar,
+October 2014. Association for Computational Linguistics.
+3, 6, 1
+[35] Licheng Yu, Patrick Poirson, Shan Yang, Alexander C. Berg,
+and Tamara L. Berg. Modeling context in referring expressions. ArXiv, abs/1608.00272, 2016. 3, 6, 1
+[36] Junhua Mao, Jonathan Huang, Alexander Toshev, OanaMaria Camburu, Alan Loddon Yuille, and Kevin P. Murphy.
+Generation and comprehension of unambiguous object descriptions. 2016 IEEE Conference on Computer Vision and
+Pattern Recognition (CVPR), pages 11–20, 2015. 3, 1
+[37] Bryan A. Plummer, Liwei Wang, Chris M. Cervantes,
+Juan C. Caicedo, Julia Hockenmaier, and Svetlana Lazebnik.
+Flickr30k entities: Collecting region-to-phrase correspondences for richer image-to-sentence models, 2016. 3, 6,
+1
+[38] Ranjay Krishna, Yuke Zhu, Oliver Groth, Justin Johnson,
+Kenji Hata, Joshua Kravitz, Stephanie Chen, Yannis Kalantidis, Li-Jia Li, David A. Shamma, Michael S. Bernstein,
+and Li Fei-Fei. Visual genome: Connecting language and
+vision using crowdsourced dense image annotations. International Journal of Computer Vision, 123:32 – 73, 2016. 3,
+1
+[39] Liunian Harold Li, Pengchuan Zhang, Haotian Zhang,
+Jianwei Yang, Chunyuan Li, Yiwu Zhong, Lijuan Wang,
+
+Lu Yuan, Lei Zhang, Jenq-Neng Hwang, Kai-Wei Chang,
+and Jianfeng Gao. Grounded language-image pre-training,
+2022. 3, 6, 1
+[40] Nikita Dvornik, Julien Mairal, and Cordelia Schmid. Modeling visual context is key to augmenting object detection
+datasets. ArXiv, abs/1807.07428, 2018. 3, 2
+[41] Haoshu Fang, Jianhua Sun, Runzhong Wang, Minghao Gou,
+Yong-Lu Li, and Cewu Lu. Instaboost: Boosting instance
+segmentation via probability map guided copy-pasting. 2019
+IEEE/CVF International Conference on Computer Vision
+(ICCV), pages 682–691, 2019. 3
+[42] Golnaz Ghiasi, Yin Cui, A. Srinivas, Rui Qian, Tsung-Yi Lin,
+Ekin Dogus Cubuk, Quoc V. Le, and Barret Zoph. Simple
+copy-paste is a strong data augmentation method for instance
+segmentation. 2021 IEEE/CVF Conference on Computer
+Vision and Pattern Recognition (CVPR), pages 2917–2927,
+2020. 3, 5, 8, 2
+[43] Hanqing Zhao, Dianmo Sheng, Jianmin Bao, Dongdong
+Chen, Dong Chen, Fang Wen, Lu Yuan, Ce Liu, Wenbo
+Zhou, Qi Chu, Weiming Zhang, and Neng H. Yu. X-paste:
+Revisiting scalable copy-paste for instance segmentation
+using clip and stablediffusion. In International Conference
+on Machine Learning, 2022. 3, 5, 8, 2
+[44] Lvmin Zhang, Anyi Rao, and Maneesh Agrawala. Adding
+conditional control to text-to-image diffusion models. 2023
+IEEE/CVF International Conference on Computer Vision
+(ICCV), pages 3813–3824, 2023. 3, 2
+[45] Guangcong Zheng, Xianpan Zhou, Xuewei Li, Zhongang Qi,
+Ying Shan, and Xi Li. Layoutdiffusion: Controllable diffusion model for layout-to-image generation. 2023 IEEE/CVF
+Conference on Computer Vision and Pattern Recognition
+(CVPR), pages 22490–22499, 2023. 3
+[46] Tanmay Gupta, Ryan Marten, Aniruddha Kembhavi, and
+Derek Hoiem. Grit: General robust image task benchmark,
+2022. 3, 5, 6
+[47] Ning Xu, Brian Price, Scott Cohen, and Thomas Huang.
+Deep image matting. In IEEE Conference on Computer
+Vision and Pattern Recognition (CVPR), pages 2970–2979,
+2017. 3
+[48] Yu Qiao, Yuhao Liu, Xin Yang, Dongsheng Zhou, Mingliang
+Xu, Qiang Zhang, and Xiaopeng Wei. Attention-guided hierarchical structure aggregation for image matting. In IEEE
+Conference on Computer Vision and Pattern Recognition
+(CVPR), pages 13676–13685, 2020. 3
+[49] Yanan Sun, Chi-Keung Tang, and Yu-Wing Tai. Human
+instance matting via mutual guidance and multi-instance
+refinement. In IEEE Conference on Computer Vision and
+Pattern Recognition (CVPR), pages 14900–14909, 2022. 3
+[50] Jizhizi Li, Jing Zhang, and Dacheng Tao. Referring image matting. In IEEE Conference on Computer Vision and
+Pattern Recognition (CVPR), pages 22072–22081, 2023. 3
+[51] Siyi Jiao, Wenzheng Zeng, Changxin Gao, and Nong Sang.
+Dfimat: Decoupled flexible interactive matting in multiperson scenarios. In Asian Conference on Computer Vision
+(ACCV), 2024. 3
+[52] Siyi Jiao, Wenzheng Zeng, Changxin Gao, and Nong Sang.
+Mp-mat: A 3d-and-instance-aware human matting and edit-
+
+50
+
+ing framework with multiplane representation. In International Conference on Learning Representations (ICLR),
+2025. 3
+[53] Xuebin Qin, Hang Dai, Xiaobin Hu, Deng-Ping Fan, Ling
+Shao, and Luc Van Gool. Highly accurate dichotomous
+image segmentation, 2022. 3
+[54] Qwen, :, An Yang, Baosong Yang, Beichen Zhang, Binyuan
+Hui, et al. Qwen2.5 technical report, 2025. 3
+[55] Black Forest Labs. Flux. https://github.com/
+black-forest-labs/flux, 2024. 3
+[56] Yongjian Chen, Lei Tai, Kai Sun, and Mingyang Li.
+Monopair: Monocular 3d object detection using pairwise
+spatial relationships. In Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition
+(CVPR), pages 12093–12102, 2020. 3
+[57] Qwen Team. Qwq-32b: Embracing the power of reinforcement learning, March 2025. 5
+[58] Drew A Hudson and Christopher D Manning. Gqa: A new
+dataset for real-world visual reasoning and compositional
+question answering. Conference on Computer Vision and
+Pattern Recognition (CVPR), 2019. 6
+[59] Christoph Schuhmann, Romain Beaumont, Richard Vencu,
+Cade Gordon, Ross Wightman, Mehdi Cherti, Theo
+Coombes, Aarush Katta, Clayton Mullis, Mitchell Wortsman, Patrick Schramowski, Srivatsa Kundurthy, Katherine
+Crowson, Ludwig Schmidt, Robert Kaczmarczyk, and Jenia
+Jitsev. Laion-5b: An open large-scale dataset for training
+next generation image-text models, 2022. 6
+[60] Liang Lin Ziyi Dong, Pengxu Wei. Dataset:laion-2b.
+https://doi.org/10.57702/eisiqlts, 2024. 6
+[61] Minwoo Byeon, Beomhee Park, Haecheon Kim, Sungjun
+Lee, Woonhyuk Baek, and Saehoon Kim. Coyo-700m:
+Image-text pair dataset. https : / / github . com /
+kakaobrain/coyo-dataset, 2022. 6
+[62] Shuting He, Henghui Ding, Chang Liu, and Xudong Jiang.
+GREC: Generalized referring expression comprehension.
+arXiv preprint arXiv:2308.16182, 2023. 6
+[63] Chang Liu, Henghui Ding, and Xudong Jiang. GRES: Generalized referring expression segmentation. In CVPR, 2023.
+6
+[64] Chi Xie, Zhao Zhang, Yixuan Wu, Feng Zhu, Rui Zhao, and
+Shuang Liang. Described object detection: Liberating object
+detection with flexible expressions, 2023. 6
+[65] Yunhang Shen, Chaoyou Fu, Peixian Chen, Mengdan Zhang,
+Ke Li, Xing Sun, Yunsheng Wu, Shaohui Lin, and Rongrong
+Ji. Aligning and prompting everything all at once for universal visual perception, 2023. 7, 1
+[66] Bowen Cheng, Ishan Misra, Alexander G. Schwing, Alexander Kirillov, and Rohit Girdhar. Masked-attention mask
+transformer for universal image segmentation, 2022. 7, 1
+[67] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun.
+Deep residual learning for image recognition. In Proceedings of the IEEE conference on computer vision and pattern
+recognition, pages 770–778, 2016. 7
+[68] Ivan Krasin, Tom Duerig, Neil Alldrin, Vittorio Ferrari,
+Sami Abu-El-Haija, Alina Kuznetsova, Hassan Rom, Jasper
+Uijlings, Stefan Popov, Andreas Veit, Serge Belongie, Victor
+
+Gomes, Abhinav Gupta, Chen Sun, Gal Chechik, David Cai,
+Zheyun Feng, Dhyanesh Narayanan, and Kevin Murphy.
+Openimages: A public dataset for large-scale multi-label
+and multi-class image classification. Dataset available from
+https://github.com/openimages, 2017. 8
+[69] Ross Girshick. Fast r-cnn. In Proceedings of the IEEE
+international conference on computer vision, pages 1440–
+1448, 2015. 1
+[70] Shaoqing Ren, Kaiming He, Ross Girshick, and Jian Sun.
+Faster r-cnn: Towards real-time object detection with region
+proposal networks. IEEE transactions on pattern analysis
+and machine intelligence, 39(6):1137–1149, 2016. 1
+[71] Kaiming He, Georgia Gkioxari, Piotr Dollár, and Ross Girshick. Mask r-cnn. In Proceedings of the IEEE international
+conference on computer vision, pages 2961–2969, 2017. 1
+[72] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas Usunier, Alexander Kirillov, and Sergey Zagoruyko.
+End-to-end object detection with transformers. ArXiv,
+abs/2005.12872, 2020. 1
+[73] Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang Wang,
+and Jifeng Dai. Deformable detr: Deformable transformers
+for end-to-end object detection. ArXiv, abs/2010.04159,
+2020. 1
+[74] Hao Zhang, Feng Li, Shilong Liu, Lei Zhang, Hang Su,
+Jun-Juan Zhu, Lionel Ming shuan Ni, and Heung yeung
+Shum. Dino: Detr with improved denoising anchor boxes
+for end-to-end object detection. ArXiv, abs/2203.03605,
+2022. 1
+[75] Yian Zhao, Wenyu Lv, Shangliang Xu, Jinman Wei,
+Guanzhong Wang, Qingqing Dang, Yi Liu, and Jie Chen.
+Detrs beat yolos on real-time object detection, 2024.
+[76] Yi-Xin Huang, Hou-I Liu, Hong-Han Shuai, and WenHuang Cheng. Dq-detr: Detr with dynamic query for tiny
+object detection. ArXiv, abs/2404.03507, 2024. 1
+[77] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya
+Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry,
+Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learning transferable visual models from natural language supervision. In International conference on machine learning,
+pages 8748–8763. PmLR, 2021. 1
+[78] Chao Jia, Yinfei Yang, Ye Xia, Yi-Ting Chen, Zarana Parekh,
+Hieu Pham, Quoc V. Le, Yun-Hsuan Sung, Zhen Li, and
+Tom Duerig. Scaling up visual and vision-language representation learning with noisy text supervision. In International
+Conference on Machine Learning, 2021. 1
+[79] Alireza Zareian, Kevin Dela Rosa, Derek Hao Hu, and ShihFu Chang. Open-vocabulary object detection using captions.
+2021 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pages 14388–14397, 2020. 1
+[80] Xiuye Gu, Tsung-Yi Lin, Weicheng Kuo, and Yin Cui. Openvocabulary object detection via vision and language knowledge distillation. In International Conference on Learning
+Representations, 2021. 1
+[81] Yiwu Zhong, Jianwei Yang, Pengchuan Zhang, Chunyuan
+Li, Noel C. F. Codella, Liunian Harold Li, Luowei Zhou,
+Xiyang Dai, Lu Yuan, Yin Li, and Jianfeng Gao. Regionclip:
+Region-based language-image pretraining. 2022 IEEE/CVF
+
+51
+
+Wang, Lu Yuan, Nanyun Peng, Lijuan Wang, Yong Jae Lee,
+and Jianfeng Gao. Generalized decoding for pixel, image,
+and language. 2023 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pages 15116–15127,
+2022. 1
+[95] Xueyan Zou, Jianwei Yang, Hao Zhang, Feng Li, Linjie
+Li, Jianfeng Gao, and Yong Jae Lee. Segment everything
+everywhere all at once. ArXiv, abs/2304.06718, 2023. 1
+[96] Ronghang Hu, Marcus Rohrbach, Jacob Andreas, Trevor
+Darrell, and Kate Saenko. Modeling relationships in referential expressions with compositional modular networks.
+2017 IEEE Conference on Computer Vision and Pattern
+Recognition (CVPR), pages 4418–4427, 2016. 1
+[97] Licheng Yu, Zhe L. Lin, Xiaohui Shen, Jimei Yang, Xin
+Lu, Mohit Bansal, and Tamara L. Berg. Mattnet: Modular
+attention network for referring expression comprehension.
+2018 IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 1307–1315, 2018. 1
+[98] Weijie Su, Xizhou Zhu, Yue Cao, Bin Li, Lewei Lu, Furu
+Wei, and Jifeng Dai. Vl-bert: Pre-training of generic visuallinguistic representations. ArXiv, abs/1908.08530, 2019.
+1
+[99] Liunian Harold Li, Mark Yatskar, Da Yin, Cho-Jui Hsieh,
+and Kai-Wei Chang. Visualbert: A simple and performant
+baseline for vision and language, 2019.
+[100] Jiasen Lu, Dhruv Batra, Devi Parikh, and Stefan Lee. Vilbert:
+Pretraining task-agnostic visiolinguistic representations for
+vision-and-language tasks, 2019.
+[101] Yen-Chun Chen, Linjie Li, Licheng Yu, Ahmed El Kholy,
+Faisal Ahmed, Zhe Gan, Yu Cheng, and Jingjing Liu. Uniter:
+Universal image-text representation learning, 2020.
+[102] Jiajun Deng, Zhengyuan Yang, Tianlang Chen, Wengang
+Zhou, and Houqiang Li. Transvg: End-to-end visual grounding with transformers, 2022. 1
+[103] Aishwarya Kamath, Mannat Singh, Yann LeCun, Ishan
+Misra, Gabriel Synnaeve, and Nicolas Carion. Mdetr - modulated detection for end-to-end multi-modal understanding.
+2021 IEEE/CVF International Conference on Computer Vision (ICCV), pages 1760–1770, 2021. 1
+[104] Ye Du, Zehua Fu, Qingjie Liu, and Yunhong Wang. Visual
+grounding with transformers, 2022. 1
+[105] Haoxuan You, Haotian Zhang, Zhe Gan, Xianzhi Du, Bowen
+Zhang, Zirui Wang, Liangliang Cao, Shih-Fu Chang, and
+Yinfei Yang. Ferret: Refer and ground anything anywhere
+at any granularity. ArXiv, abs/2310.07704, 2023. 1
+[106] Chuofan Ma, Yi Jiang, Jiannan Wu, Zehuan Yuan, and Xiaojuan Qi. Groma: Localized visual tokenization for grounding
+multimodal large language models. ArXiv, abs/2404.13013,
+2024. 1
+[107] Lewei Yao, Renjie Pi, Jianhua Han, Xiaodan Liang, Hang
+Xu, Wei Zhang, Zhenguo Li, and Dan Xu. Detclipv3: Towards versatile generative open-vocabulary object detection.
+2024 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pages 5610–5619, 2024. 1
+[108] Germán Ros, Laura Sellart, Joanna Materzynska, David
+Vázquez, and Antonio M. López. The synthia dataset: A
+large collection of synthetic images for semantic segmentation of urban scenes. 2016 IEEE Conference on Computer
+
+Conference on Computer Vision and Pattern Recognition
+(CVPR), pages 16772–16782, 2021. 1
+[82] Matthias Minderer, Alexey A. Gritsenko, Austin Stone,
+Maxim Neumann, Dirk Weissenborn, Alexey Dosovitskiy,
+Aravindh Mahendran, Anurag Arnab, Mostafa Dehghani,
+Zhuoran Shen, Xiao Wang, Xiaohua Zhai, Thomas Kipf,
+and Neil Houlsby. Simple open-vocabulary object detection
+with vision transformers. ArXiv, abs/2205.06230, 2022. 1
+[83] Yuhang Zang, Wei Li, Kaiyang Zhou, Chen Huang, and
+Chen Change Loy. Open-vocabulary detr with conditional
+matching. ArXiv, abs/2203.11876, 2022. 1
+[84] Xingyi Zhou, Rohit Girdhar, Armand Joulin, Phillip Krahenbuhl, and Ishan Misra. Detecting twenty-thousand classes
+using image-level supervision. ArXiv, abs/2201.02605, 2022.
+1
+[85] Chuang Lin, Pei Sun, Yi Jiang, Ping Luo, Lizhen Qu, Gholamreza Haffari, Zehuan Yuan, and Jianfei Cai. Learning
+object-language alignments for open-vocabulary object detection. ArXiv, abs/2211.14843, 2022. 1
+[86] Lewei Yao, Jianhua Han, Youpeng Wen, Xiaodan Liang,
+Dan Xu, W. Zhang, Zhenguo Li, Chunjing Xu, and Hang Xu.
+Detclip: Dictionary-enriched visual-concept paralleled pretraining for open-world detection. ArXiv, abs/2209.09407,
+2022. 1
+[87] Lewei Yao, Jianhua Han, Xiaodan Liang, Danqian Xu,
+W. Zhang, Zhenguo Li, and Hang Xu. Detclipv2: Scalable open-vocabulary object detection pre-training via wordregion alignment. 2023 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pages 23497–
+23506, 2023. 1
+[88] Shilong Liu, Zhaoyang Zeng, Tianhe Ren, Feng Li, Hao
+Zhang, Jie Yang, Chun yue Li, Jianwei Yang, Hang Su, JunJuan Zhu, and Lei Zhang. Grounding dino: Marrying dino
+with grounded pre-training for open-set object detection. In
+European Conference on Computer Vision, 2023. 1
+[89] Tianheng Cheng, Lin Song, Yixiao Ge, Wenyu Liu, Xinggang Wang, and Ying Shan. Yolo-world: Real-time openvocabulary object detection. 2024 IEEE/CVF Conference
+on Computer Vision and Pattern Recognition (CVPR), pages
+16901–16911, 2024. 1
+[90] Chong Zhou, Chen Change Loy, and Bo Dai. Extract free
+dense labels from clip. In European Conference on Computer Vision, 2021. 1
+[91] Golnaz Ghiasi, Xiuye Gu, Yin Cui, and Tsung-Yi Lin. Scaling open-vocabulary image segmentation with image-level
+labels, 2022.
+[92] Boyi Li, Kilian Q. Weinberger, Serge J. Belongie, Vladlen
+Koltun, and René Ranftl. Language-driven semantic segmentation. ArXiv, abs/2201.03546, 2022.
+[93] Feng Liang, Bichen Wu, Xiaoliang Dai, Kunpeng Li, Yinan Zhao, Hang Zhang, Peizhao Zhang, Péter Vajda, and
+Diana Marculescu. Open-vocabulary semantic segmentation
+with mask-adapted clip. 2023 IEEE/CVF Conference on
+Computer Vision and Pattern Recognition (CVPR), pages
+7061–7070, 2022. 1
+[94] Xueyan Zou, Zi-Yi Dou, Jianwei Yang, Zhe Gan, Linjie Li,
+Chunyuan Li, Xiyang Dai, Harkirat Singh Behl, Jianfeng
+
+52
+
+Vision and Pattern Recognition (CVPR), pages 3234–3243,
+2016. 1, 3
+[109] Stephan R. Richter, Vibhav Vineet, Stefan Roth, and Vladlen
+Koltun. Playing for data: Ground truth from computer
+games. In European Conference on Computer Vision
+(ECCV), pages 102–118, 2016. 1, 3
+[110] Robin Rombach, A. Blattmann, Dominik Lorenz, Patrick
+Esser, and Björn Ommer. High-resolution image synthesis
+with latent diffusion models. 2022 IEEE/CVF Conference
+on Computer Vision and Pattern Recognition (CVPR), pages
+10674–10685, 2021. 2, 3
+[111] Alex Nichol, Prafulla Dhariwal, Aditya Ramesh, Pranav
+Shyam, Pamela Mishkin, Bob McGrew, Ilya Sutskever, and
+Mark Chen. Glide: Towards photorealistic image generation
+and editing with text-guided diffusion models. In International Conference on Machine Learning, 2021.
+[112] Aditya Ramesh, Prafulla Dhariwal, Alex Nichol, Casey Chu,
+and Mark Chen. Hierarchical text-conditional image generation with clip latents. ArXiv, abs/2204.06125, 2022. 3
+[113] Yuheng Li, Haotian Liu, Qingyang Wu, Fangzhou Mu, Jianwei Yang, Jianfeng Gao, Chunyuan Li, and Yong Jae Lee.
+Gligen: Open-set grounded text-to-image generation. 2023
+IEEE/CVF Conference on Computer Vision and Pattern
+Recognition (CVPR), pages 22511–22521, 2023. 2
+[114] Peter Kocsis, Julien Philip, Kalyan Sunkavalli, Matthias
+Nießner, and Yannick Hold-Geoffroy. Lightit: Illumination
+modeling and control for diffusion models. 2024 IEEE/CVF
+Conference on Computer Vision and Pattern Recognition
+(CVPR), pages 9359–9369, 2024. 2
+[115] Ruifei He, Shuyang Sun, Xin Yu, Chuhui Xue, Wenqing
+Zhang, Philip H. S. Torr, Song Bai, and Xiaojuan Qi. Is
+synthetic data from generative models ready for image recognition? ArXiv, abs/2210.07574, 2022. 2
+[116] Shekoofeh Azizi, Simon Kornblith, Chitwan Saharia, Mohammad Norouzi, and David J. Fleet. Synthetic data from
+diffusion models improves imagenet classification. ArXiv,
+abs/2304.08466, 2023.
+[117] Jason Lee, Jiafei Duan, Haoquan Fang, Yuquan Deng, Shuo
+Liu, Boyang Li, Bohan Fang, Jieyu Zhang, Yi Ru Wang,
+Sangho Lee, Winson Han, Wilbert Pumacay, Angelica Wu,
+Rose Hendrix, Karen Farley, Eli VanderBilt, Ali Farhadi, Dieter Fox, and Ranjay Krishna. Molmoact: Action reasoning
+models that can reason in space, 2025.
+[118] Lijie Fan, Kaifeng Chen, Dilip Krishnan, Dina Katabi,
+Phillip Isola, and Yonglong Tian. Scaling laws of synthetic
+images for model training . . . for now. 2024 IEEE/CVF
+Conference on Computer Vision and Pattern Recognition
+(CVPR), pages 7382–7392, 2023.
+[119] Brian Siyuan Zheng, Alisa Liu, Orevaoghene Ahia, Jonathan
+Hayase, Yejin Choi, and Noah A. Smith. Broken tokens?
+your language model can secretly handle non-canonical tokenizations, 2025.
+[120] Zilin Du, Haoxin Li, Jianfei Yu, and Boyang Li. Paint
+outside the box: Synthesizing and selecting training data for
+visual grounding, 2025.
+[121] Ziqi Gao, Weikai Huang, Jieyu Zhang, Aniruddha Kembhavi, and Ranjay Krishna. Generate any scene: Evaluating
+
+and improving text-to-vision generation with scene graph
+programming, 2024.
+[122] Jieyu Zhang, Le Xue, Linxin Song, Jun Wang, Weikai
+Huang, Manli Shu, An Yan, Zixian Ma, Juan Carlos Niebles,
+Caiming Xiong, et al. Provision: Programmatically scaling vision-centric instruction data for multimodal language
+models. arXiv preprint arXiv:2412.07012, 2024. 2
+[123] Zhenxiong Tan, Songhua Liu, Xingyi Yang, Qiaochu Xue,
+and Xinchao Wang. Ominicontrol: Minimal and universal control for diffusion transformer. arXiv preprint
+arXiv:2411.15098, 2024. 3
+[124] Martin Heusel, Hubert Ramsauer, Thomas Unterthiner, Bernhard Nessler, and Sepp Hochreiter. Gans trained by a two
+time-scale update rule converge to a local nash equilibrium. In Advances in Neural Information Processing Systems
+(NeurIPS), 2017. 4
+[125] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov,
+Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner,
+Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby. An image is
+worth 16x16 words: Transformers for image recognition at
+scale, 2021. 10
+
+53
+
+
