@@ -1,0 +1,2 @@
+- [ ] Validar que como lo mencionamos, haya pocos datasets en el Perú
+- [ ] Sobre cómo particionar el dataset, trata de explciarlo con fundamento 
