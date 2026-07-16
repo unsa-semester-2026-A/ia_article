@@ -45,7 +45,7 @@ Detectar con precisión la ubicación de vehículos estáticos a partir de un mo
 ## 3. Especificaciones de los Módulos
 
 ### 3.1 Modelo de Inferencia Exhaustiva
-* **Arquitectura:** `YOLO26s-obb` (9.8 millones de parámetros). Se selecciona esta versión para tener un balance ideal entre velocidad de inferencia en la GTX 1070 y capacidad de generalización espacial (recall superior a la versión `nano`).
+* **Arquitectura:** `YOLO26s-obb` (9.8 millones de parámetros). Se selecciona esta versión para tener un balance ideal entre velocidad de inferencia en GPUs de la nube (Tesla P100 o T4) y capacidad de generalización espacial (recall superior a la versión `nano`).
 * **Entrenamiento del Detector Base:** El modelo se entrena durante $50$ épocas a una resolución de $640$ píxeles utilizando el train split de la Fase 01 (datos originales).
 * **Configuración de Inferencia:**
   - `conf = 0.10`: Umbral muy bajo para maximizar el recall. Se asume que los falsos positivos se descartarán mediante consistencia temporal.

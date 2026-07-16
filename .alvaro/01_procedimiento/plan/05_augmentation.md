@@ -36,7 +36,7 @@ El objetivo de este módulo es colocar los recortes en zonas coherentes del asfa
   - Pega el recorte sintético **exactamente en las coordenadas $(cx, cy, \theta)$ de un vehículo estacionado que LaMa borró previamente** en esa misma imagen.
   - Esto garantiza que el vehículo sintético heredará una escala y una orientación vial físicamente coherentes para esa intersección específica.
 
-* **Mitigación de la Memorización de Instancia (GTX 1070 Local):**
+* **Mitigación de la Memorización de Instancia (Google Colab):**
   - Contamos con muy pocas instancias únicas reales (ej. ~5 buses articulados únicos). El modelo final podría memorizar estos 5 vehículos de forma exacta.
   - **Transformaciones de Variabilidad:** Antes de pegar el recorte sobre el fondo limpio, se le aplican transformaciones aleatorias de apariencia:
     - *Color Jitter:* Brillo aleatorio en $\pm 20\%$, contraste en $\pm 15\%$, saturación en $\pm 20\%$.

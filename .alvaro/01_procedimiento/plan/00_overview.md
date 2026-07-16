@@ -39,14 +39,12 @@ graph TD
     F1 --> H
     F2 --> H
     F3 --> H
-    
-    G[08_risks.md] -.-> H
 ```
 
 ### Flujos Paralelos:
 - **Flujo A (Métrica):** `02_metric.md` puede implementarse y validarse de forma independiente en cualquier momento desde el Día 1.
 - **Flujo B (Baselines):** `Base 0`, `Base 1` y `Base 2` de `06_training.md` pueden ejecutarse inmediatamente después de finalizar `01_data_preparation.md` sin esperar las fases de limpieza generativa.
-- **Flujo C (Loma y Aumento):** La limpieza con LaMa (`04_lama_cleaning.md`) y la extracción de recortes se ejecutan en las PCs locales, mientras que los baselines entrenan en la nube (Kaggle).
+- **Flujo C (Limpieza y Aumento en la Nube):** La limpieza con LaMa (`04_lama_cleaning.md`) y la extracción de recortes se ejecutan en Google Colab con GPU acelerada, mientras que los entrenamientos de ablación corren en paralelo en Kaggle.
 
 ---
 
@@ -54,27 +52,28 @@ graph TD
 
 | Plataforma | GPU | VRAM | RAM | Almacenamiento | Rol Asignado |
 |---|---|---|---|---|---|
-| **PCs de Laboratorio (×3)** | GTX 1070 | 8 GB | 32 GB | HDD local | Preprocesamiento local (Fase 0 y Fase 1), preparación de recortes y evaluación final. |
-| **Kaggle Notebooks (×5)** | P100 / 2×T4 | 16-32 GB | 29 GB | 20 GB (Persistente) + 60-90 GB (Scratch) | Entrenamientos paralelos de YOLO26s-OBB (las 5 condiciones de entrenamiento). Quota: 30h/semana por cuenta. |
-| **Google Colab Free (×5)** | T4 | 15-16 GB | ~12 GB | ~100 GB (Efímero) | Inferencia con IC-Light, mapas Grad-CAM y benchmarks de ONNX/FP16. |
-| **Google Drive Pro (×1)** | N/A | N/A | N/A | 1 TB (Nube) | Almacén central de datasets crudos, procesados y checkpoints de modelos. |
+| **Kaggle Notebooks (×5)** | P100 / 2×T4 | 16-32 GB | 29 GB | 20 GB (Persistente) + 73 GB (Scratch) | 1. **Fase 0:** Inferencia de pseudo-labeling.<br>2. **Fase 3 (Entrenamiento):** Entrenamientos paralelos de YOLO26s-OBB (las 5 condiciones de entrenamiento). Quota: 30h/semana por cuenta. |
+| **Google Colab Free (×5)** | T4 | 15-16 GB | ~12 GB | ~78 GB (Efímero) | 1. **Fase 1 (Limpieza):** Inpainting con LaMa de forma masiva sobre la VM local.<br>2. **Fase 2 (Aumentación):** Inferencia con IC-Light para clases minoritarias.<br>3. **Evaluación:** Mapas Grad-CAM y benchmarks de ONNX/FP16. |
+| **Google Drive Pro (×1)** | N/A | N/A | N/A | 1 TB (Nube) | Almacén central de datasets crudos, procesados en zip, parches extraídos y checkpoints de modelos. |
 
 ---
 
 ## 5. Logística de Datos
 
 ```mermaid
-graph LR
-    GD[Google Drive Pro 1TB] -->|Montaje directo| GC[Google Colab]
-    GD -->|Descarga directa| PC[3 PCs Laboratorio]
-    PC -->|Inferencia + LaMa local| PC
-    PC -->|kaggle datasets create| K[Kaggle Datasets]
-    K -->|Attach a notebook| KN[Kaggle Notebooks]
+graph TD
+    GD[Google Drive Pro 1TB] -->|Descarga directa rápida| GC[Google Colab VM]
+    GC -->|Inferencia + LaMa + IC-Light| GC
+    GC -->|Subida comprimida .zip| GD
+    GD -->|Descarga de zip ligero| KN[Kaggle Notebooks]
+    KN -->|kaggle datasets create| K[Kaggle Datasets]
+    K -->|Attach a notebook| KN
 ```
 
-1. Los datasets crudos (`train.zip` de 40.3 GB) se descargan del Drive a las 3 PCs locales para evitar el estrangulamiento de red en la nube.
-2. El preprocesamiento de LaMa y pseudo-labeling se realiza localmente. Las imágenes generadas se suben a Kaggle como un Dataset Privado una sola vez.
-3. Las cuentas de Kaggle adjuntan este dataset directamente en sus entornos para los notebooks de entrenamiento.
+1. El dataset crudo (`train.zip` de 40.3 GB) se descarga a una máquina virtual de **Google Colab** desde Google Drive Pro (aprovechando la velocidad interna de fibra de Google de >100 MB/s).
+2. En Colab, se ejecuta el pipeline de la Fase 0 (detección de estacionados) y la Fase 1 (limpieza con LaMa). Al procesar, cada imagen se redimensiona a 640x640 para optimizar almacenamiento y ajustarse a la resolución de entrenamiento (`imgsz=640`).
+3. El dataset limpio redimensionado (~4.3 GB) se comprime en un `.zip` y se sube de vuelta a Google Drive Pro en pocos minutos.
+4. Para los entrenamientos en **Kaggle Notebooks**, se descarga este `.zip` ligero, se descomprime en el scratch disk y se registra como un Dataset Privado de Kaggle para que las 5 cuentas puedan montarlo de forma simultánea con latencia cero.
 
 ---
 
@@ -82,15 +81,15 @@ graph LR
 
 Las tareas críticas de la ruta principal están marcadas con una estrella (★).
 
-| Día | Tarea Paralela 1 (PC Local) | Tarea Paralela 2 (Kaggle/Colab) | Entregable |
+| Día | Tarea en Google Colab (Interactivo/Generativo) | Tarea en Kaggle Notebooks (Entrenamientos/Filtros) | Entregable |
 |---|---|---|---|
-| **Día 1** (15 Jul) | ★ Configuración de entornos locales en las 3 PCs del lab.<br>★ Parseo de `train.csv` y conversión a YOLO OBB. | ★ Implementación y validación de la métrica `Macro AP-rIoU` con casos sintéticos. | `smart_dataset.yaml` and tests of the metric passing. |
-| **Día 2** (16 Jul) | ★ Entrenamiento local de YOLO26s-OBB ligero (Fase 0, 50 épocas). | ★ Subida del dataset crudo a Kaggle.<br>★ Lanzamiento de entrenamiento de **Base 1** (Data Cruda). | `yolo26s_pseudo.pt` en local. Inicios de entrenamiento. |
-| **Día 3** (17 Jul) | ★ Inferencia y cálculo de ego-motion homografía.<br>★ Pseudo-labeling temporal y auditoría manual (50 clips). | ★ Lanzamiento de entrenamiento de **Base 2** (Aumento Clásico) en Kaggle. | JSON con máscaras de autos estacionados validadas. |
-| **Día 4** (18 Jul) | ★ Ejecución paralela de LaMa en las 3 PCs (1.5 horas).<br>★ Extracción de recortes deduplicados. | ★ Implementación local del post-procesamiento del Filtro de Movimiento. | `dataset_lama_cleaned/` listo localmente. |
-| **Día 5** (19 Jul) | Subida de Dataset LaMa y Recortes a Kaggle/Drive. | ★ Armonización de imágenes compuestas con IC-Light en Colab.<br>★ Lanzamiento de **Mejora A** (Data LaMa). | Dataset sintético armonizado y Mejora A entrenando. |
-| **Día 6** (20 Jul) | Preparación final de los sets integrados. | ★ Lanzamiento de **Mejora B** (Cruda+Sintéticos) y **Mejora C** (Pipeline Completo). | Todos los modelos en entrenamiento. |
-| **Día 7** (21 Jul) | ★ Descarga de pesos finales y corrida de evaluación completa de las 6 condiciones (métrica + filtro de movimiento). | ★ Extracción de Grad-CAM de saliencia.<br>★ Benchmark ONNX/FP16 en T4. | Tabla completa de AP por clase y figuras de diagnóstico. |
+| **Día 1** (15 Jul) | ★ Descarga de `train.zip` a Colab.<br>★ Parseo de `train.csv` y conversión a YOLO OBB. | ★ Implementación y validación de la métrica `Macro AP-rIoU` con casos sintéticos. | `smart_dataset.yaml` y tests de la métrica aprobados. |
+| **Día 2** (16 Jul) | ★ Inferencia con YOLO26s base y extracción de recortes de clases minoritarias. | ★ Lanzamiento de entrenamiento de **Base 1** (Data Cruda) en Kaggle.<br>★ Subida del dataset original a Kaggle Datasets. | `yolo26s_pseudo.pt` entrenado. Inicio de Base 1. |
+| **Día 3** (17 Jul) | ★ Cálculo de homografía inter-frame (Ego-motion) en Colab.<br>★ Pseudo-labeling y auditoría manual (50 clips). | ★ Lanzamiento de entrenamiento de **Base 2** (Aumento Clásico) en Kaggle. | JSON con coordenadas de autos estacionados validadas. |
+| **Día 4** (18 Jul) | ★ Ejecución de LaMa Inpainting en Colab GPU.<br>★ Redimensionamiento a 640x640 y subida del `.zip` limpio a Drive. | ★ Implementación del post-procesamiento del Filtro de Movimiento en Kaggle. | `dataset_lama_640.zip` subido a Drive. |
+| **Día 5** (19 Jul) | ★ Armonización de imágenes compuestas con IC-Light en Colab GPU. | ★ Creación del dataset de Kaggle `smart-lama-cleaned`.<br>★ Lanzamiento de **Mejora A** (Data LaMa) en Kaggle. | Dataset sintético armonizado y Mejora A entrenando. |
+| **Día 6** (20 Jul) | ★ Preparación final de los sets de datos consolidados. | ★ Lanzamiento de **Mejora B** (Cruda+Sintéticos) y **Mejora C** (Pipeline Completo). | Todos los modelos en entrenamiento en Kaggle. |
+| **Día 7** (21 Jul) | ★ Extracción de mapas Grad-CAM de saliencia.<br>★ Benchmark de latencia de ONNX/FP16 en T4. | ★ Descarga de checkpoints y corrida de evaluación completa de las 6 condiciones (AP + Filtro). | Tabla completa de AP por clase y figuras de diagnóstico. |
 | **Día 8** (22 Jul) | ★ **DEADLINE.** Compilación de resultados, redacción del borrador en LaTeX e integración. | N/A | Artículo listo para entrega. |
 
 ---

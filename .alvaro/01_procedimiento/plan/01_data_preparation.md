@@ -127,11 +127,11 @@ dataset/
 
 ## 4. Archivo de Configuración: `smart_dataset.yaml`
 
-El archivo de configuración debe guardarse en la raíz del proyecto y debe tener exactamente la siguiente estructura de rutas relativas:
+El archivo de configuración debe guardarse en la raíz de ejecución y debe adaptar la ruta `path` según la plataforma de cómputo utilizada:
 
 ```yaml
 # smart_dataset.yaml
-path: /home/alvaro9rqc/1_Pacha/1-unsa/7_S/ia/article/dataset  # Ruta absoluta al dataset
+path: /content/dataset  # En Colab: /content/dataset. En Kaggle: /kaggle/input/smart-dataset/dataset
 train: train/images
 val: val/images
 

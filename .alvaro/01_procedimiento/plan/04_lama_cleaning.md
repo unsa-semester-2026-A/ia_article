@@ -13,10 +13,10 @@ Sustituir los píxeles de los vehículos estacionados detectados en la Fase 0 po
 
 * **Modelo Base:** `big-lama` (pesos pre-entrenados en el dataset Places2 de Yandex/Hugging Face). El modelo utiliza Convoluciones de Fourier Rápidas (FFCs) que capturan características globales y locales de textura en una sola pasada.
 * **Licencia:** Apache License 2.0.
-* **Entorno de Ejecución:** Inferencia local pura. No se requiere entrenamiento ni ajuste de pesos.
+* **Entorno de Ejecución:** Inferencia acelerada por GPU en la nube (Google Colab / Kaggle). No se requiere entrenamiento ni ajuste de pesos.
 * **Requisitos de Hardware:**
   - VRAM: ~4 GB para imágenes de resolución 1080p en batch size de 1.
-  - Tiempo de procesamiento estimado: $0.3 - 0.5$ segundos por imagen en una GPU NVIDIA GTX 1070.
+  - Tiempo de procesamiento estimado: $0.15 - 0.3$ segundos por imagen en una GPU NVIDIA Tesla T4 o P100 (Google Colab / Kaggle).
 
 ---
 
@@ -48,18 +48,19 @@ Este módulo coordina el flujo de procesamiento masivo sobre todo el dataset de 
 
 ---
 
-## 5. Distribución de Cómputo (Paralelización Local)
+## 5. Distribución de Cómputo (Paralelización en Google Colab/Kaggle)
 
-Para procesar las 54,262 imágenes rápidamente, el trabajo se distribuye en las 3 PCs del laboratorio equipadas con GTX 1070:
+Para procesar las 54,262 imágenes de forma rápida y gratuita, se utiliza Google Colab (VM con GPU T4) o notebooks de Kaggle en paralelo:
 
-1. **Partición del Dataset:** Dividir el conjunto de clips de entrenamiento de forma equitativa.
-   - PC 1 procesa del clip 1 al 362 (~18,000 imágenes).
-   - PC 2 procesa del clip 363 al 724 (~18,000 imágenes).
-   - PC 3 procesa del clip 725 al 1088 (~18,262 imágenes).
-2. Cada PC ejecuta el script de batch de forma local leyendo de su disco rígido y guardando en una carpeta local temporal.
-3. Al finalizar, se consolidan las carpetas en un único dataset limpio en el Google Drive Pro de 1 TB.
-4. **Tiempo Estimado:**
-   - 18,000 imágenes a $0.4$ seg/img = 7,200 segundos ≈ **2.0 horas** de ejecución en paralelo.
+1. **Estrategia de Ejecución en Colab:**
+   - Descargar el zip del dataset desde Google Drive directamente al disco efímero de la VM de Colab (ancho de banda >100 MB/s).
+   - Ejecutar la limpieza de LaMa por lotes (batch size = 4 u 8) aprovechando los 16 GB de VRAM de la GPU T4.
+   - **Optimización de Espacio (Redimensionamiento):** Durante el proceso de inpainting, cada imagen resultante se redimensiona a 640x640. Esto permite reducir el tamaño del dataset limpio a aproximadamente ~4.3 GB, garantizando que quepa sin problemas en los límites de almacenamiento persistente de Kaggle (20 GB).
+2. **Consolidación en Drive:**
+   - Comprimir las imágenes modificadas a un archivo zip (`smart_lama_640.zip`) y guardarlo en el Google Drive Pro de 1 TB.
+3. **Tiempo Estimado:**
+   - La inferencia de LaMa en T4 optimizada por lotes toma aproximadamente $0.2$ seg por imagen.
+   - 54,262 imágenes a $0.2$ seg/img ≈ 10,852 segundos ≈ **3.0 horas** en una sola GPU T4 (o menos si se divide la tarea en 2-3 notebooks de Colab ejecutándose en paralelo bajo cuentas de distintos integrantes).
 
 ---
 

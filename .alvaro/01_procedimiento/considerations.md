@@ -12,5 +12,7 @@ contabilizar los fondos?
     - limpiar con lama
     - composición + data mala? por qué no solo la data generada?
     - lama + composición
+- para la configuración de aumetnación de yolo, como sabe qué valor poner al mix
+  up u otros
 
 
