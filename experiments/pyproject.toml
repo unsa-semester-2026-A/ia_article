@@ -21,6 +21,7 @@ dependencies = [
     "opencv-python",
     "pandas",
     "pyyaml",
+    "scikit-learn",
 ]
 
 [project.optional-dependencies]
@@ -65,7 +66,6 @@ reportUnknownParameterType = true
 line-length = 88
 target-version = "py312"
 src = ["src"]
-extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "D"]

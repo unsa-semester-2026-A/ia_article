@@ -56,6 +56,23 @@ THEORETICAL_CLASSES: Dict[int, int] = {
 }
 
 
+def parse_csv(csv_path: str) -> pd.DataFrame:
+    """Reads the raw annotations CSV file into a pandas DataFrame.
+
+    Args:
+        csv_path: Path to the annotations CSV file.
+
+    Returns:
+        A pandas DataFrame containing raw CSV rows.
+
+    Raises:
+        FileNotFoundError: If the CSV file does not exist at csv_path.
+    """
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"Could not find CSV file at: {csv_path}")
+    return pd.read_csv(csv_path)
+
+
 def convert_obb_to_corners(
     cx: float, cy: float, w: float, h: float, angle_deg: float, W: int, H: int
 ) -> List[float]:
@@ -206,7 +223,7 @@ def main() -> None:
 
     try:
         print("Loading annotations dataset...")
-        df_raw = pd.read_csv(args.csv)
+        df_raw = parse_csv(args.csv)
 
         # 1. Deterministic split by clip_id
         print("Computing deterministic splits...")
@@ -254,7 +271,7 @@ def main() -> None:
         tasks = []
         for _, row in df_raw.iterrows():
             frame_id = str(row["Id"])
-            target = str(row["Target"])
+            target = "" if pd.isna(row["Target"]) else str(row["Target"])
             clip_id = "_".join(frame_id.split("_")[:-1])
             split = clip_to_split[clip_id]
             tasks.append((frame_id, target, split, args.img_w, args.img_h))
