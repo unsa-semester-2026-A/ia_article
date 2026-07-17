@@ -1,2 +1,34 @@
+# LaTeX compilation files
 article.pdf
 build/
+latex_report/build/
+
+# Python precompiled bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Testing and Coverage caches
+.pytest_cache/
+.coverage
+htmlcov/
+.rufc/
+.ruff_cache/
+
+# Package distributions and builds
+*.egg-info/
+dist/
+.eggs/
+
+# Datasets and generated metadata (to avoid tracking GBs of data)
+experiments/dataset/
+experiments/audit_output/
+experiments/dummy_train.csv
+experiments/*.json
