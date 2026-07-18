@@ -256,17 +256,17 @@ Tareas:
 
 - [x] Experimentar primero con las transformaciones en
       `prototipo_metric.ipynb`.
-- [ ] Rechazar dimensiones no positivas y valores no finitos.
-- [ ] Normalizar ángulos mediante módulo 360.
-- [ ] Convertir `(cx, cy, w, h, angle)` a cuatro vértices.
-- [ ] Verificar que el área del polígono sea aproximadamente `w × h`.
+- [x] Rechazar dimensiones no positivas y valores no finitos.
+- [x] Normalizar ángulos mediante módulo 360.
+- [x] Convertir `(cx, cy, w, h, angle)` a cuatro vértices.
+- [x] Verificar que el área del polígono sea aproximadamente `w × h`.
 
 Pruebas mínimas:
 
-- [ ] Caja válida.
-- [ ] Ancho cero y alto negativo.
-- [ ] Ángulo negativo equivalente al positivo normalizado.
-- [ ] Coordenadas o ángulo no finitos.
+- [x] Caja válida.
+- [x] Ancho cero y alto negativo.
+- [x] Ángulo negativo equivalente al positivo normalizado.
+- [x] Coordenadas o ángulo no finitos.
 
 ### Etapa A2: calcular rIoU
 
@@ -281,18 +281,18 @@ Tareas:
 
 - [x] Visualizar primero en `prototipo_metric.ipynb` la intersección de dos
       OBB y comprobar manualmente los casos extremos.
-- [ ] Calcular intersección de polígonos convexos.
-- [ ] Calcular unión como `área_a + área_b - intersección`.
-- [ ] Controlar unión cero y geometría inválida.
-- [ ] Garantizar un resultado dentro de `[0, 1]`.
+- [x] Calcular intersección de polígonos convexos.
+- [x] Calcular unión como `área_a + área_b - intersección`.
+- [x] Controlar unión cero y geometría inválida.
+- [x] Garantizar un resultado dentro de `[0, 1]`.
 
 Pruebas mínimas:
 
-- [ ] Cajas idénticas: rIoU `1.0`.
-- [ ] Cajas separadas: rIoU `0.0`.
-- [ ] Simetría `rIoU(A,B) == rIoU(B,A)`.
-- [ ] `-15°` y `345°` son equivalentes.
-- [ ] Una desviación angular reduce rIoU en una caja no cuadrada.
+- [x] Cajas idénticas: rIoU `1.0`.
+- [x] Cajas separadas: rIoU `0.0`.
+- [x] Simetría `rIoU(A,B) == rIoU(B,A)`.
+- [x] `-15°` y `345°` son equivalentes.
+- [x] Una desviación angular reduce rIoU en una caja no cuadrada.
 
 ### Etapa A3: matching greedy y conteos
 
@@ -306,13 +306,13 @@ Tareas:
 
 - [x] Simular primero en `prototipo_metric.ipynb` el orden por score y los
       emparejamientos uno a uno.
-- [ ] Ordenar predicciones por score descendente de forma estable.
-- [ ] Comparar solo predicciones y GT de la misma clase y frame.
-- [ ] Elegir el GT libre con mayor rIoU.
-- [ ] Impedir que un GT sea utilizado dos veces.
-- [ ] Producir vectores TP y FP.
-- [ ] Calcular `FN = total_gt - TP`.
-- [ ] Reiniciar los matches para cada clase y umbral.
+- [x] Ordenar predicciones por score descendente de forma estable.
+- [x] Comparar solo predicciones y GT de la misma clase y frame.
+- [x] Elegir el GT libre con mayor rIoU.
+- [x] Impedir que un GT sea utilizado dos veces.
+- [x] Producir vectores TP y FP.
+- [x] Calcular `FN = total_gt - TP`.
+- [x] Reiniciar los matches para cada clase y umbral.
 
 Invariantes:
 
@@ -334,12 +334,12 @@ Tareas:
 
 - [x] Construir primero en `prototipo_metric.ipynb` una tabla pequeña de TP,
       FP, Precision y Recall cuyo AP pueda calcularse a mano.
-- [ ] Calcular TP y FP acumulados.
-- [ ] Calcular Precision y Recall acumulados.
-- [ ] Evaluar niveles de recall `0.00..1.00` en pasos de `0.01`.
-- [ ] Usar la mejor precision disponible para cada nivel.
-- [ ] Usar cero cuando no existe un punto elegible.
-- [ ] Devolver cero si no hay ground truths.
+- [x] Calcular TP y FP acumulados.
+- [x] Calcular Precision y Recall acumulados.
+- [x] Evaluar niveles de recall `0.00..1.00` en pasos de `0.01`.
+- [x] Usar la mejor precision disponible para cada nivel.
+- [x] Usar cero cuando no existe un punto elegible.
+- [x] Devolver cero si no hay ground truths.
 
 No se debe usar integración trapezoidal: `02_metric.md` exige explícitamente
 interpolación COCO de 101 puntos.
@@ -350,13 +350,13 @@ Tareas:
 
 - [x] Verificar primero en `prototipo_metric.ipynb` cómo se promedian los 63
       resultados y por qué una clase sin GT aporta cero.
-- [ ] Evaluar `9 clases × 7 umbrales = 63` combinaciones.
-- [ ] Calcular AP promedio de cada clase.
-- [ ] Calcular Macro AP como promedio uniforme de las nueve clases.
-- [ ] Devolver AP por clase.
-- [ ] Devolver AP por clase y umbral.
-- [ ] Devolver TP, FP y FN por clase y umbral.
-- [ ] Garantizar que todos los scores estén dentro de `[0, 1]`.
+- [x] Evaluar `9 clases × 7 umbrales = 63` combinaciones.
+- [x] Calcular AP promedio de cada clase.
+- [x] Calcular Macro AP como promedio uniforme de las nueve clases.
+- [x] Devolver AP por clase.
+- [x] Devolver AP por clase y umbral.
+- [x] Devolver TP, FP y FN por clase y umbral.
+- [x] Garantizar que todos los scores estén dentro de `[0, 1]`.
 
 Estructura mínima del detalle:
 
@@ -370,10 +370,10 @@ Estructura mínima del detalle:
 
 ### Etapa A6: pruebas sintéticas obligatorias
 
-- [ ] Predicción perfecta.
-- [ ] Predicción vacía.
-- [ ] Desviación angular progresiva.
-- [ ] Predicciones duplicadas.
+- [x] Predicción perfecta.
+- [x] Predicción vacía.
+- [x] Desviación angular progresiva.
+- [x] Predicciones duplicadas.
 
 Decisiones para resolver ambigüedades de `02_metric.md`:
 
@@ -396,12 +396,12 @@ Requisito obligatorio:
 
 Tareas:
 
-- [ ] Crear datos deterministas con semilla fija.
-- [ ] Agrupar ground truths por clase y frame.
-- [ ] Convertir cada OBB a polígono una sola vez.
-- [ ] Reutilizar rIoU entre umbrales cuando sea posible.
-- [ ] Evitar comparaciones entre frames diferentes.
-- [ ] Registrar el tiempo total del benchmark.
+- [x] Crear datos deterministas con semilla fija.
+- [x] Agrupar ground truths por clase y frame.
+- [x] Convertir cada OBB a polígono una sola vez.
+- [x] Reutilizar rIoU entre umbrales cuando sea posible.
+- [x] Evitar comparaciones entre frames diferentes.
+- [x] Registrar el tiempo total del benchmark.
 
 El Bloque A solo se considera terminado cuando todas sus pruebas y el benchmark
 pasan.
@@ -588,14 +588,14 @@ Actualizar esta sección al final de cada sesión de trabajo.
 | Etapa | Estado | Evidencia | Observaciones |
 |---|---|---|---|
 | A0: paquete e interfaces | Completada | `1 passed`; Ruff y Pyright sin errores | Contrato creado; la métrica aún no calcula rIoU. |
-| A0.1: prototipo de métrica | En validación | Pipeline completo ejecutado localmente: OBB, rIoU, matching, Precision/Recall, AP-101, 9 clases, 7 umbrales y casos sintéticos pasan | OBB, rIoU y matching ya pasaron en Colab; falta ejecutar las nuevas celdas de Precision, Recall, AP y Macro AP en Colab. |
-| A1: representación OBB | Pendiente | | |
-| A2: rIoU | Pendiente | | |
-| A3: matching greedy | Pendiente | | |
-| A4: AP de 101 puntos | Pendiente | | |
-| A5: Macro AP y detalle | Pendiente | | |
-| A6: pruebas sintéticas | Pendiente | | |
-| A7: benchmark | Pendiente | | |
+| A0.1: prototipo de métrica | Completada | Pipeline matemático completo ejecutado localmente y en Colab sin errores | Prototipo migrado al módulo; el notebook queda como explicación reproducible. |
+| A1: representación OBB | Completada | `validate_obb`, `normalize_angle` y `obb_to_polygon`; 19 tests pasan | Ruff y Pyright sin errores. |
+| A2: rIoU | Completada | Casos idénticos, separados, simétricos, equivalentes y angulares pasan | Intersección convexa con OpenCV y resultado acotado. |
+| A3: matching greedy | Completada | Orden estable, mismo frame/clase, duplicados e invariantes probados | Los rIoU se reutilizan entre umbrales. |
+| A4: AP de 101 puntos | Completada | Precision/Recall y casos AP `1.0`, `0.0` y `0.5` pasan | No se usa integración trapezoidal. |
+| A5: Macro AP y detalle | Completada | 9 clases × 7 umbrales, clases vacías y diagnósticos probados | Scores inválidos y clases no oficiales se rechazan. |
+| A6: pruebas sintéticas | Completada | `19 passed` en `test_metric.py` | Incluye perfecta, vacía, angular y duplicados. |
+| A7: benchmark | Completada | `50,000` predicciones + `10,000` GT en un hilo: `1.427 s` en la ejecución local de referencia | Datos deterministas con semilla `2026`; el tiempo exacto se imprime en cada ejecución de pytest. |
 | B0: contrato del filtro | Pendiente | | |
 | B0.1: prototipo del filtro | Pendiente | | Debe completarse antes de B1. |
 | B1: homografía | Pendiente | | |
