@@ -1,8 +1,12 @@
+import io
 import os
 
 import numpy as np
 import pandas as pd
 import pytest
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 from src.pseudo_labeling.pseudo_labeler import (
     CentroidTracker,
     PseudoLabeler,
@@ -172,7 +176,6 @@ def test_pseudo_labeler_initialization() -> None:
 def test_google_drive_api_connection() -> None:
     """Pre-flight check: Validates Google Drive connection, token auth, and folder accessibility in cloud environments."""
     token_path = "/content/drive/MyDrive/ia_article/token/token.json"
-    folder_id = "1J5ogC3q6jyYlk3wuYyxpYZHslUg6eGtN"
     checkpoints_folder_id = "1anPtHNwHYgcq4BImhbJ_xzouiJ-Sh035"
 
     # Skip if we are not in Google Colab or if Drive is not mounted
@@ -181,30 +184,40 @@ def test_google_drive_api_connection() -> None:
             "Not running in Google Colab or Google Drive is not mounted. Skipping cloud integration test."
         )
 
-    # Attempt to initialize credentials and authenticate
-    from google.oauth2.credentials import Credentials
-    from googleapiclient.discovery import build
-
     try:
         creds = Credentials.from_authorized_user_file(
             token_path, ["https://www.googleapis.com/auth/drive.file"]
         )
         service = build("drive", "v3", credentials=creds)
 
-        # Test 1: Query the parent folder info
-        folder_info = service.files().get(fileId=folder_id, fields="id, name").execute()
-        assert folder_info.get("id") == folder_id
+        # Test 1: Query credentials by performing a dummy write-then-delete in the checkpoints folder
+        dummy_content = b"preflight_test_connection"
+        flujo_archivo = io.BytesIO(dummy_content)
+        metadatos = {
+            "name": "preflight_test_connection.txt",
+            "mimeType": "text/plain",
+            "parents": [checkpoints_folder_id],
+        }
 
-        # Test 2: Query the checkpoints subfolder info
-        checkpoints_info = (
+        media = MediaIoBaseUpload(flujo_archivo, mimetype="text/plain", resumable=False)
+        archivo = (
             service.files()
-            .get(fileId=checkpoints_folder_id, fields="id, name")
+            .create(
+                body=metadatos,
+                media_body=media,
+                fields="id",
+                supportsAllDrives=True,
+            )
             .execute()
         )
-        assert checkpoints_info.get("id") == checkpoints_folder_id
+        file_id = archivo.get("id")
+        assert file_id is not None
+
+        # Clean up by deleting the dummy test file
+        service.files().delete(fileId=file_id, supportsAllDrives=True).execute()
 
         print(
-            f"✓ Cloud connection pre-flight check passed. Connected to {folder_info.get('name')} and {checkpoints_info.get('name')}."
+            "✓ Cloud connection pre-flight check passed. Dummy file successfully created and deleted in checkpoints folder."
         )
     except Exception as e:
         pytest.fail(f"Cloud connection pre-flight check failed! Error details: {e}")

@@ -72,8 +72,8 @@ def estimate_homography(
             poly = np.array(det, dtype=np.int32).reshape((-1, 1, 2))
             cv2.fillPoly(bg_mask, [poly], 0)
 
-    kp1, des1 = orb.detectAndCompute(prev_gray, mask=bg_mask)
-    kp2, des2 = orb.detectAndCompute(curr_gray, mask=None)
+    kp1, des1 = orb.detectAndCompute(prev_gray, bg_mask)
+    kp2, des2 = orb.detectAndCompute(curr_gray, None)
 
     if des1 is None or des2 is None or len(kp1) < 15 or len(kp2) < 15:
         return np.eye(3), False
@@ -290,6 +290,8 @@ class PseudoLabeler:
                         pageSize=1000,
                         fields="nextPageToken, files(id, name)",
                         pageToken=page_token,
+                        supportsAllDrives=True,
+                        includeItemsFromAllDrives=True,
                     )
                     .execute()
                 )
@@ -331,7 +333,12 @@ class PseudoLabeler:
             media = MediaIoBaseUpload(flujo_archivo, mimetype=mime_type, resumable=True)
             archivo = (
                 service.files()
-                .create(body=metadatos, media_body=media, fields="id")
+                .create(
+                    body=metadatos,
+                    media_body=media,
+                    fields="id",
+                    supportsAllDrives=True,
+                )
                 .execute()
             )
             return archivo.get("id")
@@ -357,6 +364,8 @@ class PseudoLabeler:
                         pageSize=1000,
                         fields="nextPageToken, files(id, name)",
                         pageToken=page_token,
+                        supportsAllDrives=True,
+                        includeItemsFromAllDrives=True,
                     )
                     .execute()
                 )
@@ -371,7 +380,9 @@ class PseudoLabeler:
                         continue  # Already downloaded
 
                     file_id = f["id"]
-                    request = service.files().get_media(fileId=file_id)
+                    request = service.files().get_media(
+                        fileId=file_id, supportsAllDrives=True
+                    )
                     content = request.execute()
                     with open(local_path, "wb") as fh:
                         fh.write(content)
@@ -535,29 +546,33 @@ class PseudoLabeler:
                                 )
                                 if not success:
                                     homography_failures += 1
-                        else:
-                            H = np.eye(3)
+                            else:
+                                H = np.eye(3)
 
-                        detections = []
-                        current_polys = []
+                            detections = []
+                            current_polys = []
 
-                        if r.obb is not None:
-                            for box in r.obb:
-                                cls_id = int(box.cls[0].item())
-                                if cls_id in vehicle_class_ids:
-                                    xywhr = box.xywhr[0].cpu().numpy()
-                                    conf = float(box.conf[0].item())
-                                    cx, cy, w, h, angle = xywhr
+                            if r.obb is not None:
+                                for box in r.obb:
+                                    cls_id = int(box.cls[0].item())
+                                    if cls_id in vehicle_class_ids:
+                                        xywhr = box.xywhr[0].cpu().numpy()
+                                        conf = float(box.conf[0].item())
+                                        cx, cy, w, h, angle = xywhr
 
-                                    # Convert Radians to Degrees
-                                    angle_deg = math.degrees(angle)
-                                    detections.append((cx, cy, w, h, angle_deg, conf))
-                                    current_polys.append(box.xyxyxyxy[0].cpu().numpy())
-                                    total_detections += 1
+                                        # Convert Radians to Degrees
+                                        angle_deg = math.degrees(angle)
+                                        detections.append(
+                                            (cx, cy, w, h, angle_deg, conf)
+                                        )
+                                        current_polys.append(
+                                            box.xyxyxyxy[0].cpu().numpy()
+                                        )
+                                        total_detections += 1
 
-                        tracker.update(frame_idx, detections, H)
-                        prev_gray = gray
-                        prev_dets_poly = current_polys
+                            tracker.update(frame_idx, detections, H)
+                            prev_gray = gray
+                            prev_dets_poly = current_polys
 
                         # Filter static vehicles
                         clip_gt_df = gt_df[gt_df["clip_id"] == clip]
