@@ -15,6 +15,11 @@ siendo las fuentes autoritativas:
 2. `02_metric.md`: definición de Macro AP-rIoU, interfaz y pruebas requeridas.
 3. `03_pseudo_labeling.md`: homografía, tracking y clasificación temporal.
 4. `07_evaluation.md`: uso del filtro durante la evaluación final.
+5. `.agents/skills/cloud-local-workflow/SKILL.md`: estructura reproducible
+   para prototipos, módulos y ejecución en Colab/Kaggle.
+6. El flujo ya aplicado por Álvaro en `filter_data_for_lama`: primero un
+   notebook experimental, luego un módulo probado en `src/` y finalmente un
+   notebook orquestador para la nube.
 
 Antes de implementar o modificar cualquier componente de la issue #9 se debe
 consultar este documento y, para los detalles matemáticos, el documento
@@ -54,12 +59,17 @@ Macro AP-rIoU + diagnóstico detallado
 Los entregables obligatorios son:
 
 ```text
-experiments/src/evaluation/
-├── __init__.py
-├── metric.py
-├── test_metric.py
-├── motion_filter.py
-└── test_motion_filter.py
+experiments/
+├── notebooks/evaluation/
+│   ├── prototipo_metric.ipynb
+│   ├── prototipo_motion_filter.ipynb
+│   └── main_colab_kaggle.ipynb
+└── src/evaluation/
+    ├── __init__.py
+    ├── metric.py
+    ├── test_metric.py
+    ├── motion_filter.py
+    └── test_motion_filter.py
 ```
 
 `test_motion_filter.py` se añade para demostrar el criterio de aceptación del
@@ -87,13 +97,68 @@ Para cada etapa se seguirá este ciclo:
 1. Saúl y Dolly leen la teoría mínima de la etapa.
 2. Ambos explican con un ejemplo qué entrada recibe y qué salida debe producir.
 3. Ambos acuerdan la interfaz antes de escribir la implementación.
-4. Implementan y revisan el código juntos.
-5. Ejecutan pruebas pequeñas y comprueban manualmente al menos un resultado.
-6. Ambos explican por qué las pruebas demuestran que el módulo funciona.
-7. Marcan la etapa como completada y recién entonces avanzan.
+4. Experimentan juntos en el notebook de prototipo con datos pequeños,
+   resultados visibles y cálculos que puedan comprobar manualmente.
+5. Ambos explican el resultado experimental y deciden si la idea es correcta.
+6. Trasladan la lógica validada a un módulo limpio dentro de `src/evaluation/`.
+7. El notebook deja de contener la implementación definitiva y pasa a importar
+   el módulo, evitando dos versiones distintas del mismo algoritmo.
+8. Escriben y ejecutan las pruebas colocadas junto al módulo.
+9. Ejecutan Ruff, Pyright y Pytest antes de cerrar la etapa.
+10. Ambos explican por qué las pruebas demuestran que el módulo funciona.
+11. Marcan la etapa como completada y recién entonces avanzan.
 
 No se considera terminada una etapa si el código funciona pero alguno de los
 dos no puede explicar su lógica.
+
+### 4.1 Flujo obligatorio notebook → módulo → nube
+
+Se repetirá el mismo flujo profesional utilizado por Álvaro:
+
+```text
+Notebook de prototipo (exploración y aprendizaje)
+                      ↓
+Validación manual de ejemplos pequeños por Saúl y Dolly
+                      ↓
+Módulo reutilizable en src/evaluation/
+                      ↓
+Pruebas colocadas junto al módulo
+                      ↓
+Notebook orquestador Colab/Kaggle que importa y ejecuta el módulo
+                      ↓
+Persistencia de resultados y checkpoints pequeños en Drive
+```
+
+Reglas:
+
+- Los notebooks de prototipo pueden contener visualizaciones, impresiones y
+  código temporal para comprender el algoritmo.
+- La implementación definitiva vive exclusivamente en `src/evaluation/`.
+- Los notebooks finales deben importar el paquete instalado en modo editable;
+  no deben copiar las funciones de producción dentro de celdas.
+- Una etapa no se migra al módulo hasta que ambos hayan entendido y validado
+  manualmente el experimento correspondiente.
+- El notebook orquestador debe ejecutar primero las pruebas y detener el
+  pipeline si estas fallan.
+- Los notebooks no sustituyen `test_metric.py` ni `test_motion_filter.py`.
+
+### 4.2 Portabilidad entre Colab, Kaggle y ejecución local
+
+- Los módulos no tendrán rutas fijas como `/content/drive/` o
+  `/kaggle/input/`; las rutas se recibirán mediante argumentos.
+- El orquestador detectará la plataforma y configurará rutas de trabajo:
+  `/content/` para Colab y `/kaggle/working/` para Kaggle.
+- En Kaggle, los datos de entrada se montarán desde `/kaggle/input/` o desde
+  un dataset privado asociado al notebook.
+- Los archivos grandes se copiarán al disco rápido de la VM antes de
+  procesarlos; no se procesarán directamente dentro de Google Drive.
+- La API de Google Drive se usará para guardar resultados, reportes y
+  checkpoints en la cuenta central indicada por Álvaro.
+- Tokens, credenciales, IDs sensibles y archivos de autenticación nunca se
+  guardarán en Git. En Kaggle se proporcionarán mediante Secrets o un recurso
+  privado; en Colab se leerán desde Drive.
+- La ausencia de credenciales de Drive no debe impedir ejecutar las pruebas ni
+  la métrica localmente; solo desactiva la sincronización remota.
 
 ---
 
@@ -152,6 +217,27 @@ Tareas:
 Criterio de avance: el módulo se importa correctamente y ambos pueden construir
 manualmente una predicción y un ground truth válidos.
 
+### Etapa A0.1: crear el prototipo interactivo de la métrica
+
+Archivo:
+
+```text
+experiments/notebooks/evaluation/prototipo_metric.ipynb
+```
+
+Tareas:
+
+- [ ] Crear el directorio y el notebook sin resultados pesados embebidos.
+- [ ] Documentar en la primera celda el objetivo, entradas y salidas.
+- [ ] Construir OBB sintéticas pequeñas que puedan verificarse manualmente.
+- [ ] Dibujar sus centros, vértices e intersecciones.
+- [ ] Mostrar paso a paso rIoU, matching, Precision, Recall y AP.
+- [ ] Registrar las conclusiones experimentales que se migrarán al módulo.
+
+Criterio de avance: Saúl y Dolly pueden ejecutar el notebook desde el inicio,
+explicar cada resultado y distinguir el código exploratorio del contrato de
+producción.
+
 ### Etapa A1: validar y representar OBB
 
 Funciones esperadas:
@@ -164,6 +250,8 @@ obb_to_polygon()
 
 Tareas:
 
+- [ ] Experimentar primero con las transformaciones en
+      `prototipo_metric.ipynb`.
 - [ ] Rechazar dimensiones no positivas y valores no finitos.
 - [ ] Normalizar ángulos mediante módulo 360.
 - [ ] Convertir `(cx, cy, w, h, angle)` a cuatro vértices.
@@ -187,6 +275,8 @@ def rotated_iou(box_a: tuple, box_b: tuple) -> float:
 
 Tareas:
 
+- [ ] Visualizar primero en `prototipo_metric.ipynb` la intersección de dos
+      OBB y comprobar manualmente los casos extremos.
 - [ ] Calcular intersección de polígonos convexos.
 - [ ] Calcular unión como `área_a + área_b - intersección`.
 - [ ] Controlar unión cero y geometría inválida.
@@ -210,6 +300,8 @@ match_predictions()
 
 Tareas:
 
+- [ ] Simular primero en `prototipo_metric.ipynb` el orden por score y los
+      emparejamientos uno a uno.
 - [ ] Ordenar predicciones por score descendente de forma estable.
 - [ ] Comparar solo predicciones y GT de la misma clase y frame.
 - [ ] Elegir el GT libre con mayor rIoU.
@@ -236,6 +328,8 @@ def average_precision_101(tp, fp, total_gt) -> float:
 
 Tareas:
 
+- [ ] Construir primero en `prototipo_metric.ipynb` una tabla pequeña de TP,
+      FP, Precision y Recall cuyo AP pueda calcularse a mano.
 - [ ] Calcular TP y FP acumulados.
 - [ ] Calcular Precision y Recall acumulados.
 - [ ] Evaluar niveles de recall `0.00..1.00` en pasos de `0.01`.
@@ -250,6 +344,8 @@ interpolación COCO de 101 puntos.
 
 Tareas:
 
+- [ ] Verificar primero en `prototipo_metric.ipynb` cómo se promedian los 63
+      resultados y por qué una clase sin GT aporta cero.
 - [ ] Evaluar `9 clases × 7 umbrales = 63` combinaciones.
 - [ ] Calcular AP promedio de cada clase.
 - [ ] Calcular Macro AP como promedio uniforme de las nueve clases.
@@ -336,6 +432,26 @@ classify_static_tracks()
 filter_static_predictions()
 ```
 
+### Etapa B0.1: crear el prototipo interactivo del filtro
+
+Archivo:
+
+```text
+experiments/notebooks/evaluation/prototipo_motion_filter.ipynb
+```
+
+Tareas:
+
+- [ ] Construir una secuencia sintética corta con vehículos estáticos y
+      móviles.
+- [ ] Dibujar centroides, IDs de track y trayectorias por frame.
+- [ ] Visualizar el efecto de una homografía conocida sobre los centroides.
+- [ ] Comparar manualmente los umbrales de 30 px, 10 frames y 8 px.
+- [ ] Registrar las decisiones que se trasladarán a `motion_filter.py`.
+
+Criterio de avance: ambos pueden explicar visualmente por qué cada track se
+conserva o se elimina antes de implementar el módulo definitivo.
+
 ### Etapa B1: proyección por homografía
 
 - [ ] Proyectar centroides mediante una matriz `3×3`.
@@ -394,6 +510,42 @@ filter_static_predictions()
 - [ ] Confirmar que el mismo filtro puede aplicarse sin cambios a las seis
       condiciones experimentales.
 
+### Etapa C3: notebook orquestador para Colab y Kaggle
+
+Archivo:
+
+```text
+experiments/notebooks/evaluation/main_colab_kaggle.ipynb
+```
+
+El notebook seguirá la estructura del orquestador final de Álvaro, pero
+separará explícitamente las operaciones dependientes de Colab y Kaggle.
+
+Tareas:
+
+- [ ] Clonar de forma superficial y dispersa el directorio `experiments/`.
+- [ ] Instalar el paquete en modo editable con `.[cloud]` sin reinstalar la
+      versión de PyTorch proporcionada por la plataforma.
+- [ ] Detectar si la ejecución ocurre en Colab, Kaggle o local.
+- [ ] Configurar las rutas mediante variables y argumentos, no dentro de los
+      módulos.
+- [ ] Ejecutar `pytest src/evaluation/` antes del pipeline.
+- [ ] Ejecutar los módulos mediante `%run` o importarlos desde el paquete.
+- [ ] Ejecutar el benchmark de la métrica y guardar su reporte.
+- [ ] Permitir usar datasets montados en `/kaggle/input/`.
+- [ ] Guardar resultados intermedios primero en el disco de la VM.
+- [ ] Sincronizar reportes y checkpoints pequeños con el Drive central de
+      Álvaro mediante la API cuando existan credenciales.
+- [ ] Probar una ejecución completa en Colab.
+- [ ] Probar una ejecución completa en Kaggle.
+- [ ] Confirmar que una ejecución sin credenciales funciona en modo local y no
+      intenta subir archivos.
+
+No se considerará compatible con Kaggle un notebook que importe
+incondicionalmente `google.colab`, dependa de `/content/drive/` o llame siempre
+a `runtime.unassign()`. Esas operaciones deben quedar protegidas por la
+detección de plataforma.
+
 ---
 
 ## 9. Criterio global de finalización
@@ -412,6 +564,15 @@ La issue #9 se considera completada únicamente cuando:
 - [ ] El filtro elimina únicamente tracks de al menos 10 frames y menos de 8 px.
 - [ ] El filtro no depende de `static_vehicles.json`.
 - [ ] La integración filtro → métrica funciona.
+- [ ] Cada algoritmo fue comprendido primero en su notebook de prototipo y
+      migrado después al módulo correspondiente.
+- [ ] Los notebooks finales importan los módulos y no duplican su
+      implementación.
+- [ ] El orquestador ejecuta las pruebas antes del pipeline.
+- [ ] El pipeline se ejecuta tanto en Colab como en Kaggle con rutas propias de
+      cada plataforma.
+- [ ] Los resultados pequeños pueden persistirse en el Drive central sin
+      guardar credenciales en Git.
 - [ ] Saúl y Dolly pueden explicar todos los componentes.
 
 ---
@@ -423,6 +584,7 @@ Actualizar esta sección al final de cada sesión de trabajo.
 | Etapa | Estado | Evidencia | Observaciones |
 |---|---|---|---|
 | A0: paquete e interfaces | Completada | `1 passed`; Ruff y Pyright sin errores | Contrato creado; la métrica aún no calcula rIoU. |
+| A0.1: prototipo de métrica | Pendiente | | Debe completarse antes de A1. |
 | A1: representación OBB | Pendiente | | |
 | A2: rIoU | Pendiente | | |
 | A3: matching greedy | Pendiente | | |
@@ -431,12 +593,14 @@ Actualizar esta sección al final de cada sesión de trabajo.
 | A6: pruebas sintéticas | Pendiente | | |
 | A7: benchmark | Pendiente | | |
 | B0: contrato del filtro | Pendiente | | |
+| B0.1: prototipo del filtro | Pendiente | | Debe completarse antes de B1. |
 | B1: homografía | Pendiente | | |
 | B2: tracking | Pendiente | | |
 | B3: clasificación y filtro | Pendiente | | |
 | B4: pruebas del filtro | Pendiente | | |
 | C1: adaptación de inferencia | Pendiente | | |
 | C2: integración final | Pendiente | | |
+| C3: orquestador Colab/Kaggle | Pendiente | | Incluye prueba de Drive API sin credenciales en Git. |
 
 ## 11. Registro de decisiones
 
@@ -448,3 +612,5 @@ criterio. No modificar silenciosamente los requisitos científicos originales.
 | 2026-07-17 | Todo el trabajo será realizado conjuntamente por Saúl y Dolly. | Ambos deben comprender e implementar la issue completa. | Saúl y Dolly |
 | 2026-07-17 | `static_vehicles.json` no será una entrada de la issue #9. | `07_evaluation.md` especifica detecciones crudas y homografías como entradas. | Según plan |
 | 2026-07-17 | Las pruebas no forzarán expectativas de AP incompatibles con interpolación de 101 puntos. | Mantener corrección matemática y documentar las ambigüedades de `02_metric.md`. | Pendiente de confirmar en la issue |
+| 2026-07-17 | La issue seguirá el flujo notebook de prototipo → módulo probado → notebook orquestador cloud. | Repetir el flujo de trabajo aplicado por Álvaro y permitir que Saúl y Dolly comprendan cada algoritmo antes de modularizarlo. | Indicación de Álvaro |
+| 2026-07-17 | El orquestador será realmente portable entre Colab y Kaggle. | El montaje de Drive, las rutas y la desconexión del runtime son operaciones específicas de plataforma. | Indicación de Álvaro y plan cloud |
