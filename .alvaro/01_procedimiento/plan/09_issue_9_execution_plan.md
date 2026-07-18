@@ -251,7 +251,7 @@ obb_to_polygon()
 
 Tareas:
 
-- [ ] Experimentar primero con las transformaciones en
+- [x] Experimentar primero con las transformaciones en
       `prototipo_metric.ipynb`.
 - [ ] Rechazar dimensiones no positivas y valores no finitos.
 - [ ] Normalizar ángulos mediante módulo 360.
@@ -585,7 +585,7 @@ Actualizar esta sección al final de cada sesión de trabajo.
 | Etapa | Estado | Evidencia | Observaciones |
 |---|---|---|---|
 | A0: paquete e interfaces | Completada | `1 passed`; Ruff y Pyright sin errores | Contrato creado; la métrica aún no calcula rIoU. |
-| A0.1: prototipo de métrica | En progreso | OBB sintética comprobada y visualizada en `prototipo_metric.ipynb` | Faltan intersección, rIoU, matching y AP antes de cerrar el prototipo. |
+| A0.1: prototipo de métrica | En progreso | OBB sintética, validaciones y equivalencia angular comprobadas en `prototipo_metric.ipynb` | Faltan intersección, rIoU, matching y AP antes de cerrar el prototipo. |
 | A1: representación OBB | Pendiente | | |
 | A2: rIoU | Pendiente | | |
 | A3: matching greedy | Pendiente | | |
