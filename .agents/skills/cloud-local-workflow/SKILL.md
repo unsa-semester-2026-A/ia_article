@@ -48,99 +48,50 @@ We follow PEP 621 for metadata and PEP 735 (via `uv`) for development dependency
 ### PyTorch Cloud Exclusion Rule
 `torch` and `torchvision` must **NEVER** be specified in the base `dependencies` or the `cloud` extra group. Colab and Kaggle provide heavily optimized, pre-installed PyTorch installations for their specific hardware. Redownloading PyTorch inside the VM is extremely slow and can break hardware acceleration.
 
-- **Base Dependencies**: Minimal CPU-only packages (`numpy`, `opencv-python`, `pandas`, `pyyaml`).
-- **Optional Dependencies (`cloud`)**: Used on Colab/Kaggle. Installs secondary packages (`ultralytics`, `pytest`, `pytest-cov`, `albumentations`, `wandb`) without touching PyTorch.
+- **Base Dependencies**: Minimal CPU-only packages (`numpy`, `opencv-python`, `pandas`, `pyyaml`, `tqdm`).
+- **Optional Dependencies (`cloud`)**: Used on Colab/Kaggle. Installs secondary packages (`ultralytics`, `pytest`, `pytest-cov`, `albumentations`, `wandb`, `google-api-python-client`, `google-auth-httplib2`, `google-auth-oauthlib`) without touching PyTorch.
 - **Optional Dependencies (`local`)**: Installs base, secondary, and local PyTorch/Torchvision binaries.
 - **Dependency Groups (`dev`)**: Locked toolchain for developer environment (`pytest`, `pyright`, `ruff`, `pytest-cov`).
 
-### Technical Edge Cases & Safe Mitigation
-
-#### A. Ultralytics Implicit Dependency
-`ultralytics` requires `torch` and `torchvision`. 
-- **Colab/Kaggle**: When installing the `cloud` extra, `pip` detects the pre-installed PyTorch in the system and skips its download, functioning as expected.
-- **Clean Cloud Instances (AWS, GCP, RunPod, Clean Docker)**: If the `cloud` extra is installed on a raw machine without PyTorch, `pip` will automatically force-download the default PyTorch from PyPI. **The `cloud` extra assumes a pre-existing PyTorch environment is already active.**
-
-#### B. Local Binary Sources & GPU Acceleration
-Installing the `local` extra directly from PyPI installs the default PyTorch binaries.
-- **CUDA Support (Windows/Linux)**: PyPI installs PyTorch compiled with the latest supported CUDA version. If your local hardware uses a different CUDA version, use index URLs during installation:
-  ```bash
-  uv pip install -e .[local] --extra-index-url https://download.pytorch.org/whl/cu121
-  ```
-- **Apple Silicon (macOS)**: No extra index is needed; standard PyPI PyTorch works out of the box with MPS acceleration.
-
-#### C. Version Parity
-Colab and Kaggle update their pre-installed PyTorch/CUDA environments slowly (often months behind). Running a newer PyTorch version locally (e.g. 2.5) than in Colab (e.g. 2.2) can cause silent inference discrepancies.
-- **Action**: Check Colab's PyTorch version (`import torch; print(torch.__version__)`) and anchor the local version in `pyproject.toml` or install arguments accordingly (e.g., `torch==2.x.x`).
-
 ---
 
-## 3. Cloud Execution Workflow (Colab / Kaggle)
+## 3. Recommended 5-Step Development Workflow
 
-To run scripts efficiently in Colab or Kaggle:
+All developers and AI agents working on this repository **must** strictly adhere to the following workflow before making any commits:
 
-### Step 1: Clone and Install Editable
-Mount Google Drive, pull the latest code, and install the package using `%pip install -q -e .[cloud]`.
-```python
-# Synchronize code repository
-import os
-if not os.path.exists('article'):
-    !git clone -q https://github.com/unsa-semester-2026-A/ia_article.git
-    %cd article/experiments
-else:
-    %cd article
-    !git pull -q
-    %cd experiments
+### Step 1: Rapid Prototyping (Interactive Notebooks)
+Explore datasets and run initial algorithms on a small subset of data (few images/clips) using scratch notebooks inside `experiments/notebooks/`.
 
-# Install the experiments package in editable mode
-%pip install -q -e .[cloud]
-```
+### Step 2: Modularization
+Move the tested code into structured, clean classes or functions inside `experiments/src/`. Avoid hardcoded configurations.
 
-### Step 2: Run Colocated Tests
-Verify everything is working before running:
-```bash
-!pytest src/
-```
-
-### Step 3: Run Modules via `%run`
-Always run Python scripts using the `%run` magic command instead of `!python`.
-```python
-%run src/data_preparation/parser.py --csv_path dummy.csv --images_dir . --output_dir ./dataset
-```
-*Why `%run`?*
-Using `%run` executes the script inside the active IPython kernel space. If the script throws an error or finishes, the model, tensores, and variables remain alive in the Colab notebook memory, allowing immediate debugging.
-
----
-
-## 4. Local Execution Workflow (using `uv`)
-
-For local code editing and testing, use the `uv` toolchain to run commands in isolated environments:
-
-### Lockfile Synchronization
-To guarantee exact reproducibility across all developers and platforms, **all team members MUST commit the `uv.lock` file** to the Git repository.
-
-### Running Tests and Coverage
+### Step 3: Colocated Unit Tests
+Write comprehensive unit tests colocated next to your production scripts. Verify that 100% of tests pass using:
 ```bash
 uv run pytest src/
 ```
 
-### Running Static Type Checking
-Pyright is configured in strict mode. All parameter and return types must be fully annotated.
+### Step 4: Ruff Code Formatting & Lint Compliance
+Ruff formatting and style checks are **compulsory**. Run these commands to auto-format and fix lints:
 ```bash
-uv run pyright src/
+uv run ruff format src/
+uv run ruff check src/ --fix
 ```
+The checks must output `All checks passed!` without any warnings before committing code.
 
-### Running Linting and Code Formatting
-Ruff checks for standard syntax formatting and enforces Google docstring conventions:
-```bash
-uv run ruff check src/
-```
+### Step 5: Deployment in a Lightweight Orchestrator Notebook
+Execute the production script on the full cloud dataset (Kaggle/Colab) using a lightweight orchestrator notebook (like `final-notebook-optimized.ipynb`). The notebook must perform:
+1. Sparse clone to fetch only the lightweight `experiments/` directory.
+2. Editable installation: `%pip install -e .[cloud]`.
+3. Pre-flight check via `!pytest src/`.
+4. Script execution via `%run src/path_to_module/script.py`.
 
 ---
 
-## 5. Google Drive Sharing & Data Storage Guidelines
+## 4. Google Drive Sharing & Data Storage Guidelines
 
 To handle heavy datasets (~60GB zipped) across different cloud runtimes or shared Google accounts:
 
 - **Google Drive Sharing**: Share the folder as "Editor". On the secondary account, add a shortcut to "My Drive" (Organize > Add shortcut > My Drive).
 - **Fast SSD I/O**: Never unzip dataset files directly inside Google Drive. Copy the `.zip` archive from Drive to the local VM disk `/content/` and unzip it there for extremely fast SSD reads.
-- **Output Sync**: Only write small serialized metadata (like `.json` or `.txt` label zips) back to Drive.
+- **Output Sync**: Only write small serialized metadata (like `.json` or `.txt` label zips) back to Drive. Use direct Drive API uploads with `supportsAllDrives=True` to bypass local storage quotas.

@@ -5,7 +5,7 @@ Este documento detalla las especificaciones del pipeline temporal para el auto-e
 ---
 
 ## 1. Objetivo
-Detectar con precisión la ubicación de vehículos estáticos a partir de un modelo de alta sensibilidad (YOLO26s-OBB) entrenado únicamente con las anotaciones en movimiento, aplicando un filtro temporal que compense el movimiento relativo del dron (ego-motion) para evitar falsas detecciones.
+Detectar con precisión la ubicación de vehículos estáticos a partir de un modelo pre-entrenado `yolo26s-obb` (Zero-Shot con pesos de DOTA), evitando el entrenamiento directo en MTC que penalizaría la detección de vehículos estáticos (ya que no están anotados en MTC). Se aplica un filtro temporal que compensa el movimiento relativo del dron (ego-motion) para aislar los vehículos estáticos y evitar falsas detecciones.
 
 ---
 
@@ -17,7 +17,7 @@ Detectar con precisión la ubicación de vehículos estáticos a partir de un mo
        └──────────┬─────────────┘
                   ▼
    ┌──────────────────────────────┐
-   │ YOLO26s-OBB (Inferencia)     │ <── (Umbral de Confianza = 0.10)
+   │ YOLO26s-OBB (Inferencia)     │ <── (Zero-Shot DOTA, Conf = 0.40)
    │  Detecta TODOS los vehículos │
    └──────────┬───────────────────┘
                   ▼
@@ -44,11 +44,11 @@ Detectar con precisión la ubicación de vehículos estáticos a partir de un mo
 
 ## 3. Especificaciones de los Módulos
 
-### 3.1 Modelo de Inferencia Exhaustiva
-* **Arquitectura:** `YOLO26s-obb` (9.8 millones de parámetros). Se selecciona esta versión para tener un balance ideal entre velocidad de inferencia en GPUs de la nube (Tesla P100 o T4) y capacidad de generalización espacial (recall superior a la versión `nano`).
-* **Entrenamiento del Detector Base:** El modelo se entrena durante $50$ épocas a una resolución de $640$ píxeles utilizando el train split de la Fase 01 (datos originales).
+### 3.1 Modelo de Inferencia (Zero-Shot)
+* **Arquitectura:** `yolo26m-obb` (21.2 millones de parámetros) pre-entrenado en el dataset DOTA v1.0. Se selecciona esta versión (Medium) para obtener mayor capacidad de generalización y recall en la detección de vehículos pequeños desde perspectiva aérea.
+* **Estrategia Zero-Shot:** En lugar de entrenar el modelo en el dataset de MTC primero (lo cual enseñaría al modelo a *no* detectar vehículos estacionados, bajando su confianza), usamos los pesos pre-entrenados de fábrica en DOTA. Esto evita el castigo metodológico del dataset ruidoso.
 * **Configuración de Inferencia:**
-  - `conf = 0.10`: Umbral muy bajo para maximizar el recall. Se asume que los falsos positivos se descartarán mediante consistencia temporal.
+  - `conf = 0.25`: Umbral de confianza optimizado que maximiza el recall de vehículos estacionados reales sin introducir falsos positivos significativos en las secuencias de tracking.
   - `iou = 0.50`
   - Entrada: Todo el conjunto de imágenes de entrenamiento (54,262 fotogramas).
 
