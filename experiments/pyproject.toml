@@ -22,6 +22,7 @@ dependencies = [
     "pandas",
     "pyyaml",
     "scikit-learn",
+    "tqdm",
 ]
 
 [project.optional-dependencies]
@@ -66,9 +67,11 @@ reportUnknownParameterType = true
 line-length = 88
 target-version = "py312"
 src = ["src"]
+exclude = ["notebooks"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "D"]
+ignore = ["E501"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
