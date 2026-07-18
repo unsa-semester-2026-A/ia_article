@@ -234,9 +234,9 @@ Tareas:
 - [ ] Mostrar paso a paso los componentes de la métrica:
   - [x] rIoU.
   - [x] Matching.
-  - [ ] Precision y Recall.
-  - [ ] AP.
-- [ ] Registrar las conclusiones experimentales que se migrarán al módulo.
+  - [x] Precision y Recall.
+  - [x] AP.
+- [x] Registrar las conclusiones experimentales que se migrarán al módulo.
 
 Criterio de avance: Saúl y Dolly pueden ejecutar el notebook desde el inicio,
 explicar cada resultado y distinguir el código exploratorio del contrato de
@@ -332,7 +332,7 @@ def average_precision_101(tp, fp, total_gt) -> float:
 
 Tareas:
 
-- [ ] Construir primero en `prototipo_metric.ipynb` una tabla pequeña de TP,
+- [x] Construir primero en `prototipo_metric.ipynb` una tabla pequeña de TP,
       FP, Precision y Recall cuyo AP pueda calcularse a mano.
 - [ ] Calcular TP y FP acumulados.
 - [ ] Calcular Precision y Recall acumulados.
@@ -348,7 +348,7 @@ interpolación COCO de 101 puntos.
 
 Tareas:
 
-- [ ] Verificar primero en `prototipo_metric.ipynb` cómo se promedian los 63
+- [x] Verificar primero en `prototipo_metric.ipynb` cómo se promedian los 63
       resultados y por qué una clase sin GT aporta cero.
 - [ ] Evaluar `9 clases × 7 umbrales = 63` combinaciones.
 - [ ] Calcular AP promedio de cada clase.
@@ -588,7 +588,7 @@ Actualizar esta sección al final de cada sesión de trabajo.
 | Etapa | Estado | Evidencia | Observaciones |
 |---|---|---|---|
 | A0: paquete e interfaces | Completada | `1 passed`; Ruff y Pyright sin errores | Contrato creado; la métrica aún no calcula rIoU. |
-| A0.1: prototipo de métrica | En progreso | OBB, rIoU y matching greedy ejecutados en Colab sin errores; orden estable, asignación uno a uno, restricciones de frame/clase e invariantes cumplen | Falta experimentar con Precision, Recall y AP. |
+| A0.1: prototipo de métrica | En validación | Pipeline completo ejecutado localmente: OBB, rIoU, matching, Precision/Recall, AP-101, 9 clases, 7 umbrales y casos sintéticos pasan | OBB, rIoU y matching ya pasaron en Colab; falta ejecutar las nuevas celdas de Precision, Recall, AP y Macro AP en Colab. |
 | A1: representación OBB | Pendiente | | |
 | A2: rIoU | Pendiente | | |
 | A3: matching greedy | Pendiente | | |
