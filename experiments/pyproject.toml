@@ -32,6 +32,9 @@ cloud = [
     "pytest-cov",
     "albumentations",
     "wandb",
+    "google-api-python-client",
+    "google-auth-httplib2",
+    "google-auth-oauthlib",
 ]
 local = [
     "ultralytics",
@@ -41,6 +44,9 @@ local = [
     "pytest-cov",
     "albumentations",
     "wandb",
+    "google-api-python-client",
+    "google-auth-httplib2",
+    "google-auth-oauthlib",
 ]
 
 [dependency-groups]

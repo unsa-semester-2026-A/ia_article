@@ -45,14 +45,14 @@ THEORETICAL_STATS: Dict[str, int] = {
 
 THEORETICAL_CLASSES: Dict[int, int] = {
     0: 481731,  # Car (auto)
-    1: 10152,   # Combi
-    2: 2802,    # Microbus
-    3: 18941,   # Minibus
-    4: 2283,    # Omnibus
-    5: 250,     # Articulated bus
-    6: 32668,   # Truck (camion)
-    7: 5539,    # Mototaxi
-    8: 47568,   # Motorcycle (motocicleta)
+    1: 10152,  # Combi
+    2: 2802,  # Microbus
+    3: 18941,  # Minibus
+    4: 2283,  # Omnibus
+    5: 250,  # Articulated bus
+    6: 32668,  # Truck (camion)
+    7: 5539,  # Mototaxi
+    8: 47568,  # Motorcycle (motocicleta)
 }
 
 
@@ -116,7 +116,7 @@ def convert_obb_to_corners(
 
 
 def process_single_row(
-    row_tuple: Tuple[str, str, str, int, int]
+    row_tuple: Tuple[str, str, str, int, int],
 ) -> Tuple[int, List[int], int]:
     """Processes a single row from the CSV, parsing annotations and writing label file.
 
@@ -227,9 +227,7 @@ def main() -> None:
 
         # 1. Deterministic split by clip_id
         print("Computing deterministic splits...")
-        df_raw["clip_id"] = df_raw["Id"].apply(
-            lambda x: "_".join(x.split("_")[:-1])
-        )
+        df_raw["clip_id"] = df_raw["Id"].apply(lambda x: "_".join(x.split("_")[:-1]))
         unique_clips = sorted(df_raw["clip_id"].unique())
 
         from sklearn.model_selection import train_test_split
@@ -240,14 +238,12 @@ def main() -> None:
 
         train_clips_set = set(train_clips)
         clip_to_split = {
-            clip: "train" if clip in train_clips_set else "val"
-            for clip in unique_clips
+            clip: "train" if clip in train_clips_set else "val" for clip in unique_clips
         }
 
         # 2. Export metadata and configuration files
         metadata_records = [
-            {"clip_id": clip, "split": split}
-            for clip, split in clip_to_split.items()
+            {"clip_id": clip, "split": split} for clip, split in clip_to_split.items()
         ]
         metadata_df = pd.DataFrame(metadata_records)
         metadata_path = os.path.join(args.output_dir, "split_metadata.csv")
@@ -323,61 +319,57 @@ def main() -> None:
 
         # 5. Strict Audit Statistics Validation
         print("\n=== Performing Strict Statistical Audit ===")
-        print(
-            f"Total Frames: {total_frames} / "
-            f"{THEORETICAL_STATS['total_frames']}"
+        print(f"Total Frames: {total_frames} / {THEORETICAL_STATS['total_frames']}")
+        assert total_frames == THEORETICAL_STATS["total_frames"], (
+            "Frame count mismatch."
         )
-        assert (
-            total_frames == THEORETICAL_STATS["total_frames"]
-        ), "Frame count mismatch."
 
         print(
-            f"Total OBB Objects: {total_objects} / "
-            f"{THEORETICAL_STATS['total_objects']}"
+            f"Total OBB Objects: {total_objects} / {THEORETICAL_STATS['total_objects']}"
         )
-        assert (
-            total_objects == THEORETICAL_STATS["total_objects"]
-        ), "Object count mismatch."
+        assert total_objects == THEORETICAL_STATS["total_objects"], (
+            "Object count mismatch."
+        )
 
         print(
             f"Total Unique Clips: {len(unique_clips)} / "
             f"{THEORETICAL_STATS['total_clips']}"
         )
-        assert (
-            len(unique_clips) == THEORETICAL_STATS["total_clips"]
-        ), "Clip count mismatch."
+        assert len(unique_clips) == THEORETICAL_STATS["total_clips"], (
+            "Clip count mismatch."
+        )
 
         print(
             f"Empty Frames ('none'): {empty_frames} / "
             f"{THEORETICAL_STATS['empty_frames']}"
         )
-        assert (
-            empty_frames == THEORETICAL_STATS["empty_frames"]
-        ), "Empty frames count mismatch."
+        assert empty_frames == THEORETICAL_STATS["empty_frames"], (
+            "Empty frames count mismatch."
+        )
 
         print(
             f"Frames with 1 object: {frames_1_obj} / "
             f"{THEORETICAL_STATS['frames_1_obj']}"
         )
-        assert (
-            frames_1_obj == THEORETICAL_STATS["frames_1_obj"]
-        ), "Frames with 1 object mismatch."
+        assert frames_1_obj == THEORETICAL_STATS["frames_1_obj"], (
+            "Frames with 1 object mismatch."
+        )
 
         print(
             f"Frames with >=2 objects: {frames_ge2_obj} / "
             f"{THEORETICAL_STATS['frames_ge2_obj']}"
         )
-        assert (
-            frames_ge2_obj == THEORETICAL_STATS["frames_ge2_obj"]
-        ), "Frames with >=2 objects mismatch."
+        assert frames_ge2_obj == THEORETICAL_STATS["frames_ge2_obj"], (
+            "Frames with >=2 objects mismatch."
+        )
 
         print(
             f"Max objects in single frame: {max_objs_per_frame} / "
             f"{THEORETICAL_STATS['max_objs_per_frame']}"
         )
-        assert (
-            max_objs_per_frame == THEORETICAL_STATS["max_objs_per_frame"]
-        ), "Max objects per frame mismatch."
+        assert max_objs_per_frame == THEORETICAL_STATS["max_objs_per_frame"], (
+            "Max objects per frame mismatch."
+        )
 
         print("\nClass Distribution:")
         for cls_id, target in THEORETICAL_CLASSES.items():
@@ -387,9 +379,7 @@ def main() -> None:
                 f"  Class {cls_id} ({CLASS_MAPPING[cls_id]}): "
                 f"{count:6d} ({pct:5.2f}%) [Target: {target}]"
             )
-            assert (
-                count == target
-            ), f"Instance count mismatch for Class {cls_id}."
+            assert count == target, f"Instance count mismatch for Class {cls_id}."
 
         print("✓ Strict statistical audit passed successfully.")
 
@@ -400,9 +390,7 @@ def main() -> None:
             pct_train = (
                 split_class_counts["train"][cls] / split_total_objs["train"]
             ) * 100
-            pct_val = (
-                split_class_counts["val"][cls] / split_total_objs["val"]
-            ) * 100
+            pct_val = (split_class_counts["val"][cls] / split_total_objs["val"]) * 100
 
             diff_train = abs(pct_train - pct_total)
             diff_val = abs(pct_val - pct_total)
@@ -411,12 +399,12 @@ def main() -> None:
             print(f"  Train: {pct_train:6.2f}% (diff: {diff_train:5.2f}%)")
             print(f"  Val:   {pct_val:6.2f}% (diff: {diff_val:5.2f}%)")
 
-            assert (
-                diff_train <= 2.0
-            ), f"Class {cls} train split deviation exceeds 2% absolute."
-            assert (
-                diff_val <= 2.0
-            ), f"Class {cls} val split deviation exceeds 2% absolute."
+            assert diff_train <= 2.0, (
+                f"Class {cls} train split deviation exceeds 2% absolute."
+            )
+            assert diff_val <= 2.0, (
+                f"Class {cls} val split deviation exceeds 2% absolute."
+            )
         print("✓ Split parity checks passed successfully.")
 
         # 7. Compress the generated labels

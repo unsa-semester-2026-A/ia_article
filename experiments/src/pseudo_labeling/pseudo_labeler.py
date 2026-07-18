@@ -32,14 +32,28 @@ def get_vehicle_class_ids(model: YOLO) -> List[int]:
     """Finds DOTA model class indices corresponding to vehicles."""
     vehicle_class_ids = []
     for idx, name in model.names.items():
-        clean_name = name.lower().replace('-', ' ').replace('_', ' ')
-        if any(keyword in clean_name for keyword in ['small vehicle', 'large vehicle', 'car', 'bus', 'truck', 'vehicle']):
+        clean_name = name.lower().replace("-", " ").replace("_", " ")
+        if any(
+            keyword in clean_name
+            for keyword in [
+                "small vehicle",
+                "large vehicle",
+                "car",
+                "bus",
+                "truck",
+                "vehicle",
+            ]
+        ):
             vehicle_class_ids.append(int(idx))
     return vehicle_class_ids
 
 
 # Homography calculation
-def estimate_homography(prev_gray: np.ndarray, curr_gray: np.ndarray, prev_detections: List[np.ndarray] = None) -> Tuple[np.ndarray, bool]:
+def estimate_homography(
+    prev_gray: np.ndarray,
+    curr_gray: np.ndarray,
+    prev_detections: List[np.ndarray] = None,
+) -> Tuple[np.ndarray, bool]:
     """Estimates the 3x3 homography matrix between prev and curr frames, excluding dynamic foreground.
 
     Args:
@@ -52,7 +66,7 @@ def estimate_homography(prev_gray: np.ndarray, curr_gray: np.ndarray, prev_detec
     """
     orb = cv2.ORB_create(nfeatures=2500)
     bg_mask = np.ones_like(prev_gray, dtype=np.uint8) * 255
-    
+
     if prev_detections is not None:
         for det in prev_detections:
             poly = np.array(det, dtype=np.int32).reshape((-1, 1, 2))
@@ -94,7 +108,7 @@ def project_centroid(cx: float, cy: float, H: np.ndarray) -> Tuple[float, float]
 # Simple Centroid Tracker
 class CentroidTracker:
     """Tracks bounding box centroids across sequential frames using motion projection."""
-    
+
     def __init__(self, max_distance: float = 30.0):
         """Initializes the CentroidTracker with a maximum proximity distance."""
         self.next_object_id = 0
@@ -102,7 +116,12 @@ class CentroidTracker:
         self.history: Dict[int, List[Tuple]] = {}
         self.max_distance = max_distance
 
-    def update(self, frame_idx: int, detections: List[Tuple[float, float, float, float, float, float]], H: np.ndarray):
+    def update(
+        self,
+        frame_idx: int,
+        detections: List[Tuple[float, float, float, float, float, float]],
+        H: np.ndarray,
+    ):
         """Updates trackers using newly detected objects in current frame.
 
         Args:
@@ -127,7 +146,10 @@ class CentroidTracker:
                 dists = np.linalg.norm(det_points - object_points[i], axis=1)
                 min_idx = np.argmin(dists)
 
-                if dists[min_idx] < self.max_distance and min_idx not in assigned_det_indices:
+                if (
+                    dists[min_idx] < self.max_distance
+                    and min_idx not in assigned_det_indices
+                ):
                     det = detections[min_idx]
                     new_objects[obj_id] = (det[0], det[1])
                     self.history[obj_id].append((frame_idx, *det))
@@ -144,17 +166,28 @@ class CentroidTracker:
 
 
 # Ground Truth checks and filtering
-def check_gt_matching(tracked_cx: float, tracked_cy: float, gt_df: pd.DataFrame, frame_idx: int, dist_threshold: float = 30.0) -> bool:
+def check_gt_matching(
+    tracked_cx: float,
+    tracked_cy: float,
+    gt_df: pd.DataFrame,
+    frame_idx: int,
+    dist_threshold: float = 30.0,
+) -> bool:
     """Checks if a tracked centroid matches an annotated moving vehicle in the ground truth."""
-    frame_gt = gt_df[gt_df['frame_idx'] == frame_idx]
+    frame_gt = gt_df[gt_df["frame_idx"] == frame_idx]
     if frame_gt.empty:
         return False
-    gt_coords = frame_gt[['cx', 'cy']].values
+    gt_coords = frame_gt[["cx", "cy"]].values
     dists = np.linalg.norm(gt_coords - np.array([tracked_cx, tracked_cy]), axis=1)
     return bool(np.any(dists < dist_threshold))
 
 
-def filter_static_vehicles(tracker_history: Dict[int, List[Tuple]], gt_df: pd.DataFrame, min_frames: int = 10, motion_threshold: float = 8.0) -> Dict[str, List[Dict]]:
+def filter_static_vehicles(
+    tracker_history: Dict[int, List[Tuple]],
+    gt_df: pd.DataFrame,
+    min_frames: int = 10,
+    motion_threshold: float = 8.0,
+) -> Dict[str, List[Dict]]:
     """Filters tracked trajectories to isolate static vehicles that do not match the GT."""
     static_detections = {}
     for obj_id, traj in tracker_history.items():
@@ -180,14 +213,16 @@ def filter_static_vehicles(tracker_history: Dict[int, List[Tuple]], gt_df: pd.Da
                     frame_name = f"frame_{frame_idx:04d}"
                     if frame_name not in static_detections:
                         static_detections[frame_name] = []
-                    static_detections[frame_name].append({
-                        "cx": float(cx),
-                        "cy": float(cy),
-                        "w": float(w),
-                        "h": float(h),
-                        "angle": float(angle),
-                        "conf": float(conf)
-                    })
+                    static_detections[frame_name].append(
+                        {
+                            "cx": float(cx),
+                            "cy": float(cy),
+                            "w": float(w),
+                            "h": float(h),
+                            "angle": float(angle),
+                            "conf": float(conf),
+                        }
+                    )
     return static_detections
 
 
@@ -207,7 +242,7 @@ class PseudoLabeler:
         batch_size: int = 16,
         token_path: str = "/content/drive/MyDrive/ia_article/token/token.json",
         folder_id: str = "1J5ogC3q6jyYlk3wuYyxpYZHslUg6eGtN",
-        checkpoints_folder_id: str = "1anPtHNwHYgcq4BImhbJ_xzouiJ-Sh035"
+        checkpoints_folder_id: str = "1anPtHNwHYgcq4BImhbJ_xzouiJ-Sh035",
     ):
         """Initializes the PseudoLabeler with required paths and execution options."""
         self.csv_path = csv_path
@@ -230,8 +265,11 @@ class PseudoLabeler:
         try:
             from google.oauth2.credentials import Credentials
             from googleapiclient.discovery import build
-            creds = Credentials.from_authorized_user_file(self.token_path, ['https://www.googleapis.com/auth/drive.file'])
-            return build('drive', 'v3', credentials=creds)
+
+            creds = Credentials.from_authorized_user_file(
+                self.token_path, ["https://www.googleapis.com/auth/drive.file"]
+            )
+            return build("drive", "v3", credentials=creds)
         except Exception as e:
             print(f"Error initializing Google Drive API: {e}", file=sys.stderr)
             return None
@@ -245,18 +283,22 @@ class PseudoLabeler:
         try:
             while True:
                 query = f"'{self.checkpoints_folder_id}' in parents and trashed = false"
-                results = service.files().list(
-                    q=query,
-                    pageSize=1000,
-                    fields="nextPageToken, files(id, name)",
-                    pageToken=page_token
-                ).execute()
-                
-                for f in results.get('files', []):
-                    if f['name'].endswith('.json'):
-                        processed.add(f['name'].split('.')[0])
-                        
-                page_token = results.get('nextPageToken', None)
+                results = (
+                    service.files()
+                    .list(
+                        q=query,
+                        pageSize=1000,
+                        fields="nextPageToken, files(id, name)",
+                        pageToken=page_token,
+                    )
+                    .execute()
+                )
+
+                for f in results.get("files", []):
+                    if f["name"].endswith(".json"):
+                        processed.add(f["name"].split(".")[0])
+
+                page_token = results.get("nextPageToken", None)
                 if page_token is None:
                     break
             return processed
@@ -264,30 +306,40 @@ class PseudoLabeler:
             print(f"Error listing checkpoints from Google Drive: {e}", file=sys.stderr)
             return set()
 
-    def _upload_file_to_drive(self, service, local_path: str, parent_folder_id: str, mime_type: str = "application/json"):
+    def _upload_file_to_drive(
+        self,
+        service,
+        local_path: str,
+        parent_folder_id: str,
+        mime_type: str = "application/json",
+    ):
         """Uploads a local file to a specific Drive folder ID using resumable upload API."""
         if not service:
             return None
         try:
             from googleapiclient.http import MediaIoBaseUpload
+
             filename = os.path.basename(local_path)
-            with open(local_path, 'rb') as f:
+            with open(local_path, "rb") as f:
                 file_data = f.read()
             flujo_archivo = io.BytesIO(file_data)
             metadatos = {
-                'name': filename,
-                'mimeType': mime_type,
-                'parents': [parent_folder_id]
+                "name": filename,
+                "mimeType": mime_type,
+                "parents": [parent_folder_id],
             }
             media = MediaIoBaseUpload(flujo_archivo, mimetype=mime_type, resumable=True)
-            archivo = service.files().create(
-                body=metadatos,
-                media_body=media,
-                fields='id'
-            ).execute()
-            return archivo.get('id')
+            archivo = (
+                service.files()
+                .create(body=metadatos, media_body=media, fields="id")
+                .execute()
+            )
+            return archivo.get("id")
         except Exception as e:
-            print(f"Error uploading file {local_path} to Google Drive: {e}", file=sys.stderr)
+            print(
+                f"Error uploading file {local_path} to Google Drive: {e}",
+                file=sys.stderr,
+            )
             return None
 
     def _download_missing_checkpoints(self, service, local_checkpoint_dir: str):
@@ -298,33 +350,39 @@ class PseudoLabeler:
         try:
             while True:
                 query = f"'{self.checkpoints_folder_id}' in parents and trashed = false"
-                results = service.files().list(
-                    q=query,
-                    pageSize=1000,
-                    fields="nextPageToken, files(id, name)",
-                    pageToken=page_token
-                ).execute()
-                
-                files = results.get('files', [])
+                results = (
+                    service.files()
+                    .list(
+                        q=query,
+                        pageSize=1000,
+                        fields="nextPageToken, files(id, name)",
+                        pageToken=page_token,
+                    )
+                    .execute()
+                )
+
+                files = results.get("files", [])
                 for f in files:
-                    filename = f['name']
-                    if not filename.endswith('.json'):
+                    filename = f["name"]
+                    if not filename.endswith(".json"):
                         continue
                     local_path = os.path.join(local_checkpoint_dir, filename)
                     if os.path.exists(local_path):
                         continue  # Already downloaded
-                        
-                    file_id = f['id']
+
+                    file_id = f["id"]
                     request = service.files().get_media(fileId=file_id)
                     content = request.execute()
-                    with open(local_path, 'wb') as fh:
+                    with open(local_path, "wb") as fh:
                         fh.write(content)
 
-                page_token = results.get('nextPageToken', None)
+                page_token = results.get("nextPageToken", None)
                 if page_token is None:
                     break
         except Exception as e:
-            print(f"Error downloading checkpoints from Google Drive: {e}", file=sys.stderr)
+            print(
+                f"Error downloading checkpoints from Google Drive: {e}", file=sys.stderr
+            )
 
     def run(self) -> str:
         """Runs the complete pseudo-labeling pipeline over the training split clips."""
@@ -337,66 +395,97 @@ class PseudoLabeler:
             if service:
                 print("✓ Google Drive API service initialized.")
                 drive_processed_clips = self._get_processed_clips_from_drive(service)
-                print(f"✓ Found {len(drive_processed_clips)} processed clips on Google Drive.")
+                print(
+                    f"✓ Found {len(drive_processed_clips)} processed clips on Google Drive."
+                )
             else:
-                print("Warning: Google Drive API service not initialized or token missing. Running in local-only mode.")
+                print(
+                    "Warning: Google Drive API service not initialized or token missing. Running in local-only mode."
+                )
                 drive_processed_clips = set()
 
             print("Loading pre-trained YOLO OBB model...")
             model = YOLO(self.model_name)
             vehicle_class_ids = get_vehicle_class_ids(model)
-            print(f"Dynamically mapped vehicle class IDs from {self.model_name}: {vehicle_class_ids}")
+            print(
+                f"Dynamically mapped vehicle class IDs from {self.model_name}: {vehicle_class_ids}"
+            )
 
             print("Loading annotations dataset...")
             df_raw = pd.read_csv(self.csv_path)
-            df_raw['clip_id'] = df_raw['Id'].apply(lambda x: '_'.join(x.split('_')[:-1]))
+            df_raw["clip_id"] = df_raw["Id"].apply(
+                lambda x: "_".join(x.split("_")[:-1])
+            )
 
             # Filter only train split clips if metadata is present
             if os.path.exists(self.metadata_path):
                 metadata_df = pd.read_csv(self.metadata_path)
-                train_clips = set(metadata_df[metadata_df['split'] == 'train']['clip_id'].unique())
-                unique_clips = sorted([c for c in df_raw['clip_id'].unique() if c in train_clips])
-                print(f"✓ split_metadata.csv found. Filtering for {len(unique_clips)} 'train' split clips (val clips skipped).")
+                train_clips = set(
+                    metadata_df[metadata_df["split"] == "train"]["clip_id"].unique()
+                )
+                unique_clips = sorted(
+                    [c for c in df_raw["clip_id"].unique() if c in train_clips]
+                )
+                print(
+                    f"✓ split_metadata.csv found. Filtering for {len(unique_clips)} 'train' split clips (val clips skipped)."
+                )
             else:
-                unique_clips = sorted(df_raw['clip_id'].unique())
-                print(f"Warning: split_metadata.csv not found at {self.metadata_path}. Processing all {len(unique_clips)} clips.")
+                unique_clips = sorted(df_raw["clip_id"].unique())
+                print(
+                    f"Warning: split_metadata.csv not found at {self.metadata_path}. Processing all {len(unique_clips)} clips."
+                )
 
             # Filter out parsed GT annotations for fast cross-referencing
             parsed_records = []
             print("Pre-parsing ground truth coordinates for validation check...")
-            df_raw_sub = df_raw[df_raw['clip_id'].isin(unique_clips)].copy()
+            df_raw_sub = df_raw[df_raw["clip_id"].isin(unique_clips)].copy()
             for _, row in tqdm(df_raw_sub.iterrows(), total=len(df_raw_sub)):
-                frame_id = row['Id']
-                target = row['Target']
-                parts = frame_id.split('_')
-                clip_id = '_'.join(parts[:-1])
+                frame_id = row["Id"]
+                target = row["Target"]
+                parts = frame_id.split("_")
+                clip_id = "_".join(parts[:-1])
                 frame_idx = int(parts[-1])
-                
-                if target == 'none' or pd.isna(target):
+
+                if target == "none" or pd.isna(target):
                     continue
-                for ann in target.split(';'):
-                    parts_ann = ann.strip().split(' ')
+                for ann in target.split(";"):
+                    parts_ann = ann.strip().split(" ")
                     if len(parts_ann) == 6:
-                        parsed_records.append({
-                            'Id': frame_id, 'clip_id': clip_id, 'frame_idx': frame_idx,
-                            'cx': float(parts_ann[1]), 'cy': float(parts_ann[2])
-                        })
-            gt_df = pd.DataFrame(parsed_records) if parsed_records else pd.DataFrame(columns=['Id', 'clip_id', 'frame_idx', 'cx', 'cy'])
+                        parsed_records.append(
+                            {
+                                "Id": frame_id,
+                                "clip_id": clip_id,
+                                "frame_idx": frame_idx,
+                                "cx": float(parts_ann[1]),
+                                "cy": float(parts_ann[2]),
+                            }
+                        )
+            gt_df = (
+                pd.DataFrame(parsed_records)
+                if parsed_records
+                else pd.DataFrame(columns=["Id", "clip_id", "frame_idx", "cx", "cy"])
+            )
 
             print(f"Total video clips to process: {len(unique_clips)}")
 
             # Open zip container once
-            with zipfile.ZipFile(self.zip_path, 'r') as z:
+            with zipfile.ZipFile(self.zip_path, "r") as z:
                 zip_files = z.namelist()
 
                 for clip in tqdm(unique_clips, desc="Processing video clips"):
                     checkpoint_path = os.path.join(checkpoint_dir, f"{clip}.json")
-                    
+
                     # Skip if either local or Drive checkpoint exists
                     if os.path.exists(checkpoint_path) or clip in drive_processed_clips:
                         continue
 
-                    clip_frames = sorted([f for f in zip_files if clip in f and f.endswith(('.jpg', '.png'))])
+                    clip_frames = sorted(
+                        [
+                            f
+                            for f in zip_files
+                            if clip in f and f.endswith((".jpg", ".png"))
+                        ]
+                    )
                     if not clip_frames:
                         continue
 
@@ -414,19 +503,26 @@ class PseudoLabeler:
                     try:
                         # 1. IO BURST READ: Load all frames into RAM sequentially
                         for frame_zip_path in clip_frames:
-                            frame_id_str = os.path.basename(frame_zip_path).split('.')[0]
-                            frame_indices.append(int(frame_id_str.split('_')[-1]))
-                            
+                            frame_id_str = os.path.basename(frame_zip_path).split(".")[
+                                0
+                            ]
+                            frame_indices.append(int(frame_id_str.split("_")[-1]))
+
                             with z.open(frame_zip_path) as file:
                                 img_bytes = file.read()
                             nparr = np.frombuffer(img_bytes, np.uint8)
                             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                            
+
                             frames_bgr.append(img)
                             frames_gray.append(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
 
                         # 2. BATCHED GPU INFERENCE: Run model on the batch list
-                        results = model.predict(frames_bgr, conf=self.conf_threshold, batch=self.batch_size, verbose=False)
+                        results = model.predict(
+                            frames_bgr,
+                            conf=self.conf_threshold,
+                            batch=self.batch_size,
+                            verbose=False,
+                        )
 
                         # 3. CPU STATEFUL UPDATE: Sequentially calculate homography and tracker
                         for i, r in enumerate(results):
@@ -434,7 +530,9 @@ class PseudoLabeler:
                             frame_idx = frame_indices[i]
 
                             if i > 0:
-                                H, success = estimate_homography(prev_gray, gray, prev_dets_poly)
+                                H, success = estimate_homography(
+                                    prev_gray, gray, prev_dets_poly
+                                )
                                 if not success:
                                     homography_failures += 1
                         else:
@@ -450,7 +548,7 @@ class PseudoLabeler:
                                     xywhr = box.xywhr[0].cpu().numpy()
                                     conf = float(box.conf[0].item())
                                     cx, cy, w, h, angle = xywhr
-                                    
+
                                     # Convert Radians to Degrees
                                     angle_deg = math.degrees(angle)
                                     detections.append((cx, cy, w, h, angle_deg, conf))
@@ -462,31 +560,42 @@ class PseudoLabeler:
                         prev_dets_poly = current_polys
 
                         # Filter static vehicles
-                        clip_gt_df = gt_df[gt_df['clip_id'] == clip]
-                        clip_static_map = filter_static_vehicles(tracker.history, clip_gt_df, self.min_frames, self.motion_threshold)
+                        clip_gt_df = gt_df[gt_df["clip_id"] == clip]
+                        clip_static_map = filter_static_vehicles(
+                            tracker.history,
+                            clip_gt_df,
+                            self.min_frames,
+                            self.motion_threshold,
+                        )
 
                         # Structure output keys
                         global_static_map = {}
                         for local_frame_name, boxes in clip_static_map.items():
-                            frame_idx_str = local_frame_name.split('_')[-1]
+                            frame_idx_str = local_frame_name.split("_")[-1]
                             frame_id = f"{clip}_{frame_idx_str}"
                             global_static_map[frame_id] = boxes
 
                         # 4. ATOMIC CHECKPOINT WRITE: Write to .tmp first and replace
                         temp_checkpoint_path = checkpoint_path + ".tmp"
-                        with open(temp_checkpoint_path, 'w') as f:
+                        with open(temp_checkpoint_path, "w") as f:
                             json.dump(global_static_map, f, indent=2)
                         os.replace(temp_checkpoint_path, checkpoint_path)
 
                         # 5. PERSISTENCE TO DRIVE: Upload clip checkpoint to Google Drive shared folder
                         if service:
-                            self._upload_file_to_drive(service, checkpoint_path, self.checkpoints_folder_id)
+                            self._upload_file_to_drive(
+                                service, checkpoint_path, self.checkpoints_folder_id
+                            )
 
-                        print(f"[{clip}] OBB Detections: {total_detections} | Tracks: {tracker.next_object_id} | Homography failures: {homography_failures}")
+                        print(
+                            f"[{clip}] OBB Detections: {total_detections} | Tracks: {tracker.next_object_id} | Homography failures: {homography_failures}"
+                        )
 
                     except Exception as e:
                         # Non-strict fail: log warning, clean memory, and continue to next clip
-                        print(f"\nAdvertencia: Fallo procesando el clip {clip}. Se saltará este clip.")
+                        print(
+                            f"\nAdvertencia: Fallo procesando el clip {clip}. Se saltará este clip."
+                        )
                         print(f"Detalle del error: {str(e)}")
                         sys.stdout.flush()
                         sys.stderr.flush()
@@ -506,23 +615,29 @@ class PseudoLabeler:
 
             # 6. DOWNLOAD MISSING FOR CONSOLIDATION: Ensuring all clips are in local dir
             if service:
-                print("\nDownloading missing checkpoints from Google Drive for consolidation...")
+                print(
+                    "\nDownloading missing checkpoints from Google Drive for consolidation..."
+                )
                 self._download_missing_checkpoints(service, checkpoint_dir)
 
             # Merge checkpoints into final static_vehicles.json
             print("\nMerging clip checkpoints into final JSON mapping...")
             all_static_data = {}
-            checkpoint_files = sorted([f for f in os.listdir(checkpoint_dir) if f.endswith('.json')])
+            checkpoint_files = sorted(
+                [f for f in os.listdir(checkpoint_dir) if f.endswith(".json")]
+            )
             for fn in checkpoint_files:
-                with open(os.path.join(checkpoint_dir, fn), 'r') as f:
+                with open(os.path.join(checkpoint_dir, fn), "r") as f:
                     all_static_data.update(json.load(f))
 
             final_json_path = os.path.join(self.output_dir, "static_vehicles.json")
-            with open(final_json_path, 'w') as f:
+            with open(final_json_path, "w") as f:
                 json.dump(all_static_data, f, indent=2)
 
             shutil.rmtree(checkpoint_dir)
-            print(f"✓ Pipeline completed successfully. Local JSON saved to: {final_json_path}")
+            print(
+                f"✓ Pipeline completed successfully. Local JSON saved to: {final_json_path}"
+            )
             print(f"Total frames containing static vehicles: {len(all_static_data)}")
 
             # Upload consolidated JSON to Drive
@@ -533,7 +648,10 @@ class PseudoLabeler:
             # AUTO-DISCONNECT RUNTIME: Save compute credits in Google Colab on success
             try:
                 from google.colab import runtime
-                print("Desconectando sesión de Google Colab automáticamente para salvar créditos de cómputo...")
+
+                print(
+                    "Desconectando sesión de Google Colab automáticamente para salvar créditos de cómputo..."
+                )
                 sys.stdout.flush()
                 sys.stderr.flush()
                 time.sleep(5)
@@ -545,11 +663,14 @@ class PseudoLabeler:
 
         except Exception as e:
             print(f"\nError crítico en la ejecución del pipeline: {e}", file=sys.stderr)
-            
+
             # Auto-disconnect Colab runtime to save compute credits on failures
             try:
                 from google.colab import runtime
-                print("Desconectando sesión de Google Colab debido a error para salvar créditos de cómputo...")
+
+                print(
+                    "Desconectando sesión de Google Colab debido a error para salvar créditos de cómputo..."
+                )
                 sys.stdout.flush()
                 sys.stderr.flush()
                 time.sleep(5)

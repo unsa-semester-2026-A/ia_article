@@ -1,4 +1,3 @@
-
 import pytest
 from src.data_preparation.parser import convert_obb_to_corners, parse_csv
 
