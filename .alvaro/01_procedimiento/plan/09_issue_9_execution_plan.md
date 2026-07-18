@@ -233,7 +233,7 @@ Tareas:
 - [x] Dibujar sus centros, vértices e intersecciones.
 - [ ] Mostrar paso a paso los componentes de la métrica:
   - [x] rIoU.
-  - [ ] Matching.
+  - [x] Matching.
   - [ ] Precision y Recall.
   - [ ] AP.
 - [ ] Registrar las conclusiones experimentales que se migrarán al módulo.
@@ -304,7 +304,7 @@ match_predictions()
 
 Tareas:
 
-- [ ] Simular primero en `prototipo_metric.ipynb` el orden por score y los
+- [x] Simular primero en `prototipo_metric.ipynb` el orden por score y los
       emparejamientos uno a uno.
 - [ ] Ordenar predicciones por score descendente de forma estable.
 - [ ] Comparar solo predicciones y GT de la misma clase y frame.
@@ -588,7 +588,7 @@ Actualizar esta sección al final de cada sesión de trabajo.
 | Etapa | Estado | Evidencia | Observaciones |
 |---|---|---|---|
 | A0: paquete e interfaces | Completada | `1 passed`; Ruff y Pyright sin errores | Contrato creado; la métrica aún no calcula rIoU. |
-| A0.1: prototipo de métrica | En progreso | Ejecutado en Colab sin celdas fallidas: OBB, validaciones, equivalencia angular, visualizaciones y rIoU cumplen los valores esperados | Faltan matching, Precision, Recall y AP antes de cerrar el prototipo. |
+| A0.1: prototipo de métrica | En progreso | OBB y rIoU validados en Colab; matching greedy validado localmente con duplicados, restricciones de frame/clase, FN y orden estable | Falta validar matching en Colab y experimentar con Precision, Recall y AP. |
 | A1: representación OBB | Pendiente | | |
 | A2: rIoU | Pendiente | | |
 | A3: matching greedy | Pendiente | | |
