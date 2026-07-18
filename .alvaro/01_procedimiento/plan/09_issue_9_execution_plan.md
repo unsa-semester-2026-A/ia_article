@@ -227,10 +227,11 @@ experiments/notebooks/evaluation/prototipo_metric.ipynb
 
 Tareas:
 
-- [ ] Crear el directorio y el notebook sin resultados pesados embebidos.
-- [ ] Documentar en la primera celda el objetivo, entradas y salidas.
-- [ ] Construir OBB sintéticas pequeñas que puedan verificarse manualmente.
-- [ ] Dibujar sus centros, vértices e intersecciones.
+- [x] Crear el directorio y el notebook sin resultados pesados embebidos.
+- [x] Documentar en la primera celda el objetivo, entradas y salidas.
+- [x] Construir OBB sintéticas pequeñas que puedan verificarse manualmente.
+- [ ] Dibujar sus centros, vértices e intersecciones. El centro y los vértices
+      ya están dibujados; la intersección se añadirá al estudiar rIoU.
 - [ ] Mostrar paso a paso rIoU, matching, Precision, Recall y AP.
 - [ ] Registrar las conclusiones experimentales que se migrarán al módulo.
 
@@ -584,7 +585,7 @@ Actualizar esta sección al final de cada sesión de trabajo.
 | Etapa | Estado | Evidencia | Observaciones |
 |---|---|---|---|
 | A0: paquete e interfaces | Completada | `1 passed`; Ruff y Pyright sin errores | Contrato creado; la métrica aún no calcula rIoU. |
-| A0.1: prototipo de métrica | Pendiente | | Debe completarse antes de A1. |
+| A0.1: prototipo de métrica | En progreso | OBB sintética comprobada y visualizada en `prototipo_metric.ipynb` | Faltan intersección, rIoU, matching y AP antes de cerrar el prototipo. |
 | A1: representación OBB | Pendiente | | |
 | A2: rIoU | Pendiente | | |
 | A3: matching greedy | Pendiente | | |
