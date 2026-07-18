@@ -230,9 +230,12 @@ Tareas:
 - [x] Crear el directorio y el notebook sin resultados pesados embebidos.
 - [x] Documentar en la primera celda el objetivo, entradas y salidas.
 - [x] Construir OBB sintéticas pequeñas que puedan verificarse manualmente.
-- [ ] Dibujar sus centros, vértices e intersecciones. El centro y los vértices
-      ya están dibujados; la intersección se añadirá al estudiar rIoU.
-- [ ] Mostrar paso a paso rIoU, matching, Precision, Recall y AP.
+- [x] Dibujar sus centros, vértices e intersecciones.
+- [ ] Mostrar paso a paso los componentes de la métrica:
+  - [x] rIoU.
+  - [ ] Matching.
+  - [ ] Precision y Recall.
+  - [ ] AP.
 - [ ] Registrar las conclusiones experimentales que se migrarán al módulo.
 
 Criterio de avance: Saúl y Dolly pueden ejecutar el notebook desde el inicio,
@@ -276,7 +279,7 @@ def rotated_iou(box_a: tuple, box_b: tuple) -> float:
 
 Tareas:
 
-- [ ] Visualizar primero en `prototipo_metric.ipynb` la intersección de dos
+- [x] Visualizar primero en `prototipo_metric.ipynb` la intersección de dos
       OBB y comprobar manualmente los casos extremos.
 - [ ] Calcular intersección de polígonos convexos.
 - [ ] Calcular unión como `área_a + área_b - intersección`.
@@ -585,7 +588,7 @@ Actualizar esta sección al final de cada sesión de trabajo.
 | Etapa | Estado | Evidencia | Observaciones |
 |---|---|---|---|
 | A0: paquete e interfaces | Completada | `1 passed`; Ruff y Pyright sin errores | Contrato creado; la métrica aún no calcula rIoU. |
-| A0.1: prototipo de métrica | En progreso | OBB sintética, validaciones y equivalencia angular comprobadas en `prototipo_metric.ipynb` | Faltan intersección, rIoU, matching y AP antes de cerrar el prototipo. |
+| A0.1: prototipo de métrica | En progreso | OBB, validaciones, equivalencia angular y rIoU comprobados en `prototipo_metric.ipynb` | Faltan matching, Precision, Recall y AP antes de cerrar el prototipo. |
 | A1: representación OBB | Pendiente | | |
 | A2: rIoU | Pendiente | | |
 | A3: matching greedy | Pendiente | | |
