@@ -1,0 +1,18 @@
+# smart_dataset.yaml
+# YOLO OBB Dataset Configuration template
+
+path: /content/dataset  # In Colab: /content/dataset. In Kaggle: /kaggle/input/smart-dataset/dataset
+train: train/images
+val: val/images
+
+# Mapeo de Clases 0-indexadas
+names:
+  0: auto
+  1: combi
+  2: microbus
+  3: minibus
+  4: omnibus
+  5: articulado
+  6: camion
+  7: mototaxi
+  8: motocicleta
