@@ -588,7 +588,7 @@ Actualizar esta sección al final de cada sesión de trabajo.
 | Etapa | Estado | Evidencia | Observaciones |
 |---|---|---|---|
 | A0: paquete e interfaces | Completada | `1 passed`; Ruff y Pyright sin errores | Contrato creado; la métrica aún no calcula rIoU. |
-| A0.1: prototipo de métrica | En progreso | OBB, validaciones, equivalencia angular y rIoU comprobados en `prototipo_metric.ipynb` | Faltan matching, Precision, Recall y AP antes de cerrar el prototipo. |
+| A0.1: prototipo de métrica | En progreso | Ejecutado en Colab sin celdas fallidas: OBB, validaciones, equivalencia angular, visualizaciones y rIoU cumplen los valores esperados | Faltan matching, Precision, Recall y AP antes de cerrar el prototipo. |
 | A1: representación OBB | Pendiente | | |
 | A2: rIoU | Pendiente | | |
 | A3: matching greedy | Pendiente | | |
