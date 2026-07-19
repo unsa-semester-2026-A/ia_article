@@ -587,14 +587,14 @@ Actualizar esta sección al final de cada sesión de trabajo.
 
 | Etapa | Estado | Evidencia | Observaciones |
 |---|---|---|---|
-| A0: paquete e interfaces | Completada | `1 passed`; Ruff y Pyright sin errores | Contrato creado; la métrica aún no calcula rIoU. |
-| A0.1: prototipo de métrica | Completada | Pipeline matemático completo ejecutado localmente y en Colab sin errores | Prototipo migrado al módulo; el notebook queda como explicación reproducible. |
-| A1: representación OBB | Completada | `validate_obb`, `normalize_angle` y `obb_to_polygon`; 19 tests pasan | Ruff y Pyright sin errores. |
+| A0: paquete e interfaces | Completada | Contrato público importable; Ruff y Pyright sin errores | La interfaz inicial ya contiene la implementación definitiva del Bloque A. |
+| A0.1: prototipo de métrica | Completada | Pipeline matemático completo ejecutado localmente y en Colab sin errores; fundamentación `Ding2022DOTA` y `Yang2021KLD` documentada | Prototipo migrado al módulo; el notebook queda como explicación reproducible. |
+| A1: representación OBB | Completada | `validate_obb`, `normalize_angle` y `obb_to_polygon`; 20 tests pasan | Ruff y Pyright sin errores. |
 | A2: rIoU | Completada | Casos idénticos, separados, simétricos, equivalentes y angulares pasan | Intersección convexa con OpenCV y resultado acotado. |
 | A3: matching greedy | Completada | Orden estable, mismo frame/clase, duplicados e invariantes probados | Los rIoU se reutilizan entre umbrales. |
 | A4: AP de 101 puntos | Completada | Precision/Recall y casos AP `1.0`, `0.0` y `0.5` pasan | No se usa integración trapezoidal. |
 | A5: Macro AP y detalle | Completada | 9 clases × 7 umbrales, clases vacías y diagnósticos probados | Scores inválidos y clases no oficiales se rechazan. |
-| A6: pruebas sintéticas | Completada | `19 passed` en `test_metric.py` | Incluye perfecta, vacía, angular y duplicados. |
+| A6: pruebas sintéticas | Completada | `20 passed` en `test_metric.py` | Incluye perfecta, vacía, angular, duplicados y benchmark determinista. |
 | A7: benchmark | Completada | `50,000` predicciones + `10,000` GT en un hilo: `1.427 s` en la ejecución local de referencia | Datos deterministas con semilla `2026`; el tiempo exacto se imprime en cada ejecución de pytest. |
 | B0: contrato del filtro | Pendiente | | |
 | B0.1: prototipo del filtro | Pendiente | | Debe completarse antes de B1. |

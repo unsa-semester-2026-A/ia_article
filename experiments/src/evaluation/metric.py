@@ -1,4 +1,23 @@
-"""Exact Macro AP-rIoU metric for oriented vehicle detection."""
+"""Exact Macro AP-rIoU metric for oriented vehicle detection.
+
+Scientific rationale:
+    DOTA motivates oriented boxes for aerial objects with arbitrary headings,
+    scales, and dense spatial distributions. Yang et al. show that localization
+    of rotated boxes is strongly coupled to angle and aspect ratio: a small
+    angular error can seriously reduce high-precision detection quality for an
+    elongated object. These findings support polygon-based rIoU and the angular
+    deviation tests in this module.
+
+    The greedy matching rules, seven rIoU thresholds, nine-class macro average,
+    and COCO-style 101-point interpolation are challenge-specific requirements
+    defined in ``02_metric.md``; they are not attributed to the two papers.
+
+References:
+    Ding et al. (2022), "Object Detection in Aerial Images: A Large-Scale
+    Benchmark and Challenges", doi:10.1109/TPAMI.2021.3117983.
+    Yang et al. (2021), "Learning High-Precision Bounding Box for Rotated
+    Object Detection via Kullback-Leibler Divergence", arXiv:2106.01883.
+"""
 
 import math
 from collections.abc import Sequence
