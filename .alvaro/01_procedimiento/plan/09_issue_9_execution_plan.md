@@ -608,7 +608,7 @@ Actualizar esta sección al final de cada sesión de trabajo.
 | A6: pruebas sintéticas | Completada | `20 passed` en `test_metric.py` | Incluye perfecta, vacía, angular, duplicados y benchmark determinista. |
 | A7: benchmark | Completada | `50,000` predicciones + `10,000` GT en un hilo: `1.427 s` en la ejecución local de referencia | Datos deterministas con semilla `2026`; el tiempo exacto se imprime en cada ejecución de pytest. |
 | B0: contrato del filtro | Completada | Tipos, umbrales y seis funciones públicas importables; `21 passed`; Ruff y Pyright sin errores | La lógica lanza `NotImplementedError` hasta ser validada en el prototipo. |
-| B0.1: prototipo del filtro | En validación | Notebook ejecutado localmente: estático `12 frames/0 px`, móvil `12 frames/33 px`, corto `6 frames/0 px`; todas las aserciones pasan | Incluye visualizaciones de tracks y proyección; falta que Saúl y Dolly lo ejecuten y expliquen en Colab para cerrar el criterio de avance. |
+| B0.1: prototipo del filtro | Completada | Notebook ejecutado localmente y en Colab: estático `12 frames/0 px`, móvil `12 frames/33 px`, corto `6 frames/0 px`; asociación `29.9 px` aceptada y `30.0 px` rechazada | Las aserciones, trayectorias y proyección por homografía coinciden con el resultado esperado. |
 | B1: homografía | Pendiente | | |
 | B2: tracking | Pendiente | | |
 | B3: clasificación y filtro | Pendiente | | |
@@ -629,3 +629,4 @@ criterio. No modificar silenciosamente los requisitos científicos originales.
 | 2026-07-17 | Las pruebas no forzarán expectativas de AP incompatibles con interpolación de 101 puntos. | Mantener corrección matemática y documentar las ambigüedades de `02_metric.md`. | Pendiente de confirmar en la issue |
 | 2026-07-17 | La issue seguirá el flujo notebook de prototipo → módulo probado → notebook orquestador cloud. | Repetir el flujo de trabajo aplicado por Álvaro y permitir que Saúl y Dolly comprendan cada algoritmo antes de modularizarlo. | Indicación de Álvaro |
 | 2026-07-17 | El orquestador será realmente portable entre Colab y Kaggle. | El montaje de Drive, las rutas y la desconexión del runtime son operaciones específicas de plataforma. | Indicación de Álvaro y plan cloud |
+| 2026-07-19 | El prototipo del filtro queda validado para migración. | La ejecución de Colab reprodujo los conteos, tracks, desplazamientos, umbrales y visualizaciones esperados sin fallos de aserción. | Saúl y Dolly |
