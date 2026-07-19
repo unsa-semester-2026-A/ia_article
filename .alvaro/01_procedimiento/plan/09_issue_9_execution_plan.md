@@ -511,18 +511,18 @@ conserva o se elimina antes de implementar el módulo definitivo.
 
 ### Etapa C1: adaptar inferencia a la interfaz
 
-- [ ] Convertir detecciones YOLO al formato público de `metric.py`.
-- [ ] Confirmar IDs oficiales `1..9` frente a IDs internos `0..8`.
-- [ ] Mantener `frame_id`, score y OBB en píxeles.
-- [ ] Generar predicciones crudas con `conf=0.001` fuera de `metric.py`.
+- [x] Convertir detecciones YOLO al formato público de `metric.py`.
+- [x] Confirmar IDs oficiales `1..9` frente a IDs internos `0..8`.
+- [x] Mantener `frame_id`, score y OBB en píxeles.
+- [x] Generar predicciones crudas con `conf=0.001` fuera de `metric.py`.
 
 ### Etapa C2: filtro seguido de métrica
 
-- [ ] Ejecutar `motion_filter.py` sobre un clip sintético.
-- [ ] Pasar la salida a `compute_macro_ap_riou()`.
-- [ ] Verificar que el filtro cambia las predicciones, no los GT.
-- [ ] Verificar que el pipeline es determinista.
-- [ ] Confirmar que el mismo filtro puede aplicarse sin cambios a las seis
+- [x] Ejecutar `motion_filter.py` sobre un clip sintético.
+- [x] Pasar la salida a `compute_macro_ap_riou()`.
+- [x] Verificar que el filtro cambia las predicciones, no los GT.
+- [x] Verificar que el pipeline es determinista.
+- [x] Confirmar que el mismo filtro puede aplicarse sin cambios a las seis
       condiciones experimentales.
 
 ### Etapa C3: notebook orquestador para Colab y Kaggle
@@ -538,22 +538,22 @@ separará explícitamente las operaciones dependientes de Colab y Kaggle.
 
 Tareas:
 
-- [ ] Clonar de forma superficial y dispersa el directorio `experiments/`.
-- [ ] Instalar el paquete en modo editable con `.[cloud]` sin reinstalar la
+- [x] Clonar de forma superficial y dispersa el directorio `experiments/`.
+- [x] Instalar el paquete en modo editable con `.[cloud]` sin reinstalar la
       versión de PyTorch proporcionada por la plataforma.
-- [ ] Detectar si la ejecución ocurre en Colab, Kaggle o local.
-- [ ] Configurar las rutas mediante variables y argumentos, no dentro de los
+- [x] Detectar si la ejecución ocurre en Colab, Kaggle o local.
+- [x] Configurar las rutas mediante variables y argumentos, no dentro de los
       módulos.
-- [ ] Ejecutar `pytest src/evaluation/` antes del pipeline.
-- [ ] Ejecutar los módulos mediante `%run` o importarlos desde el paquete.
-- [ ] Ejecutar el benchmark de la métrica y guardar su reporte.
-- [ ] Permitir usar datasets montados en `/kaggle/input/`.
-- [ ] Guardar resultados intermedios primero en el disco de la VM.
+- [x] Ejecutar `pytest src/evaluation/` antes del pipeline.
+- [x] Ejecutar los módulos mediante `%run` o importarlos desde el paquete.
+- [x] Ejecutar el benchmark de la métrica y guardar su reporte.
+- [x] Permitir usar datasets montados en `/kaggle/input/`.
+- [x] Guardar resultados intermedios primero en el disco de la VM.
 - [ ] Sincronizar reportes y checkpoints pequeños con el Drive central de
       Álvaro mediante la API cuando existan credenciales.
 - [ ] Probar una ejecución completa en Colab.
 - [ ] Probar una ejecución completa en Kaggle.
-- [ ] Confirmar que una ejecución sin credenciales funciona en modo local y no
+- [x] Confirmar que una ejecución sin credenciales funciona en modo local y no
       intenta subir archivos.
 
 No se considerará compatible con Kaggle un notebook que importe
@@ -567,23 +567,23 @@ detección de plataforma.
 
 La issue #9 se considera completada únicamente cuando:
 
-- [ ] rIoU funciona para cajas idénticas, separadas, rotadas y ángulos negativos.
-- [ ] El matching es uno a uno, por clase y frame.
-- [ ] AP usa exactamente 101 puntos de recall.
-- [ ] Se evalúan las nueve clases y los siete umbrales.
-- [ ] Las clases sin GT reciben AP cero.
-- [ ] Se devuelven AP, TP, FP y FN detallados.
-- [ ] Pasan las pruebas sintéticas requeridas.
-- [ ] El benchmark cumple el límite de 30 segundos.
-- [ ] El filtro utiliza homografía y tracking con umbral de 30 px.
-- [ ] El filtro elimina únicamente tracks de al menos 10 frames y menos de 8 px.
-- [ ] El filtro no depende de `static_vehicles.json`.
-- [ ] La integración filtro → métrica funciona.
-- [ ] Cada algoritmo fue comprendido primero en su notebook de prototipo y
+- [x] rIoU funciona para cajas idénticas, separadas, rotadas y ángulos negativos.
+- [x] El matching es uno a uno, por clase y frame.
+- [x] AP usa exactamente 101 puntos de recall.
+- [x] Se evalúan las nueve clases y los siete umbrales.
+- [x] Las clases sin GT reciben AP cero.
+- [x] Se devuelven AP, TP, FP y FN detallados.
+- [x] Pasan las pruebas sintéticas requeridas.
+- [x] El benchmark cumple el límite de 30 segundos.
+- [x] El filtro utiliza homografía y tracking con umbral de 30 px.
+- [x] El filtro elimina únicamente tracks de al menos 10 frames y menos de 8 px.
+- [x] El filtro no depende de `static_vehicles.json`.
+- [x] La integración filtro → métrica funciona.
+- [x] Cada algoritmo fue comprendido primero en su notebook de prototipo y
       migrado después al módulo correspondiente.
-- [ ] Los notebooks finales importan los módulos y no duplican su
+- [x] Los notebooks finales importan los módulos y no duplican su
       implementación.
-- [ ] El orquestador ejecuta las pruebas antes del pipeline.
+- [x] El orquestador ejecuta las pruebas antes del pipeline.
 - [ ] El pipeline se ejecuta tanto en Colab como en Kaggle con rutas propias de
       cada plataforma.
 - [ ] Los resultados pequeños pueden persistirse en el Drive central sin
@@ -607,15 +607,15 @@ Actualizar esta sección al final de cada sesión de trabajo.
 | A5: Macro AP y detalle | Completada | 9 clases × 7 umbrales, clases vacías y diagnósticos probados | Scores inválidos y clases no oficiales se rechazan. |
 | A6: pruebas sintéticas | Completada | `20 passed` en `test_metric.py` | Incluye perfecta, vacía, angular, duplicados y benchmark determinista. |
 | A7: benchmark | Completada | `50,000` predicciones + `10,000` GT en un hilo: `1.427 s` en la ejecución local de referencia | Datos deterministas con semilla `2026`; el tiempo exacto se imprime en cada ejecución de pytest. |
-| B0: contrato del filtro | Completada | Tipos, umbrales y seis funciones públicas importables; `21 passed`; Ruff y Pyright sin errores | La lógica lanza `NotImplementedError` hasta ser validada en el prototipo. |
+| B0: contrato del filtro | Completada | Tipos, umbrales y funciones públicas importables; Ruff y Pyright sin errores | El contrato ya contiene la implementación definitiva validada en el prototipo. |
 | B0.1: prototipo del filtro | Completada | Notebook ejecutado localmente y en Colab: estático `12 frames/0 px`, móvil `12 frames/33 px`, corto `6 frames/0 px`; asociación `29.9 px` aceptada y `30.0 px` rechazada | Las aserciones, trayectorias y proyección por homografía coinciden con el resultado esperado. |
 | B1: homografía | Completada | Proyección `3×3`, división homogénea y fallback probado | Matrices ausentes, singulares o no finitas usan identidad con `RuntimeWarning`. |
 | B2: tracking | Completada | Orden temporal natural, mismo `class_id`, matching global greedy `< 30 px` y referencias originales probadas | Tracks activos solo continúan desde el frame inmediatamente anterior. |
 | B3: clasificación y filtro | Completada | Trayectoria compensada y dispersión máxima; umbrales `>= 10` y `< 8` probados | Medir dispersión evita que un movimiento de ida y vuelta se cancele a cero. |
-| B4: pruebas del filtro | Completada | `14 passed` en `test_motion_filter.py`; suite de evaluación completa: `34 passed` | Incluye límites 9/10 frames, 8 px exactos, cámara móvil, vacíos y vehículos cercanos. |
-| C1: adaptación de inferencia | Pendiente | | |
-| C2: integración final | Pendiente | | |
-| C3: orquestador Colab/Kaggle | Pendiente | | Incluye prueba de Drive API sin credenciales en Git. |
+| B4: pruebas del filtro | Completada | `15 passed` en `test_motion_filter.py` | Incluye límites 9/10 frames, 8 px exactos, cámara móvil, ORB, vacíos y vehículos cercanos. |
+| C1: adaptación de inferencia | Completada | `Results.obb`/arrays → clase oficial, score y OBB en píxeles; inferencia `conf=0.001` probada con modelo simulado | El ángulo `xywhr` se convierte de radianes a grados. |
+| C2: integración final | Completada | Filtro → métrica determinista; GT inmutables; seis condiciones y reportes JSON probados | El smoke test obtiene `1/9` y elimina 12 predicciones estáticas. |
+| C3: orquestador Colab/Kaggle | Implementada; validación externa pendiente | Modo local y rutas Colab/Kaggle simuladas: `48 passed`, benchmark y smoke test sin credenciales | Faltan VMs reales, seis pesos, dataset de validación y credenciales de Drive. |
 
 ## 11. Registro de decisiones
 

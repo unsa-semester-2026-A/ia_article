@@ -16,6 +16,7 @@ from src.evaluation.motion_filter import (
     build_tracks,
     classify_static_tracks,
     compute_compensated_displacement,
+    estimate_homography,
     filter_static_predictions,
     project_centroid,
 )
@@ -80,6 +81,15 @@ def test_project_centroid_and_invalid_homography_fallback() -> None:
         assert project_centroid((5.0, 7.0), np.zeros((3, 3))) == (5.0, 7.0)
     with pytest.warns(RuntimeWarning, match="invalid homography"):
         assert project_centroid((5.0, 7.0), np.full((3, 3), math.nan)) == (5.0, 7.0)
+
+
+def test_homography_estimator_falls_back_on_featureless_frames() -> None:
+    """Return identity when ORB cannot find enough background features."""
+    blank = np.zeros((64, 64), dtype=np.uint8)
+    homography, success = estimate_homography(blank, blank)
+
+    assert success is False
+    assert np.allclose(homography, np.eye(3))
 
 
 def test_association_is_same_class_one_to_one_and_strict() -> None:
