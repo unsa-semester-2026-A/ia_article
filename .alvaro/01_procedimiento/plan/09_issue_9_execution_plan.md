@@ -436,6 +436,17 @@ classify_static_tracks()
 filter_static_predictions()
 ```
 
+Contrato acordado:
+
+- [x] Cada detección conserva clase, score y OBB paramétrica.
+- [x] Las detecciones se agrupan por `frame_id`.
+- [x] La homografía de cada frame proyecta desde el frame inmediatamente
+      anterior hacia el actual; el primer frame puede no tener matriz.
+- [x] Los tracks conservan referencias al índice de la detección original para
+      poder filtrar duplicados sin depender de igualdad aproximada de OBB.
+- [x] La salida incluye detecciones filtradas y diagnósticos auditables.
+- [x] `static_vehicles.json` no forma parte de la interfaz.
+
 ### Etapa B0.1: crear el prototipo interactivo del filtro
 
 Archivo:
@@ -596,7 +607,7 @@ Actualizar esta sección al final de cada sesión de trabajo.
 | A5: Macro AP y detalle | Completada | 9 clases × 7 umbrales, clases vacías y diagnósticos probados | Scores inválidos y clases no oficiales se rechazan. |
 | A6: pruebas sintéticas | Completada | `20 passed` en `test_metric.py` | Incluye perfecta, vacía, angular, duplicados y benchmark determinista. |
 | A7: benchmark | Completada | `50,000` predicciones + `10,000` GT en un hilo: `1.427 s` en la ejecución local de referencia | Datos deterministas con semilla `2026`; el tiempo exacto se imprime en cada ejecución de pytest. |
-| B0: contrato del filtro | Pendiente | | |
+| B0: contrato del filtro | Completada | Tipos, umbrales y seis funciones públicas importables; `21 passed`; Ruff y Pyright sin errores | La lógica lanza `NotImplementedError` hasta ser validada en el prototipo. |
 | B0.1: prototipo del filtro | Pendiente | | Debe completarse antes de B1. |
 | B1: homografía | Pendiente | | |
 | B2: tracking | Pendiente | | |
