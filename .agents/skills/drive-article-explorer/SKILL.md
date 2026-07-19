@@ -58,9 +58,14 @@ Below is the layout of the project directories on Google Drive:
 │       ├── v_009evckk5b.json            <── Single-clip checkpoint files
 │       ├── v_016is7moli.json
 │       └── ...
+├── 05_evaluations/                      <── (Shared Folder ID: 1VdM16679CS9t7dE60ShEK2tAqv9kPd9p)
+│   ├── validation_homographies.json     <── Serialized inter-frame homographies
+│   └── base0/
+│       └── ...
 └── token/
     └── token.json                       <── Authorized OAuth2 team credentials
 ```
+
 
 ---
 

@@ -274,3 +274,91 @@ def test_metric_benchmark_50k_predictions_10k_gt() -> None:
     )
     assert 0.0 <= score <= 1.0
     assert elapsed_seconds < 30.0, f"benchmark took {elapsed_seconds:.3f} seconds"
+
+
+def test_bva_exact_riou_threshold_boundary() -> None:
+    """Verify BVA boundary matching where the calculated rIoU is exactly 0.50."""
+    # Box A: Area = 300.0 * 100.0 = 30000.0
+    # Box B: shifted by 100.0 along X-axis
+    # Intersection: width = 200.0, height = 100.0, area = 20000.0
+    # Union: 30000.0 + 30000.0 - 20000.0 = 40000.0
+    # rIoU = 20000.0 / 40000.0 = 0.50 exactly (no float representation error)
+    box_a: OBB = (100.0, 100.0, 300.0, 100.0, 0.0)
+    box_b: OBB = (200.0, 100.0, 300.0, 100.0, 0.0)
+
+    assert rotated_iou(box_a, box_b) == pytest.approx(0.50)
+
+    predictions: PredictionsByClass = {1: [_prediction("frame_bva", 0.90, box_a)]}
+    ground_truths: GroundTruthsByClassFrame = {1: {"frame_bva": [box_b]}}
+
+    _, details = compute_macro_ap_riou(predictions, ground_truths)
+    counts = cast(dict[int, dict[float, dict[str, int]]], details["counts"])
+
+    # Must be counted as TP at 0.50 threshold, and FP/FN at 0.55 threshold
+    assert counts[1][0.50] == {"tp": 1, "fp": 0, "fn": 0}
+    assert counts[1][0.55] == {"tp": 0, "fp": 1, "fn": 1}
+
+
+def test_equivalence_partition_pure_noise_no_gt() -> None:
+    """Return AP=0.0 and avoid division-by-zero errors when a class has no GT boxes."""
+    predictions: PredictionsByClass = {
+        1: [
+            _prediction(
+                "frame_noise", 0.95 - 0.005 * i, (100.0 + i, 100.0, 50.0, 30.0, 0.0)
+            )
+            for i in range(100)
+        ]
+    }
+    ground_truths: GroundTruthsByClassFrame = {}  # Empty Ground Truth for all classes
+
+    score, details = compute_macro_ap_riou(predictions, ground_truths)
+    ap_by_class = cast(dict[int, float], details["ap_by_class"])
+
+    assert score == pytest.approx(0.0)
+    assert ap_by_class[1] == pytest.approx(0.0)
+
+
+def test_decision_table_greedy_conflict_resolution() -> None:
+    """Verify greedy matching assigns a prediction to the highest-overlapping GT box.
+
+    If 1 prediction overlaps two GTs: GT_1 (60% overlap) and GT_2 (85% overlap),
+    greedy matching must consume GT_2. This leaves GT_1 free to be matched
+    by a subsequent lower-confidence prediction.
+    """
+    # Prediction 1: center=100.0, width=100.0, height=100.0
+    pred_1 = _prediction("frame_greedy", 0.95, (100.0, 100.0, 100.0, 100.0, 0.0))
+    # GT 1: shifted by 25.0 -> IoU = 7500 / 12500 = 0.60 exactly
+    gt_1: OBB = (125.0, 100.0, 100.0, 100.0, 0.0)
+    # GT 2: shifted by 8.108108... -> IoU = 0.85
+    gt_2: OBB = (100.0 + 300.0 / 37.0, 100.0, 100.0, 100.0, 0.0)
+
+    assert rotated_iou((100.0, 100.0, 100.0, 100.0, 0.0), gt_1) == pytest.approx(0.60)
+    assert rotated_iou((100.0, 100.0, 100.0, 100.0, 0.0), gt_2) == pytest.approx(0.85)
+
+    # Prediction 2: perfectly aligned with GT_1 (100% overlap), but lower score (0.80)
+    pred_2 = _prediction("frame_greedy", 0.80, gt_1)
+
+    predictions: PredictionsByClass = {1: [pred_1, pred_2]}
+    ground_truths: GroundTruthsByClassFrame = {1: {"frame_greedy": [gt_1, gt_2]}}
+
+    _, details = compute_macro_ap_riou(predictions, ground_truths)
+    counts = cast(dict[int, dict[float, dict[str, int]]], details["counts"])
+
+    # At 0.50 threshold, both must be matched successfully:
+    # pred_1 matches gt_2 (0.85 overlap)
+    # pred_2 matches gt_1 (1.00 overlap)
+    assert counts[1][0.50] == {"tp": 2, "fp": 0, "fn": 0}
+
+
+def test_white_box_zigzag_precision_recall_envelope() -> None:
+    """Verify COCO-style 101-point AP envelope interpolation on zigzag PR curve.
+
+    Input sequence of TPs and FPs: [TP, FP, FP, TP, FP, TP] -> [1, 0, 0, 1, 0, 1].
+    Expected AP = (34 * 1.0 + 67 * 0.5) / 101 = 67.5 / 101.
+    """
+    tp = [1, 0, 0, 1, 0, 1]
+    fp = [0, 1, 1, 0, 1, 0]
+    total_gt = 3
+
+    ap = average_precision_101(tp, fp, total_gt)
+    assert ap == pytest.approx(67.5 / 101)
