@@ -469,41 +469,41 @@ conserva o se elimina antes de implementar el módulo definitivo.
 
 ### Etapa B1: proyección por homografía
 
-- [ ] Proyectar centroides mediante una matriz `3×3`.
-- [ ] Dividir las coordenadas homogéneas por `w`.
-- [ ] Validar matrices y resultados finitos.
-- [ ] Usar identidad y registrar una advertencia cuando la homografía no sea
+- [x] Proyectar centroides mediante una matriz `3×3`.
+- [x] Dividir las coordenadas homogéneas por `w`.
+- [x] Validar matrices y resultados finitos.
+- [x] Usar identidad y registrar una advertencia cuando la homografía no sea
       válida o no esté disponible.
 
 ### Etapa B2: construcción de tracks
 
-- [ ] Procesar frames en orden temporal.
-- [ ] Proyectar el último centroide de cada track al siguiente frame.
-- [ ] Asociar detecciones mediante distancia mínima greedy.
-- [ ] Aceptar asociaciones solo si la distancia es menor de 30 px.
-- [ ] Impedir que una detección pertenezca a dos tracks.
-- [ ] Crear tracks para detecciones sin asociación.
-- [ ] Conservar referencias a las detecciones originales.
+- [x] Procesar frames en orden temporal.
+- [x] Proyectar el último centroide de cada track al siguiente frame.
+- [x] Asociar detecciones mediante distancia mínima greedy.
+- [x] Aceptar asociaciones solo si la distancia es menor de 30 px.
+- [x] Impedir que una detección pertenezca a dos tracks.
+- [x] Crear tracks para detecciones sin asociación.
+- [x] Conservar referencias a las detecciones originales.
 
 ### Etapa B3: clasificación y filtrado
 
-- [ ] Calcular posiciones compensadas por homografía.
-- [ ] Calcular la dispersión máxima dentro de cada track.
-- [ ] Clasificar como inmóvil si dura al menos 10 frames y su desplazamiento es
+- [x] Calcular posiciones compensadas por homografía.
+- [x] Calcular la dispersión máxima dentro de cada track.
+- [x] Clasificar como inmóvil si dura al menos 10 frames y su desplazamiento es
       estrictamente menor de 8 px.
-- [ ] Eliminar todas las detecciones de los tracks inmóviles.
-- [ ] Conservar los tracks móviles y los tracks de menos de 10 frames.
-- [ ] Devolver predicciones filtradas y diagnóstico de tracks eliminados.
+- [x] Eliminar todas las detecciones de los tracks inmóviles.
+- [x] Conservar los tracks móviles y los tracks de menos de 10 frames.
+- [x] Devolver predicciones filtradas y diagnóstico de tracks eliminados.
 
 ### Etapa B4: pruebas del filtro
 
-- [ ] Track estático de 10 frames y menos de 8 px: eliminado.
-- [ ] Track de 9 frames: conservado.
-- [ ] Track con desplazamiento de 8 px: conservado.
-- [ ] Track con desplazamiento mayor de 8 px: conservado.
-- [ ] Cámara móvil compensada correctamente: estático eliminado.
-- [ ] Frames vacíos: ejecución sin errores.
-- [ ] Dos vehículos cercanos: sin reutilización de detecciones ni IDs.
+- [x] Track estático de 10 frames y menos de 8 px: eliminado.
+- [x] Track de 9 frames: conservado.
+- [x] Track con desplazamiento de 8 px: conservado.
+- [x] Track con desplazamiento mayor de 8 px: conservado.
+- [x] Cámara móvil compensada correctamente: estático eliminado.
+- [x] Frames vacíos: ejecución sin errores.
+- [x] Dos vehículos cercanos: sin reutilización de detecciones ni IDs.
 
 ---
 
@@ -609,10 +609,10 @@ Actualizar esta sección al final de cada sesión de trabajo.
 | A7: benchmark | Completada | `50,000` predicciones + `10,000` GT en un hilo: `1.427 s` en la ejecución local de referencia | Datos deterministas con semilla `2026`; el tiempo exacto se imprime en cada ejecución de pytest. |
 | B0: contrato del filtro | Completada | Tipos, umbrales y seis funciones públicas importables; `21 passed`; Ruff y Pyright sin errores | La lógica lanza `NotImplementedError` hasta ser validada en el prototipo. |
 | B0.1: prototipo del filtro | Completada | Notebook ejecutado localmente y en Colab: estático `12 frames/0 px`, móvil `12 frames/33 px`, corto `6 frames/0 px`; asociación `29.9 px` aceptada y `30.0 px` rechazada | Las aserciones, trayectorias y proyección por homografía coinciden con el resultado esperado. |
-| B1: homografía | Pendiente | | |
-| B2: tracking | Pendiente | | |
-| B3: clasificación y filtro | Pendiente | | |
-| B4: pruebas del filtro | Pendiente | | |
+| B1: homografía | Completada | Proyección `3×3`, división homogénea y fallback probado | Matrices ausentes, singulares o no finitas usan identidad con `RuntimeWarning`. |
+| B2: tracking | Completada | Orden temporal natural, mismo `class_id`, matching global greedy `< 30 px` y referencias originales probadas | Tracks activos solo continúan desde el frame inmediatamente anterior. |
+| B3: clasificación y filtro | Completada | Trayectoria compensada y dispersión máxima; umbrales `>= 10` y `< 8` probados | Medir dispersión evita que un movimiento de ida y vuelta se cancele a cero. |
+| B4: pruebas del filtro | Completada | `14 passed` en `test_motion_filter.py`; suite de evaluación completa: `34 passed` | Incluye límites 9/10 frames, 8 px exactos, cámara móvil, vacíos y vehículos cercanos. |
 | C1: adaptación de inferencia | Pendiente | | |
 | C2: integración final | Pendiente | | |
 | C3: orquestador Colab/Kaggle | Pendiente | | Incluye prueba de Drive API sin credenciales en Git. |
