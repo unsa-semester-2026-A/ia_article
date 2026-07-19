@@ -457,12 +457,12 @@ experiments/notebooks/evaluation/prototipo_motion_filter.ipynb
 
 Tareas:
 
-- [ ] Construir una secuencia sintética corta con vehículos estáticos y
+- [x] Construir una secuencia sintética corta con vehículos estáticos y
       móviles.
-- [ ] Dibujar centroides, IDs de track y trayectorias por frame.
-- [ ] Visualizar el efecto de una homografía conocida sobre los centroides.
-- [ ] Comparar manualmente los umbrales de 30 px, 10 frames y 8 px.
-- [ ] Registrar las decisiones que se trasladarán a `motion_filter.py`.
+- [x] Dibujar centroides, IDs de track y trayectorias por frame.
+- [x] Visualizar el efecto de una homografía conocida sobre los centroides.
+- [x] Comparar manualmente los umbrales de 30 px, 10 frames y 8 px.
+- [x] Registrar las decisiones que se trasladarán a `motion_filter.py`.
 
 Criterio de avance: ambos pueden explicar visualmente por qué cada track se
 conserva o se elimina antes de implementar el módulo definitivo.
@@ -608,7 +608,7 @@ Actualizar esta sección al final de cada sesión de trabajo.
 | A6: pruebas sintéticas | Completada | `20 passed` en `test_metric.py` | Incluye perfecta, vacía, angular, duplicados y benchmark determinista. |
 | A7: benchmark | Completada | `50,000` predicciones + `10,000` GT en un hilo: `1.427 s` en la ejecución local de referencia | Datos deterministas con semilla `2026`; el tiempo exacto se imprime en cada ejecución de pytest. |
 | B0: contrato del filtro | Completada | Tipos, umbrales y seis funciones públicas importables; `21 passed`; Ruff y Pyright sin errores | La lógica lanza `NotImplementedError` hasta ser validada en el prototipo. |
-| B0.1: prototipo del filtro | Pendiente | | Debe completarse antes de B1. |
+| B0.1: prototipo del filtro | En validación | Notebook ejecutado localmente: estático `12 frames/0 px`, móvil `12 frames/33 px`, corto `6 frames/0 px`; todas las aserciones pasan | Incluye visualizaciones de tracks y proyección; falta que Saúl y Dolly lo ejecuten y expliquen en Colab para cerrar el criterio de avance. |
 | B1: homografía | Pendiente | | |
 | B2: tracking | Pendiente | | |
 | B3: clasificación y filtro | Pendiente | | |
