@@ -27,7 +27,7 @@ dependencies = [
 
 [project.optional-dependencies]
 cloud = [
-    "ultralytics",
+    "ultralytics>=8.3.0",
     "lapx>=0.5.8",
     "pytest",
     "pytest-cov",
@@ -38,7 +38,7 @@ cloud = [
     "google-auth-oauthlib",
 ]
 local = [
-    "ultralytics",
+    "ultralytics>=8.3.0",
     "lapx>=0.5.8",
     "torch",
     "torchvision",
