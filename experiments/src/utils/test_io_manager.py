@@ -32,6 +32,29 @@ def test_ensure_token_exists_downloads_when_missing(mock_urlretrieve, tmp_path):
 
 
 # ==========================================
+# Pruebas _get_drive_service (Caja Blanca)
+# ==========================================
+@patch("experiments.src.utils.io_manager.build")
+@patch("experiments.src.utils.io_manager.Credentials")
+def test_get_drive_service_uses_scopes_none(mock_creds, mock_build, tmp_path):
+    """Caja Blanca: Verifica que Credentials se instancie con scopes=None para evitar invalid_scope."""
+    token_file = tmp_path / "token.json"
+    token_file.write_text('{"token": "dummy"}')
+
+    fake_creds = MagicMock()
+    fake_creds.expired = False
+    mock_creds.from_authorized_user_file.return_value = fake_creds
+
+    with patch.object(IOManager, "_ensure_token_exists"):
+        mgr = IOManager(token_path=token_file)
+
+    mock_creds.from_authorized_user_file.assert_called_once_with(
+        str(token_file), scopes=None
+    )
+    mock_build.assert_called_once_with("drive", "v3", credentials=fake_creds)
+
+
+# ==========================================
 # Pruebas list_files_in_dir (Caja Blanca/Negra)
 # ==========================================
 def test_list_files_not_exists(io_mgr, tmp_path):

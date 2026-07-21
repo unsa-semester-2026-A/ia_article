@@ -152,8 +152,10 @@ class IOManager:
         try:
             from google.auth.transport.requests import Request
 
+            # scopes=None permite que google-auth use los permisos guardados dentro del token.json
+            # sin lanzar 'invalid_scope' si difiere de 'https://www.googleapis.com/auth/drive'
             creds = Credentials.from_authorized_user_file(
-                str(self.token_path), ["https://www.googleapis.com/auth/drive"]
+                str(self.token_path), scopes=None
             )
             # Refrescar token si ha expirado y se cuenta con refresh_token
             if creds and creds.expired and creds.refresh_token:
