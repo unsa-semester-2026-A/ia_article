@@ -7,9 +7,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TypeAlias
 
-import cv2
 import numpy as np
 from numpy.typing import NDArray
+from src.utils.homography import estimate_interframe_homography
 
 MAX_ASSOCIATION_DISTANCE_PX = 30.0
 MIN_STATIC_TRACK_FRAMES = 10
@@ -245,9 +245,7 @@ def estimate_homography(
 ) -> tuple[Homography, bool]:
     """Estimate previous-to-current camera motion using ORB and RANSAC.
 
-    Vehicle polygons from the previous frame are masked so foreground motion
-    does not determine the camera transform. Masks are passed positionally to
-    ``detectAndCompute`` for compatibility with OpenCV versions used by Colab.
+    Delegates homography calculation to the central ``src.utils.homography`` module.
 
     Args:
         previous_gray: Previous grayscale frame.
@@ -263,66 +261,17 @@ def estimate_homography(
     Raises:
         ValueError: If images or numeric parameters are invalid.
     """
-    previous = np.asarray(previous_gray)
-    current = np.asarray(current_gray)
-    if previous.ndim != 2 or current.ndim != 2 or previous.shape != current.shape:
-        raise ValueError("homography images must be equally sized grayscale arrays")
-    if not np.all(np.isfinite(previous)) or not np.all(np.isfinite(current)):
-        raise ValueError("homography images must contain finite values")
-    if nfeatures <= 0 or min_keypoints <= 0 or min_matches < 4:
-        raise ValueError("invalid ORB or matching parameters")
-
-    previous_u8 = np.clip(previous, 0, 255).astype(np.uint8, copy=False)
-    current_u8 = np.clip(current, 0, 255).astype(np.uint8, copy=False)
-    background_mask = np.full(previous_u8.shape, 255, dtype=np.uint8)
-    if previous_polygons is not None:
-        for polygon in previous_polygons:
-            vertices = np.asarray(polygon, dtype=np.float32)
-            if vertices.shape != (4, 2) or not np.all(np.isfinite(vertices)):
-                raise ValueError(
-                    "each foreground polygon must have four finite vertices"
-                )
-            cv2.fillPoly(background_mask, [vertices.astype(np.int32)], 0)
-
-    orb = cv2.ORB_create(nfeatures=nfeatures)
-    previous_keypoints, previous_descriptors = orb.detectAndCompute(
-        previous_u8, background_mask
+    matrix, success = estimate_interframe_homography(
+        prev_gray=previous_gray,
+        curr_gray=current_gray,
+        previous_polygons=previous_polygons,
+        nfeatures=nfeatures,
+        min_keypoints=min_keypoints,
+        min_matches=min_matches,
+        return_status=True,
     )
-    current_keypoints, current_descriptors = orb.detectAndCompute(current_u8, None)
-    if (
-        previous_descriptors is None
-        or current_descriptors is None
-        or len(previous_keypoints) < min_keypoints
-        or len(current_keypoints) < min_keypoints
-    ):
-        return _identity_homography(), False
+    return matrix, success
 
-    matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    matches = sorted(
-        matcher.match(previous_descriptors, current_descriptors),
-        key=lambda match: match.distance,
-    )
-    if len(matches) < min_matches:
-        return _identity_homography(), False
-
-    source_points = np.float32(
-        [previous_keypoints[match.queryIdx].pt for match in matches]
-    ).reshape(-1, 1, 2)
-    destination_points = np.float32(
-        [current_keypoints[match.trainIdx].pt for match in matches]
-    ).reshape(-1, 1, 2)
-    matrix, inlier_mask = cv2.findHomography(
-        source_points,
-        destination_points,
-        cv2.RANSAC,
-        5.0,
-    )
-    if matrix is None or inlier_mask is None or int(np.sum(inlier_mask)) < min_matches:
-        return _identity_homography(), False
-    normalized = np.asarray(matrix, dtype=np.float64)
-    if not np.all(np.isfinite(normalized)):
-        return _identity_homography(), False
-    return normalized, True
 
 
 def associate_detections(

@@ -12,6 +12,8 @@ from src.evaluation.motion_filter import (
     MotionFilterDiagnostics,
     Track,
     TrackObservation,
+    _normalize_homography,
+    _project_with_matrix,
     associate_detections,
     build_tracks,
     classify_static_tracks,
@@ -83,6 +85,32 @@ def test_project_centroid_and_invalid_homography_fallback() -> None:
         assert project_centroid((5.0, 7.0), np.full((3, 3), math.nan)) == (5.0, 7.0)
 
 
+def test_normalize_homography_warnings_and_fallback() -> None:
+    """Verify fallback and warnings for non-convertible, wrong-shape, or singular homographies."""
+    with pytest.warns(RuntimeWarning, match="invalid homography"):
+        res_str = _normalize_homography("invalid")  # type: ignore[arg-type]
+        assert np.allclose(res_str, np.eye(3))
+
+    with pytest.warns(RuntimeWarning, match="invalid homography"):
+        res_shape = _normalize_homography(np.eye(2))
+        assert np.allclose(res_shape, np.eye(3))
+
+    with pytest.warns(RuntimeWarning, match="invalid homography"):
+        res_singular = _normalize_homography(np.zeros((3, 3)))
+        assert np.allclose(res_singular, np.eye(3))
+
+
+def test_project_with_matrix_non_finite_and_zero_denom() -> None:
+    """Verify centroid projection handling of non-finite inputs and near-zero denominator matrix."""
+    with pytest.raises(ValueError, match="centroid coordinates must be finite"):
+        _project_with_matrix((math.nan, 10.0), np.eye(3))
+
+    zero_denom_matrix = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]])
+    with pytest.warns(RuntimeWarning, match="invalid homogeneous projection"):
+        res = _project_with_matrix((10.0, 20.0), zero_denom_matrix)
+        assert res == (10.0, 20.0)
+
+
 def test_homography_estimator_falls_back_on_featureless_frames() -> None:
     """Return identity when ORB cannot find enough background features."""
     blank = np.zeros((64, 64), dtype=np.uint8)
@@ -90,6 +118,22 @@ def test_homography_estimator_falls_back_on_featureless_frames() -> None:
 
     assert success is False
     assert np.allclose(homography, np.eye(3))
+
+
+def test_estimate_homography_with_polygons_and_params() -> None:
+    """Verify estimate_homography wrapper with polygons and custom feature bounds."""
+    blank = np.zeros((64, 64), dtype=np.uint8)
+    polys = [np.array([[10, 10], [30, 10], [30, 30], [10, 30]], dtype=np.float32)]
+    H, ok = estimate_homography(
+        blank,
+        blank,
+        previous_polygons=polys,
+        nfeatures=1000,
+        min_keypoints=10,
+        min_matches=5,
+    )
+    assert ok is False
+    assert np.allclose(H, np.eye(3))
 
 
 def test_association_is_same_class_one_to_one_and_strict() -> None:
@@ -202,6 +246,9 @@ def test_empty_frames_do_not_fail() -> None:
         Detection(0, 0.9, 0.0, 0.0, 1.0, 1.0, 0.0),
         Detection(1, math.nan, 0.0, 0.0, 1.0, 1.0, 0.0),
         Detection(1, 0.9, 0.0, 0.0, 0.0, 1.0, 0.0),
+        Detection(1, -0.1, 0.0, 0.0, 1.0, 1.0, 0.0),
+        Detection(1, 1.5, 0.0, 0.0, 1.0, 1.0, 0.0),
+        Detection(1, 0.9, 0.0, 0.0, -1.0, 1.0, 0.0),
     ],
 )
 def test_invalid_detections_are_rejected(invalid_detection: Detection) -> None:
@@ -210,6 +257,77 @@ def test_invalid_detections_are_rejected(invalid_detection: Detection) -> None:
         build_tracks({"clip_0000": [invalid_detection]}, {})
     with pytest.raises(ValueError):
         associate_detections([], [invalid_detection], np.eye(3))
+
+
+def test_invalid_tracks_are_rejected() -> None:
+    """Reject invalid track IDs, class IDs, empty observations, negative indices, or out-of-order observations."""
+    det = _detection(1, 10.0)
+    obs1 = TrackObservation("clip_0001", 0, det)
+    obs0 = TrackObservation("clip_0000", 0, det)
+
+    # Negative track ID
+    with pytest.raises(ValueError, match="track_id cannot be negative"):
+        classify_static_tracks([Track(-1, 1, (obs1,))], {})
+
+    # Invalid class ID (0 or 10)
+    with pytest.raises(ValueError, match="track class_id"):
+        classify_static_tracks([Track(0, 10, (obs1,))], {})
+
+    # Empty observations
+    with pytest.raises(ValueError, match="at least one observation"):
+        classify_static_tracks([Track(0, 1, ())], {})
+
+    # Empty frame ID
+    with pytest.raises(ValueError, match="frame_id must be non-empty"):
+        classify_static_tracks(
+            [Track(0, 1, (TrackObservation("", 0, det),))], {}
+        )
+
+    # Negative detection index
+    with pytest.raises(ValueError, match="detection_index cannot be negative"):
+        classify_static_tracks(
+            [Track(0, 1, (TrackObservation("clip_0001", -1, det),))], {}
+        )
+
+    # Class ID mismatch between detection and track
+    det_class2 = _detection(2, 10.0)
+    with pytest.raises(ValueError, match="share the track class_id"):
+        classify_static_tracks(
+            [Track(0, 1, (TrackObservation("clip_0001", 0, det_class2),))], {}
+        )
+
+    # Strict temporal order violation
+    with pytest.raises(ValueError, match="strict temporal order"):
+        classify_static_tracks([Track(0, 1, (obs1, obs0))], {})
+
+
+def test_duplicate_track_ids_are_rejected() -> None:
+    """Reject duplicate active track IDs in association and classification."""
+    t0 = _track(0, [10.0])
+    with pytest.raises(ValueError, match="unique"):
+        associate_detections([t0, t0], [_detection(1, 10.0)], np.eye(3))
+
+    with pytest.raises(ValueError, match="unique"):
+        classify_static_tracks([t0, t0], {})
+
+
+@pytest.mark.parametrize("invalid_frame_id", ["", 123])
+def test_build_tracks_invalid_frame_id_rejected(invalid_frame_id: object) -> None:
+    """Reject non-string or empty frame ID keys in prediction dictionary."""
+    with pytest.raises(ValueError, match="non-empty strings"):
+        build_tracks({invalid_frame_id: [_detection(1, 10.0)]}, {})  # type: ignore[dict-item]
+
+
+def test_build_tracks_non_numeric_frame_ids() -> None:
+    """Cover natural sorting fallback when frame IDs lack trailing numeric digits."""
+    predictions = {
+        "frame_b": [_detection(1, 2.0)],
+        "frame_a": [_detection(1, 0.0)],
+    }
+    tracks = build_tracks(predictions, {})
+    assert len(tracks) == 1
+    assert [obs.frame_id for obs in tracks[0].observations] == ["frame_a", "frame_b"]
+
 
 
 @pytest.mark.parametrize(
