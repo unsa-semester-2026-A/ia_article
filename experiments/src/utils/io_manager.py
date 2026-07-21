@@ -1,5 +1,7 @@
 import csv
 import json
+import os
+import urllib.request
 import numpy as np
 import cv2
 from pathlib import Path
@@ -8,18 +10,68 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
+# ID predeterminado en Google Drive para descarga automática de token.json si no existe localmente
+_DEFAULT_TOKEN_FILE_ID = "1Fjg-AIrIQ77g1JRtapE6XDb_A6CP_4q3"
+
 
 class IOManager:
-    """Gestor genérico de datos de entrada/salida locales e integración con la API de Google Drive."""
+    """Gestor genérico de datos de entrada/salida locales e integración autónoma con la API de Google Drive."""
 
-    def __init__(self, token_path: str | None = None) -> None:
-        """Inicializa el gestor de E/S.
+    def __init__(
+        self,
+        token_path: str | Path | None = None,
+        drive_token_file_id: str | None = None,
+    ) -> None:
+        """Inicializa el gestor de E/S y resuelve automáticamente la autenticación con Google Drive.
 
         Args:
-            token_path: Ruta al archivo token.json de Google Drive para inicialización del servicio.
+            token_path: Ruta local al archivo token.json. Si es None, lee de os.environ["DRIVE_TOKEN_PATH"] 
+                       o usa rutas por defecto del entorno (/kaggle/working/token.json o token.json).
+            drive_token_file_id: ID en Google Drive para descargar token.json si no existe localmente. 
+                                Si es None, lee de os.environ["DRIVE_TOKEN_FILE_ID"] o usa _DEFAULT_TOKEN_FILE_ID.
         """
-        self.token_path: Path | None = Path(token_path) if token_path else None
-        self.drive_service: Any | None = self._get_drive_service() if token_path else None
+        # 1. Resolver ruta del token
+        if token_path:
+            self.token_path: Path | None = Path(token_path)
+        else:
+            env_path = os.environ.get("DRIVE_TOKEN_PATH")
+            if env_path:
+                self.token_path = Path(env_path)
+            elif os.path.exists("/kaggle/working"):
+                self.token_path = Path("/kaggle/working/token.json")
+            else:
+                self.token_path = Path("token.json")
+
+        # 2. Resolver ID para auto-descarga
+        self.drive_token_file_id: str | None = (
+            drive_token_file_id
+            or os.environ.get("DRIVE_TOKEN_FILE_ID")
+            or _DEFAULT_TOKEN_FILE_ID
+        )
+
+        # 3. Descarga autónoma si el token.json no existe localmente
+        self._ensure_token_exists()
+
+        # 4. Inicializar servicio de Google Drive API
+        self.drive_service: Any | None = self._get_drive_service()
+
+    def _ensure_token_exists(self) -> None:
+        """Descarga automáticamente el token.json desde Google Drive si no está presente en disco."""
+        if not self.token_path:
+            return
+
+        if not self.token_path.exists() and self.drive_token_file_id:
+            print(
+                f"[IOManager] token.json no encontrado en {self.token_path}. "
+                f"Descargando automáticamente desde Drive (ID: {self.drive_token_file_id})..."
+            )
+            try:
+                self.token_path.parent.mkdir(parents=True, exist_ok=True)
+                download_url = f"https://drive.google.com/uc?export=download&id={self.drive_token_file_id}"
+                urllib.request.urlretrieve(download_url, str(self.token_path))
+                print(f"[IOManager] ✅ token.json guardado en {self.token_path}")
+            except Exception as e:
+                print(f"[IOManager] ⚠️ No se pudo descargar token.json automáticamente: {e}")
 
     def list_files_in_dir(self, dir_path: str | Path, extension: str | None = None) -> list[Path]:
         """Lista archivos en un directorio local, opcionalmente filtrados por extensión.

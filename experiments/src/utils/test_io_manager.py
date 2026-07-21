@@ -1,14 +1,34 @@
 import numpy as np
 import pytest
 from pathlib import Path
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import patch, MagicMock
 from experiments.src.utils.io_manager import IOManager
 
 
 @pytest.fixture
-def io_mgr():
-    """Instancia de prueba de IOManager sin inicializar Drive."""
-    return IOManager(token_path=None)
+def io_mgr(tmp_path):
+    """Instancia de prueba de IOManager evitando descargas automáticas durante tests."""
+    with patch.object(IOManager, "_ensure_token_exists"):
+        with patch.object(IOManager, "_get_drive_service", return_value=None):
+            return IOManager(token_path=tmp_path / "dummy_token.json")
+
+
+# ==========================================
+# Pruebas _ensure_token_exists (Caja Blanca)
+# ==========================================
+@patch("urllib.request.urlretrieve")
+def test_ensure_token_exists_downloads_when_missing(mock_urlretrieve, tmp_path):
+    """Caja Blanca: Si token.json no existe, IOManager lo descarga automáticamente."""
+    token_file = tmp_path / "token.json"
+    assert not token_file.exists()
+
+    with patch.object(IOManager, "_get_drive_service", return_value=None):
+        mgr = IOManager(token_path=token_file, drive_token_file_id="fake_id_123")
+
+    mock_urlretrieve.assert_called_once_with(
+        "https://drive.google.com/uc?export=download&id=fake_id_123",
+        str(token_file),
+    )
 
 
 # ==========================================
