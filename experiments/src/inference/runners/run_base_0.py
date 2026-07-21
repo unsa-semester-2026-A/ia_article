@@ -185,15 +185,18 @@ class Base0Runner(BaseInferencePipeline):
                 )
                 if drive_id:
                     print(
-                        f"    ✅ Uploaded to Drive: {local_path.name} (id: {drive_id})"
+                        f"    ✅ Uploaded to Drive: {local_path.name} (id: {drive_id})",
+                        flush=True,
                     )
                 else:
                     print(
-                        f"    ⚠️  Drive upload returned None for {local_path.name} (Local only)"
+                        f"    ⚠️  Drive upload returned None for {local_path.name} (Local only)",
+                        flush=True,
                     )
             except Exception as e:
                 print(
-                    f"    ⚠️  Drive upload error for {local_path.name}: {e} (Local only)"
+                    f"    ⚠️  Drive upload error for {local_path.name}: {e} (Local only)",
+                    flush=True,
                 )
                 drive_id = None
         return {"local": str(local_path), "drive_id": drive_id}
@@ -224,7 +227,7 @@ class Base0Runner(BaseInferencePipeline):
 
         if max_clips > 0:
             clip_ids = clip_ids[:max_clips]
-        print(f"[Base0Runner] Processing {len(clip_ids)} clips...")
+        print(f"[Base0Runner] Processing {len(clip_ids)} clips...", flush=True)
 
         generated_files: list[dict[str, Any]] = []
 
@@ -237,7 +240,8 @@ class Base0Runner(BaseInferencePipeline):
                 clip_json_path = output_dir / f"{clip_id}_predictions.json"
                 if clip_json_path.exists():
                     print(
-                        f"  [{clip_num}/{len(clip_ids)}] {clip_id}: already processed, skipping."
+                        f"  [{clip_num}/{len(clip_ids)}] {clip_id}: already processed, skipping.",
+                        flush=True,
                     )
                     generated_files.append(
                         {"local": str(clip_json_path), "drive_id": "already_uploaded"}
@@ -256,12 +260,14 @@ class Base0Runner(BaseInferencePipeline):
 
                 if not frame_paths:
                     print(
-                        f"  [{clip_num}/{len(clip_ids)}] {clip_id}: no frames found, skipping."
+                        f"  [{clip_num}/{len(clip_ids)}] {clip_id}: no frames found, skipping.",
+                        flush=True,
                     )
                     continue
 
                 print(
-                    f"  [{clip_num}/{len(clip_ids)}] {clip_id}: {len(frame_paths)} frames..."
+                    f"  [{clip_num}/{len(clip_ids)}] {clip_id}: {len(frame_paths)} frames...",
+                    flush=True,
                 )
 
                 clip_results: dict[str, Any] = {
