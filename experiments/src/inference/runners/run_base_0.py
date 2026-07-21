@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+import torch
 from src.inference.base_inference import BaseInferencePipeline
 from src.utils.io_manager import IOManager
 from ultralytics import YOLO
@@ -178,11 +179,23 @@ class Base0Runner(BaseInferencePipeline):
         self.io_manager.save_json(data, local_path)
         drive_id = None
         if drive_folder_id:
-            drive_id = self.io_manager.upload_file_to_drive(local_path, drive_folder_id)
-            if drive_id:
-                print(f"    ✅ Uploaded to Drive: {local_path.name} (id: {drive_id})")
-            else:
-                print(f"    ⚠️  Drive upload failed: {local_path.name}")
+            try:
+                drive_id = self.io_manager.upload_file_to_drive(
+                    local_path, drive_folder_id
+                )
+                if drive_id:
+                    print(
+                        f"    ✅ Uploaded to Drive: {local_path.name} (id: {drive_id})"
+                    )
+                else:
+                    print(
+                        f"    ⚠️  Drive upload returned None for {local_path.name} (Local only)"
+                    )
+            except Exception as e:
+                print(
+                    f"    ⚠️  Drive upload error for {local_path.name}: {e} (Local only)"
+                )
+                drive_id = None
         return {"local": str(local_path), "drive_id": drive_id}
 
     # ===================================================================
@@ -291,6 +304,8 @@ class Base0Runner(BaseInferencePipeline):
 
                 del clip_results
                 gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
         except (KeyboardInterrupt, Exception) as e:
             print(f"\n[Base0Runner] ⚠️  Interruption detected: {type(e).__name__}: {e}")
@@ -368,7 +383,7 @@ if __name__ == "__main__":
             else Path("/content/token.json")
         ),
         "drive_folder_id": "1wXieZvOZDE5KzZiYyESbf8xU-C2AGPWJ",
-        "max_clips": 5,  # 0 = process all clips
+        "max_clips": 0,  # 0 = process all clips
     }
 
     print(f"Dataset directory: {dataset_dir}")
