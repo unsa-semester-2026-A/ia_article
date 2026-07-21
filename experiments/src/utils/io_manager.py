@@ -1,36 +1,39 @@
+"""Generic Input/Output data manager and autonomous Google Drive API integration module."""
+
 import csv
 import json
 import os
 import urllib.request
-import numpy as np
-import cv2
 from pathlib import Path
 from typing import Any
+
+import cv2
+import numpy as np
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-# ID predeterminado en Google Drive para descarga automática de token.json si no existe localmente
+# Default file ID on Google Drive for automatic token.json download if missing locally
 _DEFAULT_TOKEN_FILE_ID = "1Fjg-AIrIQ77g1JRtapE6XDb_A6CP_4q3"
 
 
 class IOManager:
-    """Gestor genérico de datos de entrada/salida locales e integración autónoma con la API de Google Drive."""
+    """Generic I/O data manager and autonomous Google Drive API integration."""
 
     def __init__(
         self,
         token_path: str | Path | None = None,
         drive_token_file_id: str | None = None,
     ) -> None:
-        """Inicializa el gestor de E/S y resuelve automáticamente la autenticación con Google Drive.
+        """Initialize I/O manager and resolve Google Drive authentication.
 
         Args:
-            token_path: Ruta local al archivo token.json. Si es None, lee de os.environ["DRIVE_TOKEN_PATH"] 
-                       o usa rutas por defecto del entorno (/kaggle/working/token.json o token.json).
-            drive_token_file_id: ID en Google Drive para descargar token.json si no existe localmente. 
-                                Si es None, lee de os.environ["DRIVE_TOKEN_FILE_ID"] o usa _DEFAULT_TOKEN_FILE_ID.
+            token_path: Local path to token.json file. If None, reads from os.environ["DRIVE_TOKEN_PATH"]
+                       or falls back to default environment paths (/kaggle/working/token.json or token.json).
+            drive_token_file_id: Google Drive file ID to download token.json if missing locally.
+                                If None, reads from os.environ["DRIVE_TOKEN_FILE_ID"] or uses _DEFAULT_TOKEN_FILE_ID.
         """
-        # 1. Resolver ruta del token
+        # 1. Resolve token path
         if token_path:
             self.token_path: Path | None = Path(token_path)
         else:
@@ -42,36 +45,36 @@ class IOManager:
             else:
                 self.token_path = Path("token.json")
 
-        # 2. Resolver ID para auto-descarga
+        # 2. Resolve file ID for auto-download
         self.drive_token_file_id: str | None = (
             drive_token_file_id
             or os.environ.get("DRIVE_TOKEN_FILE_ID")
             or _DEFAULT_TOKEN_FILE_ID
         )
 
-        # 3. Descarga autónoma si el token.json no existe localmente
+        # 3. Autonomous download if token.json is missing locally
         self._ensure_token_exists()
 
-        # 4. Inicializar servicio de Google Drive API
+        # 4. Initialize Google Drive API service
         self.drive_service: Any | None = self._get_drive_service()
 
     def _ensure_token_exists(self) -> None:
-        """Descarga automáticamente el token.json desde Google Drive si no está presente en disco."""
+        """Download token.json from Google Drive if not present on disk."""
         if not self.token_path:
             return
 
         if not self.token_path.exists() and self.drive_token_file_id:
             print(
-                f"[IOManager] token.json no encontrado en {self.token_path}. "
-                f"Descargando automáticamente desde Drive (ID: {self.drive_token_file_id})..."
+                f"[IOManager] token.json not found at {self.token_path}. "
+                f"Downloading automatically from Drive (ID: {self.drive_token_file_id})..."
             )
             try:
                 self.token_path.parent.mkdir(parents=True, exist_ok=True)
                 download_url = f"https://drive.google.com/uc?export=download&id={self.drive_token_file_id}"
                 urllib.request.urlretrieve(download_url, str(self.token_path))
-                print(f"[IOManager] ✅ token.json guardado en {self.token_path}")
+                print(f"[IOManager] ✅ token.json saved to {self.token_path}")
             except Exception as e:
-                print(f"[IOManager] ⚠️ No se pudo descargar token.json automáticamente: {e}")
+                print(f"[IOManager] ⚠️ Could not download token.json automatically: {e}")
 
     def list_files_in_dir(
         self,
@@ -79,15 +82,15 @@ class IOManager:
         extension: str | None = None,
         pattern: str | None = None,
     ) -> list[Path]:
-        """Lista archivos en un directorio local, filtrados por extensión o patrón glob.
+        """List files in a local directory, filtered by extension or glob pattern.
 
         Args:
-            dir_path: Directorio a escanear.
-            extension: Extensión para filtrar (ej. '.jpg').
-            pattern: Patrón glob específico (ej. 'v_009evckk5b_*.jpg').
+            dir_path: Directory to scan.
+            extension: Extension filter (e.g. '.jpg').
+            pattern: Glob pattern filter (e.g. 'v_009evckk5b_*.jpg').
 
         Returns:
-            Lista ordenada de rutas absolutas (Path) de archivos encontrados.
+            Sorted list of absolute Path objects for matching files.
         """
         directory = Path(dir_path)
         if not directory.exists():
@@ -102,13 +105,13 @@ class IOManager:
         return files
 
     def load_csv(self, file_path: str | Path) -> list[dict]:
-        """Carga un archivo CSV genérico y retorna sus filas como diccionarios.
+        """Load a generic CSV file and return rows as dictionaries.
 
         Args:
-            file_path: Ruta al archivo CSV.
+            file_path: Path to the CSV file.
 
         Returns:
-            Lista de diccionarios representando cada fila.
+            List of dictionaries representing each row.
         """
         path = Path(file_path)
         if not path.exists():
@@ -118,28 +121,28 @@ class IOManager:
             return list(csv.DictReader(f))
 
     def load_image(self, image_path: str | Path) -> np.ndarray:
-        """Carga una imagen desde el disco usando OpenCV.
+        """Load an image from disk using OpenCV.
 
         Args:
-            image_path: Ruta absoluta al archivo de imagen.
+            image_path: Absolute path to the image file.
 
         Returns:
-            Matriz numpy de la imagen cargada (BGR).
+            Numpy array of the loaded BGR image.
         """
         img = cv2.imread(str(image_path))
         if img is None:
-            raise FileNotFoundError(f"No se pudo cargar la imagen: {image_path}")
+            raise FileNotFoundError(f"Could not load image: {image_path}")
         return img
 
     def save_json(self, data: Any, local_path: str | Path) -> Path:
-        """Guarda un diccionario o lista en formato JSON en la ruta local indicada.
+        """Save a dictionary or list as a JSON file at the specified local path.
 
         Args:
-            data: Contenido a serializar.
-            local_path: Ruta destino en disco.
+            data: Content to serialize.
+            local_path: Destination path on disk.
 
         Returns:
-            Ruta absoluta (Path) del archivo JSON persistido.
+            Absolute Path object of the persisted JSON file.
         """
         path = Path(local_path).resolve()
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -148,48 +151,53 @@ class IOManager:
         return path
 
     def _get_drive_service(self) -> Any | None:
-        """Inicializa y retorna la conexión OAuth2 con Google Drive API.
+        """Initialize and return OAuth2 Google Drive API service.
 
-        Usa las credenciales indicadas en self.token_path si están disponibles.
-        Funciona de forma agnóstica en cualquier entorno (Kaggle, Colab, Local).
+        Uses credentials from self.token_path if available.
+        Works agnostically across any environment (Kaggle, Colab, Local).
         """
         if not self.token_path or not self.token_path.exists():
-            print(f"[IOManager] No se encontró token.json en {self.token_path}. Google Drive deshabilitado.")
+            print(
+                f"[IOManager] token.json not found at {self.token_path}. Google Drive disabled."
+            )
             return None
 
         try:
             from google.auth.transport.requests import Request
 
-            # scopes=None permite que google-auth use los permisos guardados dentro del token.json
-            # sin lanzar 'invalid_scope' si difiere de 'https://www.googleapis.com/auth/drive'
+            # scopes=None allows google-auth to use authorized scopes inside token.json
+            # avoiding 'invalid_scope' errors if scopes differ from exact strings
             creds = Credentials.from_authorized_user_file(
                 str(self.token_path), scopes=None
             )
-            # Refrescar token si ha expirado y se cuenta con refresh_token
+            # Refresh token if expired and refresh_token is present
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
 
             service = build("drive", "v3", credentials=creds)
             return service
         except Exception as e:
-            print(f"[IOManager] Error inicializando Drive Service: {e}")
+            print(f"[IOManager] Error initializing Drive Service: {e}")
             return None
 
     def upload_file_to_drive(
-        self, local_path: str | Path, drive_folder_id: str, mime_type: str = "application/json"
+        self,
+        local_path: str | Path,
+        drive_folder_id: str,
+        mime_type: str = "application/json",
     ) -> str | None:
-        """Sube un archivo local a una carpeta específica en Google Drive. No contiene IDs por defecto.
+        """Upload a local file to a specific Google Drive folder.
 
         Args:
-            local_path: Ruta al archivo en disco.
-            drive_folder_id: ID de la carpeta destino de Google Drive (Debe ser inyectado, NUNCA por defecto).
-            mime_type: Tipo de contenido MIME.
+            local_path: Path to the local file.
+            drive_folder_id: Target Google Drive folder ID.
+            mime_type: MIME content type.
 
         Returns:
-            El ID del archivo subido en Google Drive, o None si ocurre un fallo.
+            Uploaded Google Drive file ID, or None on failure.
         """
         if not self.drive_service:
-            print("[IOManager] Servicio Drive no inicializado. Omitiendo subida.")
+            print("[IOManager] Drive service not initialized. Skipping upload.")
             return None
 
         path = Path(local_path)
@@ -199,11 +207,16 @@ class IOManager:
 
             uploaded_file = (
                 self.drive_service.files()
-                .create(body=file_metadata, media_body=media, fields="id", supportsAllDrives=True)
+                .create(
+                    body=file_metadata,
+                    media_body=media,
+                    fields="id",
+                    supportsAllDrives=True,
+                )
                 .execute()
             )
 
             return uploaded_file.get("id")
         except Exception as e:
-            print(f"[IOManager] Fallo al subir {path} a Drive: {e}")
+            print(f"[IOManager] Failed to upload {path} to Drive: {e}")
             return None

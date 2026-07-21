@@ -1,11 +1,13 @@
-import pytest
 from typing import Any
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 from experiments.src.inference.base_inference import BaseInferencePipeline
 
 
 class DummyInferencePipeline(BaseInferencePipeline):
     """Clase dummy concreta para instanciar la interfaz abstracta."""
+
     def execute(self) -> dict[str, Any]:
         return {}
 
@@ -25,8 +27,12 @@ def pipeline():
 # ==========================================
 def test_accumulate_speed_sums_correctly(pipeline):
     """Caja Blanca: Verifica que los acumuladores sumen sin almacenar listas."""
-    pipeline.accumulate_speed({"preprocess": 1.0, "inference": 10.0, "postprocess": 2.0})
-    pipeline.accumulate_speed({"preprocess": 3.0, "inference": 20.0, "postprocess": 4.0})
+    pipeline.accumulate_speed(
+        {"preprocess": 1.0, "inference": 10.0, "postprocess": 2.0}
+    )
+    pipeline.accumulate_speed(
+        {"preprocess": 3.0, "inference": 20.0, "postprocess": 4.0}
+    )
 
     assert pipeline._time_sums["preprocess"] == 4.0
     assert pipeline._time_sums["inference"] == 30.0
@@ -73,14 +79,20 @@ def test_start_monitoring_without_cuda(mock_cuda, pipeline):
 @patch("experiments.src.inference.base_inference.resource")
 @patch("experiments.src.inference.base_inference.torch.cuda")
 @patch("experiments.src.inference.base_inference.time.time")
-def test_record_hardware_metrics_calculus(mock_time, mock_cuda, mock_resource, pipeline):
+def test_record_hardware_metrics_calculus(
+    mock_time, mock_cuda, mock_resource, pipeline
+):
     """Caja Blanca: Inyecta valores estáticos y verifica cálculos matemáticos."""
     mock_time.return_value = 1010.0
     pipeline.start_time = 1000.0
 
     # Simular acumulación de 2 frames
-    pipeline.accumulate_speed({"preprocess": 1.0, "inference": 10.0, "postprocess": 2.0})
-    pipeline.accumulate_speed({"preprocess": 1.0, "inference": 20.0, "postprocess": 2.0})
+    pipeline.accumulate_speed(
+        {"preprocess": 1.0, "inference": 10.0, "postprocess": 2.0}
+    )
+    pipeline.accumulate_speed(
+        {"preprocess": 1.0, "inference": 20.0, "postprocess": 2.0}
+    )
 
     # 1 GB RAM
     mock_ru = MagicMock()

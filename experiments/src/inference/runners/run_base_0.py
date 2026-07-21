@@ -1,3 +1,5 @@
+"""Base 0 Zero-Shot inference and OBB tracking runner module."""
+
 import gc
 import os
 import sys
@@ -5,10 +7,9 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ultralytics import YOLO
-
 from src.inference.base_inference import BaseInferencePipeline
 from src.utils.io_manager import IOManager
+from ultralytics import YOLO
 
 _DEFAULT_BATCH_SIZE = 16
 
@@ -29,9 +30,9 @@ class Base0Runner(BaseInferencePipeline):
         for idx, name in self.model.names.items():
             clean = name.lower().replace("-", " ").replace("_", " ")
             if any(kw in clean for kw in ("small vehicle", "car")):
-                self.dota_to_mtc[int(idx)] = 0   # MTC: car
+                self.dota_to_mtc[int(idx)] = 0  # MTC: car
             elif any(kw in clean for kw in ("large vehicle", "bus", "truck")):
-                self.dota_to_mtc[int(idx)] = 6   # MTC: truck
+                self.dota_to_mtc[int(idx)] = 6  # MTC: truck
 
         print(f"[Base0Runner] DOTA -> MTC Class Mapping: {self.dota_to_mtc}")
         print(f"[Base0Runner] Selected Tracker: {self.tracker}")
@@ -57,8 +58,14 @@ class Base0Runner(BaseInferencePipeline):
         # Metadata file check
         if metadata_path.exists():
             csv_data = self.io_manager.load_csv(metadata_path)
-            val_clips = {r["clip_id"] for r in csv_data if r.get("split") == "val" and r.get("clip_id")}
-            print(f"  ✅ Metadata:   {metadata_path} ({len(csv_data)} rows, {len(val_clips)} val clips)")
+            val_clips = {
+                r["clip_id"]
+                for r in csv_data
+                if r.get("split") == "val" and r.get("clip_id")
+            }
+            print(
+                f"  ✅ Metadata:   {metadata_path} ({len(csv_data)} rows, {len(val_clips)} val clips)"
+            )
         else:
             print(f"  ❌ Metadata:   {metadata_path} NOT FOUND")
             ok = False
@@ -87,12 +94,13 @@ class Base0Runner(BaseInferencePipeline):
 
         # Google Drive Service check
         if self.io_manager.drive_service:
-            print(f"  ✅ Drive:      Service initialized")
+            print("  ✅ Drive:      Service initialized")
         else:
-            print(f"  ⚠️  Drive:      Not available (local output only)")
+            print("  ⚠️  Drive:      Not available (local output only)")
 
         # GPU check
         import torch
+
         if torch.cuda.is_available():
             gpu_name = torch.cuda.get_device_name(0)
             gpu_mem = torch.cuda.get_device_properties(0).total_memory / (1024**3)
@@ -134,7 +142,7 @@ class Base0Runner(BaseInferencePipeline):
             }
 
             if r.obb is not None and len(r.obb):
-                corners = r.obb.xyxyxyxy.cpu().numpy()   # (N, 4, 2)
+                corners = r.obb.xyxyxyxy.cpu().numpy()  # (N, 4, 2)
                 classes = r.obb.cls.cpu().numpy().astype(int)
                 scores = r.obb.conf.cpu().numpy()
 
@@ -147,12 +155,14 @@ class Base0Runner(BaseInferencePipeline):
                     mtc_id = self.dota_to_mtc.get(int(classes[j]))
                     if mtc_id is not None:
                         tid = int(track_ids[j]) if track_ids is not None else -1
-                        frame_data["detections"].append({
-                            "track_id": tid,
-                            "class_id": mtc_id,
-                            "score": round(float(scores[j]), 6),
-                            "obb_corners": corners[j].flatten().tolist(),
-                        })
+                        frame_data["detections"].append(
+                            {
+                                "track_id": tid,
+                                "class_id": mtc_id,
+                                "score": round(float(scores[j]), 6),
+                                "obb_corners": corners[j].flatten().tolist(),
+                            }
+                        )
 
             batch_frames.append(frame_data)
 
@@ -213,21 +223,33 @@ class Base0Runner(BaseInferencePipeline):
                 # Resume check: skip if output JSON already exists
                 clip_json_path = output_dir / f"{clip_id}_predictions.json"
                 if clip_json_path.exists():
-                    print(f"  [{clip_num}/{len(clip_ids)}] {clip_id}: already processed, skipping.")
-                    generated_files.append({"local": str(clip_json_path), "drive_id": "already_uploaded"})
+                    print(
+                        f"  [{clip_num}/{len(clip_ids)}] {clip_id}: already processed, skipping."
+                    )
+                    generated_files.append(
+                        {"local": str(clip_json_path), "drive_id": "already_uploaded"}
+                    )
                     continue
 
                 # Detect directory structure (subfolder vs flat prefix)
                 if clip_dir.is_dir():
-                    frame_paths = self.io_manager.list_files_in_dir(clip_dir, extension=".jpg")
+                    frame_paths = self.io_manager.list_files_in_dir(
+                        clip_dir, extension=".jpg"
+                    )
                 else:
-                    frame_paths = self.io_manager.list_files_in_dir(images_dir, pattern=f"{clip_id}*.jpg")
+                    frame_paths = self.io_manager.list_files_in_dir(
+                        images_dir, pattern=f"{clip_id}*.jpg"
+                    )
 
                 if not frame_paths:
-                    print(f"  [{clip_num}/{len(clip_ids)}] {clip_id}: no frames found, skipping.")
+                    print(
+                        f"  [{clip_num}/{len(clip_ids)}] {clip_id}: no frames found, skipping."
+                    )
                     continue
 
-                print(f"  [{clip_num}/{len(clip_ids)}] {clip_id}: {len(frame_paths)} frames...")
+                print(
+                    f"  [{clip_num}/{len(clip_ids)}] {clip_id}: {len(frame_paths)} frames..."
+                )
 
                 clip_results: dict[str, Any] = {
                     "clip_id": clip_id,
@@ -247,16 +269,24 @@ class Base0Runner(BaseInferencePipeline):
                         persist=True,
                         verbose=False,
                     )
-                    batch_frames = self._process_track_results(results, frame_offset=frame_idx)
+                    batch_frames = self._process_track_results(
+                        results, frame_offset=frame_idx
+                    )
                     clip_results["frames"].extend(batch_frames)
 
                 # Reset tracker state between clips
-                if hasattr(self.model, "predictor") and self.model.predictor and hasattr(self.model.predictor, "trackers"):
+                if (
+                    hasattr(self.model, "predictor")
+                    and self.model.predictor
+                    and hasattr(self.model.predictor, "trackers")
+                ):
                     for t in self.model.predictor.trackers:
                         t.reset()
 
                 # Save JSON and upload to Drive
-                file_record = self._save_and_upload(clip_results, clip_json_path, drive_folder_id)
+                file_record = self._save_and_upload(
+                    clip_results, clip_json_path, drive_folder_id
+                )
                 generated_files.append(file_record)
 
                 del clip_results
@@ -269,10 +299,14 @@ class Base0Runner(BaseInferencePipeline):
         finally:
             metrics = self.record_hardware_metrics()
             metrics_path = output_dir / "inference_metrics.json"
-            metrics_record = self._save_and_upload(metrics, metrics_path, drive_folder_id)
+            metrics_record = self._save_and_upload(
+                metrics, metrics_path, drive_folder_id
+            )
             generated_files.append(metrics_record)
 
-            print(f"[Base0Runner] Finished. {self.total_frames_processed} total frames processed.")
+            print(
+                f"[Base0Runner] Finished. {self.total_frames_processed} total frames processed."
+            )
             sys.stdout.flush()
             sys.stderr.flush()
 
@@ -310,7 +344,11 @@ if __name__ == "__main__":
     IS_KAGGLE = os.path.exists("/kaggle/working")
 
     dataset_dir = _find_dataset_dir()
-    output_dir = Path("/kaggle/working/output_base0") if IS_KAGGLE else Path("/content/output_base0")
+    output_dir = (
+        Path("/kaggle/working/output_base0")
+        if IS_KAGGLE
+        else Path("/content/output_base0")
+    )
 
     config = {
         "device": 0,
@@ -324,7 +362,11 @@ if __name__ == "__main__":
         "output_dir": str(output_dir),
         "hardware_name": "Tesla_T4_Kaggle" if IS_KAGGLE else "Colab_GPU",
         "experiment_condition": "Base_0_Zero_Shot",
-        "token_path": str(Path("/kaggle/working/token.json") if IS_KAGGLE else Path("/content/token.json")),
+        "token_path": str(
+            Path("/kaggle/working/token.json")
+            if IS_KAGGLE
+            else Path("/content/token.json")
+        ),
         "drive_folder_id": "1wXieZvOZDE5KzZiYyESbf8xU-C2AGPWJ",
         "max_clips": 5,  # 0 = process all clips
     }
@@ -348,7 +390,7 @@ if __name__ == "__main__":
     for f in results["files"]:
         drive_status = f"Drive ID: {f['drive_id']}" if f["drive_id"] else "Local only"
         print(f"  📄 {Path(f['local']).name} -> {drive_status}")
-    print(f"\nHardware Metrics:")
+    print("\nHardware Metrics:")
     for k, v in results["metrics"].items():
         print(f"  {k}: {v}")
 
@@ -362,4 +404,5 @@ if __name__ == "__main__":
         os._exit(0)
     elif os.path.exists("/content/drive"):
         from google.colab import runtime
+
         runtime.unassign()

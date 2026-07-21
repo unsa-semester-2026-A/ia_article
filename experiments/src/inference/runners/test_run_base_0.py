@@ -1,7 +1,10 @@
+"""Unit tests for Base0Runner module."""
+
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
 from experiments.src.inference.runners.run_base_0 import Base0Runner
 
 
@@ -40,8 +43,8 @@ def test_dota_to_mtc_mapping(runner):
 
 def test_non_vehicle_classes_excluded(runner):
     """Black Box: Ensure non-vehicle classes (plane, swimming-pool) are excluded."""
-    assert 0 not in runner.dota_to_mtc    # plane
-    assert 14 not in runner.dota_to_mtc   # swimming-pool
+    assert 0 not in runner.dota_to_mtc  # plane
+    assert 14 not in runner.dota_to_mtc  # swimming-pool
 
 
 # ==========================================
@@ -74,10 +77,13 @@ def test_process_track_extracts_track_ids_and_corners(runner):
 
     mock_obb = MagicMock()
     mock_obb.__len__ = lambda self: 2
-    corners = np.array([
-        [[10, 20], [50, 20], [50, 80], [10, 80]],
-        [[100, 200], [150, 200], [150, 280], [100, 280]],
-    ], dtype=np.float32)
+    corners = np.array(
+        [
+            [[10, 20], [50, 20], [50, 80], [10, 80]],
+            [[100, 200], [150, 200], [150, 280], [100, 280]],
+        ],
+        dtype=np.float32,
+    )
     mock_obb.xyxyxyxy.cpu().numpy.return_value = corners
     mock_obb.cls.cpu().numpy.return_value = np.array([9, 0])
     mock_obb.conf.cpu().numpy.return_value = np.array([0.95, 0.80])
@@ -108,7 +114,8 @@ def test_execute_pipeline_tracking(mock_gc, runner):
     ]
 
     runner.io_manager.list_files_in_dir.return_value = [
-        Path("f0.jpg"), Path("f1.jpg"),
+        Path("f0.jpg"),
+        Path("f1.jpg"),
     ]
 
     mock_result = MagicMock()
@@ -191,3 +198,4 @@ def test_execute_saves_metrics_on_error(mock_gc, runner):
 
     runner.record_hardware_metrics.assert_called_once()
     assert runner.io_manager.save_json.call_count >= 1
+    assert res["status"] == "success"

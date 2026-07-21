@@ -1,27 +1,29 @@
-import time
+"""Base abstract class for orchestrating YOLO OBB inference pipelines and hardware monitoring."""
+
 import resource
-import torch
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
+import torch
+
 
 class BaseInferencePipeline(ABC):
-    """Clase base abstracta para orquestar la inferencia de modelos YOLO OBB."""
+    """Abstract base class for orchestrating YOLO OBB model inference pipelines."""
 
     def __init__(self, config: dict[str, Any], model_path: str) -> None:
-        """Inicializa parámetros base de hardware, modelo y contadores.
+        """Initialize base hardware, model, and accumulator parameters.
 
         Args:
-            config: Configuración general (device, conf, iou, imgsz, etc.).
-            model_path: Ruta a los pesos del modelo YOLO (.pt).
+            config: General configuration dictionary (device, conf, iou, imgsz, etc.).
+            model_path: Path to YOLO model weights (.pt).
         """
         self.config: dict[str, Any] = config
         self.model_path: Path = Path(model_path)
         self.device: str | int = config.get("device", 0)
 
-        # Acumuladores de tiempos (suma + conteo) en vez de listas enormes
-        # Esto evita que miles de frames consuman RAM innecesaria
+        # Time accumulators (sum + count) instead of huge lists to prevent memory overhead
         self._time_sums: dict[str, float] = {
             "preprocess": 0.0,
             "inference": 0.0,
@@ -35,29 +37,26 @@ class BaseInferencePipeline(ABC):
         self.peak_gpu_vram_gb: float = 0.0
 
     def accumulate_speed(self, speed: dict[str, float]) -> None:
-        """Acumula tiempos de un frame sin almacenar cada valor individual.
+        """Accumulate execution speed timing for a frame without storing individual values.
 
         Args:
-            speed: Diccionario con claves 'preprocess', 'inference', 'postprocess' en ms.
+            speed: Dictionary with keys 'preprocess', 'inference', 'postprocess' in milliseconds.
         """
         for key in self._time_sums:
             self._time_sums[key] += speed.get(key, 0.0)
         self.total_frames_processed += 1
 
     def start_hardware_monitoring(self) -> None:
-        """Reinicia las estadísticas de la GPU (VRAM) usando torch.cuda.reset_peak_memory_stats
-        y registra el tiempo de inicio total.
-        """
+        """Reset GPU peak memory statistics and record total start timestamp."""
         if torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats()
         self.start_time = time.time()
 
     def record_hardware_metrics(self) -> dict[str, Any]:
-        """Consulta el consumo máximo de memoria RAM (resource.ru_maxrss) y VRAM (torch.cuda.max_memory_allocated).
-        Calcula también la velocidad promedio del modelo.
+        """Query peak CPU RAM and GPU VRAM consumption and compute average model speed.
 
         Returns:
-            Estructura compatible con 'inference_metrics.json'.
+            Dictionary structure compatible with 'inference_metrics.json'.
         """
         self.total_time_seconds = time.time() - self.start_time
 
@@ -68,13 +67,13 @@ class BaseInferencePipeline(ABC):
         # Peak VRAM
         if torch.cuda.is_available():
             peak_vram_bytes = torch.cuda.max_memory_allocated()
-            self.peak_gpu_vram_gb = peak_vram_bytes / (1024 ** 3)
-            peak_vram_mb = peak_vram_bytes / (1024 ** 2)
+            self.peak_gpu_vram_gb = peak_vram_bytes / (1024**3)
+            peak_vram_mb = peak_vram_bytes / (1024**2)
         else:
             self.peak_gpu_vram_gb = 0.0
             peak_vram_mb = 0.0
 
-        n = self.total_frames_processed or 1  # Evitar división por cero
+        n = self.total_frames_processed or 1  # Avoid division by zero
         avg_preprocess = self._time_sums["preprocess"] / n
         avg_inference = self._time_sums["inference"] / n
         avg_postprocess = self._time_sums["postprocess"] / n
@@ -101,5 +100,5 @@ class BaseInferencePipeline(ABC):
 
     @abstractmethod
     def execute(self) -> dict[str, Any]:
-        """Ejecuta el pipeline completo de inferencia y guardado por lotes."""
+        """Execute the complete batch inference and output saving pipeline."""
         pass
