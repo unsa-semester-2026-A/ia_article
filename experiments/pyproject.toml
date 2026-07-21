@@ -17,7 +17,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "numpy",
+    "numpy==1.26.4",
     "opencv-python",
     "pandas",
     "pyyaml",
@@ -27,7 +27,8 @@ dependencies = [
 
 [project.optional-dependencies]
 cloud = [
-    "ultralytics",
+    "ultralytics==8.4.103",
+    "lap==0.5.13",
     "pytest",
     "pytest-cov",
     "albumentations",
@@ -37,7 +38,8 @@ cloud = [
     "google-auth-oauthlib",
 ]
 local = [
-    "ultralytics",
+    "ultralytics==8.4.103",
+    "lap==0.5.13",
     "torch",
     "torchvision",
     "pytest",
