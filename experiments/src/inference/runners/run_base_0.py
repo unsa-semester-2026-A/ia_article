@@ -149,7 +149,10 @@ class Base0Runner(BaseInferencePipeline):
                     generated_files.append({"local": str(clip_json_path), "drive_id": "already_uploaded"})
                     continue
 
-                frame_paths = self.io_manager.list_files_in_dir(clip_dir, extension=".jpg")
+                if clip_dir.is_dir():
+                    frame_paths = self.io_manager.list_files_in_dir(clip_dir, extension=".jpg")
+                else:
+                    frame_paths = self.io_manager.list_files_in_dir(images_dir, pattern=f"{clip_id}*.jpg")
 
                 if not frame_paths:
                     print(f"  [{clip_num}/{len(clip_ids)}] {clip_id}: sin frames, omitiendo.")

@@ -73,12 +73,18 @@ class IOManager:
             except Exception as e:
                 print(f"[IOManager] ⚠️ No se pudo descargar token.json automáticamente: {e}")
 
-    def list_files_in_dir(self, dir_path: str | Path, extension: str | None = None) -> list[Path]:
-        """Lista archivos en un directorio local, opcionalmente filtrados por extensión.
+    def list_files_in_dir(
+        self,
+        dir_path: str | Path,
+        extension: str | None = None,
+        pattern: str | None = None,
+    ) -> list[Path]:
+        """Lista archivos en un directorio local, filtrados por extensión o patrón glob.
 
         Args:
             dir_path: Directorio a escanear.
             extension: Extensión para filtrar (ej. '.jpg').
+            pattern: Patrón glob específico (ej. 'v_009evckk5b_*.jpg').
 
         Returns:
             Lista ordenada de rutas absolutas (Path) de archivos encontrados.
@@ -87,7 +93,9 @@ class IOManager:
         if not directory.exists():
             return []
 
-        if extension:
+        if pattern:
+            files = sorted(directory.glob(pattern))
+        elif extension:
             files = sorted(directory.glob(f"*{extension}"))
         else:
             files = sorted(f for f in directory.iterdir() if f.is_file())
