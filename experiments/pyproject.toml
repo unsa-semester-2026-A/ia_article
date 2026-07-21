@@ -28,6 +28,7 @@ dependencies = [
 [project.optional-dependencies]
 cloud = [
     "ultralytics",
+    "lapx>=0.5.8",
     "pytest",
     "pytest-cov",
     "albumentations",
@@ -38,6 +39,7 @@ cloud = [
 ]
 local = [
     "ultralytics",
+    "lapx>=0.5.8",
     "torch",
     "torchvision",
     "pytest",
