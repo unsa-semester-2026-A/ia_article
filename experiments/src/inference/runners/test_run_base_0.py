@@ -5,12 +5,12 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from experiments.src.inference.runners.run_base_0 import Base0Runner
+from src.inference.runners.run_base_0 import Base0Runner
 
 
 @pytest.fixture
-@patch("experiments.src.inference.runners.run_base_0.YOLO")
-@patch("experiments.src.inference.runners.run_base_0.IOManager")
+@patch("src.inference.runners.run_base_0.YOLO")
+@patch("src.inference.runners.run_base_0.IOManager")
 def runner(mock_io, mock_yolo):
     """Instantiate Base0Runner with mocks for YOLO and IOManager."""
     mock_model = MagicMock()
@@ -104,7 +104,7 @@ def test_process_track_extracts_track_ids_and_corners(runner):
 # ==========================================
 # Pipeline Execution Tests (White Box)
 # ==========================================
-@patch("experiments.src.inference.runners.run_base_0.gc")
+@patch("src.inference.runners.run_base_0.gc")
 def test_execute_pipeline_tracking(mock_gc, runner):
     """White Box: Verify model.track is invoked per frame."""
     runner.io_manager.load_csv.return_value = [
@@ -135,7 +135,7 @@ def test_execute_pipeline_tracking(mock_gc, runner):
     assert res["status"] == "success"
 
 
-@patch("experiments.src.inference.runners.run_base_0.gc")
+@patch("src.inference.runners.run_base_0.gc")
 def test_execute_skips_empty_clips(mock_gc, runner):
     """Black Box: Empty clips are gracefully skipped."""
     runner.io_manager.load_csv.return_value = [
@@ -152,7 +152,7 @@ def test_execute_skips_empty_clips(mock_gc, runner):
     assert res["status"] == "success"
 
 
-@patch("experiments.src.inference.runners.run_base_0.gc")
+@patch("src.inference.runners.run_base_0.gc")
 def test_execute_resumes_existing_clips(mock_gc, runner, tmp_path):
     """White Box: Already processed JSON files are skipped for resumption."""
     runner.config["output_dir"] = str(tmp_path)
@@ -181,7 +181,7 @@ def test_execute_resumes_existing_clips(mock_gc, runner, tmp_path):
     assert res["status"] == "success"
 
 
-@patch("experiments.src.inference.runners.run_base_0.gc")
+@patch("src.inference.runners.run_base_0.gc")
 def test_execute_saves_metrics_on_error(mock_gc, runner):
     """White Box: Finally block saves metrics even on exception."""
     runner.io_manager.load_csv.return_value = [

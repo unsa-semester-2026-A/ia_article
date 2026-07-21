@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from experiments.src.utils.io_manager import IOManager
+from src.utils.io_manager import IOManager
 
 
 @pytest.fixture
@@ -37,8 +37,8 @@ def test_ensure_token_exists_downloads_when_missing(mock_urlretrieve, tmp_path):
 # ==========================================
 # _get_drive_service Tests (White Box)
 # ==========================================
-@patch("experiments.src.utils.io_manager.build")
-@patch("experiments.src.utils.io_manager.Credentials")
+@patch("src.utils.io_manager.build")
+@patch("src.utils.io_manager.Credentials")
 def test_get_drive_service_uses_scopes_none(mock_creds, mock_build, tmp_path):
     """White Box: Verify Credentials uses scopes=None to prevent invalid_scope errors."""
     token_file = tmp_path / "token.json"
@@ -105,7 +105,7 @@ def test_load_csv_valid(io_mgr, tmp_path):
 # ==========================================
 # load_image Tests (White & Black Box)
 # ==========================================
-@patch("experiments.src.utils.io_manager.cv2.imread")
+@patch("src.utils.io_manager.cv2.imread")
 def test_load_image_not_found(mock_imread, io_mgr):
     """White Box: cv2.imread failure raises FileNotFoundError."""
     mock_imread.return_value = None
@@ -113,7 +113,7 @@ def test_load_image_not_found(mock_imread, io_mgr):
         io_mgr.load_image("dummy.jpg")
 
 
-@patch("experiments.src.utils.io_manager.cv2.imread")
+@patch("src.utils.io_manager.cv2.imread")
 def test_load_image_valid(mock_imread, io_mgr):
     """Black Box: Correct return of numpy array."""
     dummy_img = np.zeros((10, 10, 3))
@@ -148,11 +148,14 @@ def test_upload_drive_without_service(io_mgr):
     assert io_mgr.upload_file_to_drive("dummy.json", "folder_123") is None
 
 
-def test_upload_drive_with_service(io_mgr):
+def test_upload_drive_with_service(io_mgr, tmp_path):
     """White Box: Verify Google Drive API upload call."""
     mock_service = MagicMock()
     mock_service.files().create().execute.return_value = {"id": "fake_drive_id"}
     io_mgr.drive_service = mock_service
 
-    res = io_mgr.upload_file_to_drive("dummy.json", "folder_123")
+    dummy_file = tmp_path / "dummy.json"
+    dummy_file.write_text("{}")
+
+    res = io_mgr.upload_file_to_drive(dummy_file, "folder_123")
     assert res == "fake_drive_id"

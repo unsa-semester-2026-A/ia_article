@@ -2,7 +2,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from experiments.src.inference.base_inference import BaseInferencePipeline
+from src.inference.base_inference import BaseInferencePipeline
 
 
 class DummyInferencePipeline(BaseInferencePipeline):
@@ -52,8 +52,8 @@ def test_accumulate_speed_handles_missing_keys(pipeline):
 # ==========================================
 # Pruebas start_hardware_monitoring (Caja Blanca)
 # ==========================================
-@patch("experiments.src.inference.base_inference.time.time")
-@patch("experiments.src.inference.base_inference.torch.cuda")
+@patch("src.inference.base_inference.time.time")
+@patch("src.inference.base_inference.torch.cuda")
 def test_start_monitoring_with_cuda(mock_cuda, mock_time, pipeline):
     """Caja Blanca: Verifica llamadas si existe CUDA."""
     mock_cuda.is_available.return_value = True
@@ -65,7 +65,7 @@ def test_start_monitoring_with_cuda(mock_cuda, mock_time, pipeline):
     assert pipeline.start_time == 1000.0
 
 
-@patch("experiments.src.inference.base_inference.torch.cuda")
+@patch("src.inference.base_inference.torch.cuda")
 def test_start_monitoring_without_cuda(mock_cuda, pipeline):
     """Caja Blanca: Flujo alternativo si NO existe CUDA (ej: CI sin GPU)."""
     mock_cuda.is_available.return_value = False
@@ -76,9 +76,9 @@ def test_start_monitoring_without_cuda(mock_cuda, pipeline):
 # ==========================================
 # Pruebas record_hardware_metrics (Caja Negra / Blanca)
 # ==========================================
-@patch("experiments.src.inference.base_inference.resource")
-@patch("experiments.src.inference.base_inference.torch.cuda")
-@patch("experiments.src.inference.base_inference.time.time")
+@patch("src.inference.base_inference.resource")
+@patch("src.inference.base_inference.torch.cuda")
+@patch("src.inference.base_inference.time.time")
 def test_record_hardware_metrics_calculus(
     mock_time, mock_cuda, mock_resource, pipeline
 ):
@@ -117,9 +117,9 @@ def test_record_hardware_metrics_calculus(
     assert metrics["theoretical_fps"] == pytest.approx(55.56, abs=0.01)
 
 
-@patch("experiments.src.inference.base_inference.resource")
-@patch("experiments.src.inference.base_inference.torch.cuda")
-@patch("experiments.src.inference.base_inference.time.time")
+@patch("src.inference.base_inference.resource")
+@patch("src.inference.base_inference.torch.cuda")
+@patch("src.inference.base_inference.time.time")
 def test_record_metrics_zero_frames(mock_time, mock_cuda, mock_resource, pipeline):
     """Caja Negra: Sin frames procesados no debe haber división por cero."""
     mock_time.return_value = 1001.0
