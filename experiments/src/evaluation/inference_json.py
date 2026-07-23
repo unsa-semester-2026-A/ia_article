@@ -35,6 +35,7 @@ def load_inference_clip_json(
     json_path: str | Path,
     *,
     class_id_offset: int = 1,
+    class_id_map: dict[int, int] | None = None,
     frame_idx_width: int = 4,
 ) -> tuple[str, PredictionsByFrame]:
     """Load one ``*_predictions.json`` file produced by an inference runner.
@@ -43,6 +44,8 @@ def load_inference_clip_json(
         json_path: Path to a clip prediction JSON.
         class_id_offset: Value added to saved zero-based model class IDs to match
             the official metric contract. Use ``1`` for MTC 0..8 -> 1..9.
+            Ignored when ``class_id_map`` is provided.
+        class_id_map: Optional explicit saved-to-official class ID mapping.
         frame_idx_width: Zero-padding width used by dataset frame IDs.
 
     Returns:
@@ -63,7 +66,11 @@ def load_inference_clip_json(
         frame_id = f"{clip_id}_{frame_idx:0{frame_idx_width}d}"
         detections = _require_list(frame, "detections")
         predictions[frame_id] = [
-            _json_detection_to_detection(det, class_id_offset=class_id_offset)
+            _json_detection_to_detection(
+                det,
+                class_id_offset=class_id_offset,
+                class_id_map=class_id_map,
+            )
             for det in detections
         ]
 
@@ -75,6 +82,7 @@ def load_inference_predictions_dir(
     *,
     max_clips: int = 0,
     class_id_offset: int = 1,
+    class_id_map: dict[int, int] | None = None,
     frame_idx_width: int = 4,
 ) -> PredictionsByClip:
     """Load all clip prediction JSONs in a directory."""
@@ -95,6 +103,7 @@ def load_inference_predictions_dir(
         clip_id, predictions = load_inference_clip_json(
             json_path,
             class_id_offset=class_id_offset,
+            class_id_map=class_id_map,
             frame_idx_width=frame_idx_width,
         )
         if clip_id in predictions_by_clip:
@@ -107,10 +116,16 @@ def _json_detection_to_detection(
     detection: Any,
     *,
     class_id_offset: int,
+    class_id_map: dict[int, int] | None,
 ) -> Detection:
     if not isinstance(detection, dict):
         raise ValueError("each detection entry must be an object")
-    class_id = _require_int(detection, "class_id") + class_id_offset
+    saved_class_id = _require_int(detection, "class_id")
+    class_id = (
+        class_id_map[saved_class_id]
+        if class_id_map is not None
+        else saved_class_id + class_id_offset
+    )
     score = _require_float(detection, "score")
     cx, cy, width, height, angle_deg = obb_corners_to_xywhr_deg(
         _require_list(detection, "obb_corners")

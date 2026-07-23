@@ -11,11 +11,14 @@ from src.evaluation.metric import obb_to_polygon
 from src.evaluation.motion_filter import Detection, estimate_homography
 from src.evaluation.pipeline import (
     HomographiesByClip,
+    PipelineEvaluation,
     PredictionsByClip,
     evaluate_dataset,
     load_ground_truth_csv,
+    predictions_for_metric,
     write_evaluation_report,
 )
+from src.evaluation.metric import compute_macro_ap_riou
 
 _IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ".PNG")
 
@@ -100,27 +103,64 @@ def evaluate_inference_json_dir(
     condition_name: str,
     max_clips: int = 0,
     class_id_offset: int = 1,
+    class_id_map: dict[int, int] | None = None,
     frame_idx_width: int = 4,
+    skip_motion_filter: bool = False,
 ) -> Path:
     """Load saved inference JSONs, filter static detections, and write metrics."""
     predictions_by_clip = load_inference_predictions_dir(
         predictions_dir,
         max_clips=max_clips,
         class_id_offset=class_id_offset,
+        class_id_map=class_id_map,
         frame_idx_width=frame_idx_width,
     )
     frame_ids = collect_frame_ids(predictions_by_clip)
     ground_truths = load_ground_truth_csv(ground_truth_csv, frame_ids)
-    homographies_by_clip = compute_homographies_from_images(
-        predictions_by_clip,
-        images_dir,
-    )
-    evaluation = evaluate_dataset(
-        predictions_by_clip,
-        homographies_by_clip,
-        ground_truths,
-    )
+    if skip_motion_filter:
+        unfiltered_predictions = {
+            frame_id: detections
+            for predictions_by_frame in predictions_by_clip.values()
+            for frame_id, detections in predictions_by_frame.items()
+        }
+        macro_score, metric_details = compute_macro_ap_riou(
+            predictions_for_metric(unfiltered_predictions),
+            ground_truths,
+        )
+        evaluation = PipelineEvaluation(
+            macro_score,
+            unfiltered_predictions,
+            {},
+            metric_details,
+        )
+    else:
+        homographies_by_clip = compute_homographies_from_images(
+            predictions_by_clip,
+            images_dir,
+        )
+        evaluation = evaluate_dataset(
+            predictions_by_clip,
+            homographies_by_clip,
+            ground_truths,
+        )
     return write_evaluation_report(output_json, {condition_name: evaluation})
+
+
+def parse_class_id_map(raw_value: str | None) -> dict[int, int] | None:
+    """Parse comma-separated saved:official class mappings."""
+    if not raw_value:
+        return None
+    mapping: dict[int, int] = {}
+    for pair in raw_value.split(","):
+        saved, separator, official = pair.strip().partition(":")
+        if not separator:
+            raise ValueError("--class-id-map entries must use saved:official syntax")
+        saved_id = int(saved)
+        official_id = int(official)
+        if official_id not in range(1, 10):
+            raise ValueError("official class IDs must be from 1 through 9")
+        mapping[saved_id] = official_id
+    return mapping
 
 
 def parse_args() -> argparse.Namespace:
@@ -135,7 +175,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--condition-name", default="Base 0")
     parser.add_argument("--max-clips", type=int, default=0)
     parser.add_argument("--class-id-offset", type=int, default=1)
+    parser.add_argument(
+        "--class-id-map",
+        help="Explicit saved-to-official class map, for example 0:1,6:7.",
+    )
     parser.add_argument("--frame-idx-width", type=int, default=4)
+    parser.add_argument(
+        "--skip-motion-filter",
+        action="store_true",
+        help="Evaluate raw predictions without homography motion filtering.",
+    )
     return parser.parse_args()
 
 
@@ -150,7 +199,9 @@ def main() -> None:
         condition_name=args.condition_name,
         max_clips=args.max_clips,
         class_id_offset=args.class_id_offset,
+        class_id_map=parse_class_id_map(args.class_id_map),
         frame_idx_width=args.frame_idx_width,
+        skip_motion_filter=args.skip_motion_filter,
     )
     print(f"Evaluation report written to: {report_path}")
 
