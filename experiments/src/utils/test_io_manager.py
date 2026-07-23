@@ -11,27 +11,46 @@ from src.utils.io_manager import IOManager
 @pytest.fixture
 def io_mgr(tmp_path):
     """Fixture to instantiate IOManager without performing real Drive downloads."""
-    with patch.object(IOManager, "_ensure_token_exists"):
+    with patch.object(IOManager, "_ensure_token_from_kaggle_secrets"):
         with patch.object(IOManager, "_get_drive_service", return_value=None):
             return IOManager(token_path=tmp_path / "dummy_token.json")
 
 
 # ==========================================
-# _ensure_token_exists Tests (White Box)
+# _ensure_token_from_kaggle_secrets Tests (White Box)
 # ==========================================
-@patch("urllib.request.urlretrieve")
-def test_ensure_token_exists_downloads_when_missing(mock_urlretrieve, tmp_path):
-    """White Box: Download token.json automatically if missing."""
+def test_ensure_token_from_kaggle_secrets_when_missing(tmp_path):
+    """White Box: Create token.json from Kaggle Secrets if missing."""
+    import sys
     token_file = tmp_path / "token.json"
     assert not token_file.exists()
 
-    with patch.object(IOManager, "_get_drive_service", return_value=None):
-        IOManager(token_path=token_file, drive_token_file_id="fake_id_123")
+    mock_secrets_client = MagicMock()
+    mock_secrets_client.get_secret.return_value = '{"token": "secret_token"}'
+    mock_module = MagicMock()
+    mock_module.UserSecretsClient.return_value = mock_secrets_client
 
-    mock_urlretrieve.assert_called_once_with(
-        "https://drive.google.com/uc?export=download&id=fake_id_123",
-        str(token_file),
-    )
+    with patch.dict(sys.modules, {"kaggle_secrets": mock_module}):
+        with patch.object(IOManager, "_get_drive_service", return_value=None):
+            IOManager(token_path=token_file)
+
+    assert token_file.exists()
+    assert token_file.read_text() == '{"token": "secret_token"}'
+
+
+def test_ensure_token_from_kaggle_secrets_raises_on_failure(tmp_path):
+    """White Box: Program MUST fail (RuntimeError) if Kaggle Secrets fails to retrieve token."""
+    import sys
+    token_file = tmp_path / "token.json"
+    assert not token_file.exists()
+
+    mock_module = MagicMock()
+    mock_module.UserSecretsClient.side_effect = Exception("Secrets error")
+
+    with patch.dict(sys.modules, {"kaggle_secrets": mock_module}):
+        with patch.object(IOManager, "_get_drive_service", return_value=None):
+            with pytest.raises(RuntimeError, match="Failed to retrieve Kaggle secret"):
+                IOManager(token_path=token_file)
 
 
 # ==========================================
@@ -48,7 +67,7 @@ def test_get_drive_service_uses_scopes_none(mock_creds, mock_build, tmp_path):
     fake_creds.expired = False
     mock_creds.from_authorized_user_file.return_value = fake_creds
 
-    with patch.object(IOManager, "_ensure_token_exists"):
+    with patch.object(IOManager, "_ensure_token_from_kaggle_secrets"):
         IOManager(token_path=token_file)
 
     mock_creds.from_authorized_user_file.assert_called_once_with(
@@ -148,14 +167,50 @@ def test_upload_drive_without_service(io_mgr):
     assert io_mgr.upload_file_to_drive("dummy.json", "folder_123") is None
 
 
-def test_upload_drive_with_service(io_mgr, tmp_path):
-    """White Box: Verify Google Drive API upload call."""
+def test_upload_drive_with_service_new_file(io_mgr, tmp_path):
+    """White Box: Create a new file when no existing file is found in target folder."""
     mock_service = MagicMock()
-    mock_service.files().create().execute.return_value = {"id": "fake_drive_id"}
+    mock_service.files().list().execute.return_value = {"files": []}
+    mock_service.files().create().execute.return_value = {"id": "new_drive_id"}
     io_mgr.drive_service = mock_service
 
     dummy_file = tmp_path / "dummy.json"
     dummy_file.write_text("{}")
 
     res = io_mgr.upload_file_to_drive(dummy_file, "folder_123")
-    assert res == "fake_drive_id"
+    assert res == "new_drive_id"
+
+
+def test_upload_drive_with_service_update_existing_file(io_mgr, tmp_path):
+    """White Box: Update (overwrite) existing file when file with same name exists in folder."""
+    mock_service = MagicMock()
+    mock_service.files().list().execute.return_value = {"files": [{"id": "existing_id", "name": "dummy.json"}]}
+    mock_service.files().update().execute.return_value = {"id": "existing_id"}
+    io_mgr.drive_service = mock_service
+
+    dummy_file = tmp_path / "dummy.json"
+    dummy_file.write_text("{}")
+
+    res = io_mgr.upload_file_to_drive(dummy_file, "folder_123")
+    assert res == "existing_id"
+
+
+# ==========================================
+# download_file_from_drive Tests (White Box)
+# ==========================================
+def test_download_drive_without_service(io_mgr):
+    """Black Box: Return None when Drive service is disabled."""
+    assert (
+        io_mgr.download_file_from_drive("last.pt", "folder_123", "local_last.pt")
+        is None
+    )
+
+
+def test_download_drive_not_found(io_mgr, tmp_path):
+    """White Box: Return None when file is not found in Drive search."""
+    mock_service = MagicMock()
+    mock_service.files().list().execute.return_value = {"files": []}
+    io_mgr.drive_service = mock_service
+
+    res = io_mgr.download_file_from_drive("last.pt", "folder_123", tmp_path / "last.pt")
+    assert res is None

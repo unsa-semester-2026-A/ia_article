@@ -94,7 +94,9 @@ def test_create_exclusion_mask_from_polygons_valid() -> None:
         np.array([1.0, 2.0, 3.0, 4.0]),  # 1D array
     ],
 )
-def test_create_exclusion_mask_from_polygons_invalid_shapes(invalid_poly: object) -> None:
+def test_create_exclusion_mask_from_polygons_invalid_shapes(
+    invalid_poly: object,
+) -> None:
     """Reject polygons that do not have shape (4, 2)."""
     with pytest.raises(ValueError, match="four finite vertices"):
         create_exclusion_mask_from_polygons((100, 100), [invalid_poly])  # type: ignore[list-item]
@@ -261,9 +263,7 @@ def test_estimate_interframe_homography_insufficient_keypoints_mocked() -> None:
         ]
         mock_orb_create.return_value = mock_orb
 
-        H, ok = estimate_interframe_homography(
-            prev_gray, curr_gray, return_status=True
-        )
+        H, ok = estimate_interframe_homography(prev_gray, curr_gray, return_status=True)
         assert ok is False
         assert np.allclose(H, np.eye(3))
 
@@ -283,9 +283,7 @@ def test_estimate_interframe_homography_insufficient_descriptors_mocked() -> Non
         ]
         mock_orb_create.return_value = mock_orb
 
-        H, ok = estimate_interframe_homography(
-            prev_gray, curr_gray, return_status=True
-        )
+        H, ok = estimate_interframe_homography(prev_gray, curr_gray, return_status=True)
         assert ok is False
         assert np.allclose(H, np.eye(3))
 
@@ -414,7 +412,9 @@ def test_estimate_interframe_homography_ransac_non_finite_matrix_mocked() -> Non
             non_finite_matrix = np.full((3, 3), np.nan)
             inlier_mask = np.ones((15, 1), dtype=np.uint8)
 
-            with patch("cv2.findHomography", return_value=(non_finite_matrix, inlier_mask)):
+            with patch(
+                "cv2.findHomography", return_value=(non_finite_matrix, inlier_mask)
+            ):
                 H, ok = estimate_interframe_homography(
                     prev_gray, curr_gray, return_status=True
                 )

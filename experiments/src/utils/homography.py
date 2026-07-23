@@ -168,4 +168,3 @@ def estimate_interframe_homography(
         return (identity, False) if return_status else identity
 
     return (normalized, True) if return_status else normalized
-

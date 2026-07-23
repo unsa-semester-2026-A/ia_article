@@ -273,7 +273,6 @@ def estimate_homography(
     return matrix, success
 
 
-
 def associate_detections(
     active_tracks: Sequence[Track],
     detections: Sequence[Detection],

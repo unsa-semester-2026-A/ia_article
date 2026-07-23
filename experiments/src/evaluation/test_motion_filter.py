@@ -279,9 +279,7 @@ def test_invalid_tracks_are_rejected() -> None:
 
     # Empty frame ID
     with pytest.raises(ValueError, match="frame_id must be non-empty"):
-        classify_static_tracks(
-            [Track(0, 1, (TrackObservation("", 0, det),))], {}
-        )
+        classify_static_tracks([Track(0, 1, (TrackObservation("", 0, det),))], {})
 
     # Negative detection index
     with pytest.raises(ValueError, match="detection_index cannot be negative"):
@@ -327,7 +325,6 @@ def test_build_tracks_non_numeric_frame_ids() -> None:
     tracks = build_tracks(predictions, {})
     assert len(tracks) == 1
     assert [obs.frame_id for obs in tracks[0].observations] == ["frame_a", "frame_b"]
-
 
 
 @pytest.mark.parametrize(
