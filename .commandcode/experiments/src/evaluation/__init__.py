@@ -15,11 +15,6 @@ from src.evaluation.metric import (
     rotated_iou,
     validate_obb,
 )
-from src.evaluation.inference_json import (
-    load_inference_clip_json,
-    load_inference_predictions_dir,
-    obb_corners_to_xywhr_deg,
-)
 from src.evaluation.motion_filter import (
     MAX_ASSOCIATION_DISTANCE_PX,
     MAX_STATIC_DISPLACEMENT_PX,
@@ -107,11 +102,8 @@ __all__ = [
     "filter_static_predictions",
     "group_predictions_by_clip",
     "infer_clip",
-    "load_inference_clip_json",
-    "load_inference_predictions_dir",
     "load_ground_truth_csv",
     "normalize_angle",
-    "obb_corners_to_xywhr_deg",
     "obb_to_polygon",
     "precision_recall",
     "parse_ground_truth_target",

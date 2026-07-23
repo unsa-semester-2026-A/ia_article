@@ -388,7 +388,7 @@ if __name__ == "__main__":
             if IS_KAGGLE
             else Path("/content/token.json")
         ),
-        "drive_folder_id": "1wXieZvOZDE5KzZiYyESbf8xU-C2AGPWJ",
+        "drive_folder_id": "1crSt8Q48JDpB_JfR2dT0mvRwjpYp8WyQ",
         "max_clips": 0,  # 0 = process all clips
     }
 

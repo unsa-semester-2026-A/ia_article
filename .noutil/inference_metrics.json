@@ -1,0 +1,14 @@
+{
+  "experiment_condition": "Base_0_Zero_Shot",
+  "hardware": "Tesla_T4_Kaggle",
+  "total_frames_processed": 10873,
+  "total_time_seconds": 854.7,
+  "peak_vram_mb": 109.96,
+  "peak_cpu_ram_gb": 1.35,
+  "average_speed_ms": {
+    "preprocess": 2.03,
+    "inference": 12.79,
+    "postprocess": 0.39
+  },
+  "theoretical_fps": 65.72
+}
