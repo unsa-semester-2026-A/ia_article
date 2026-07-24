@@ -32,23 +32,24 @@ class Base2Trainer(Base1Trainer):
     }
 
     def prepare_dataset(self) -> Path:
-        """Prepare Base 2 data, requiring the resized image archive.
+        """Prepare Base 2 data, requiring the mounted resized-image directory.
 
-        Base 2 is defined over ``train_resized.zip``. Falling back to the
-        original-resolution images would change the experimental condition, so
-        fail before any training work if the archive is unavailable.
+        Base 2 is defined over the Kaggle input directory
+        ``train_resized/train``. Falling back to the original-resolution images
+        or downloading another source would change the experimental condition,
+        so fail before any training work if that mounted directory is missing.
 
         Returns:
             Path to the validated dataset YAML file.
 
         Raises:
-            FileNotFoundError: If ``train_resized.zip`` is not available.
+            FileNotFoundError: If ``train_resized/train`` is not available.
         """
-        resized_zip = Path(self.get_dataset_config().get("resized_zip_path", ""))
-        if not resized_zip.is_file() or resized_zip.suffix != ".zip":
+        resized_images_path = self.config.get("resized_images_dir")
+        if not resized_images_path or not Path(resized_images_path).is_dir():
             raise FileNotFoundError(
-                "Base 2 requires train_resized.zip; refusing to fall back to "
-                "the original-resolution images."
+                "Base 2 requires the mounted train_resized/train directory; "
+                "refusing to fall back to original images or download another source."
             )
         return super().prepare_dataset()
 
@@ -89,9 +90,7 @@ if __name__ == "__main__":
     if not labels_path.exists():
         labels_path = dataset_dir / "yolo_obb_labels.zip"
 
-    resized_zip = dataset_dir / "train_resized.zip"
-    if not resized_zip.exists():
-        resized_zip = Path("")
+    resized_images_dir = dataset_dir / "train_resized" / "train"
 
     dataset_workspace = Path("/tmp/dataset") if is_kaggle else Path("/content/dataset")
     output_dir = Path("/kaggle/working/runs") if is_kaggle else Path("/content/runs")
@@ -106,8 +105,8 @@ if __name__ == "__main__":
         "model_weights": "yolo26s-obb.pt",
         "labels_path": str(labels_path),
         "data_yaml_path": str(dataset_workspace / "smart_dataset.yaml"),
-        "images_dir": str(dataset_dir / "train-001" / "train"),
-        "resized_zip_path": str(resized_zip),
+        "images_dir": str(resized_images_dir),
+        "resized_images_dir": str(resized_images_dir),
         "dataset_workspace": str(dataset_workspace),
         "save_period": 5,
         "hardware_name": "Tesla_T4x2_Kaggle" if is_kaggle else "Colab_GPU",

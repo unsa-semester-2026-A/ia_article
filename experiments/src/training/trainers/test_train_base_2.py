@@ -41,9 +41,9 @@ def test_base2_uses_an_isolated_run_name() -> None:
     assert trainer.get_hyperparameters()["mosaic"] == 1.0
 
 
-def test_base2_requires_resized_image_archive(tmp_path: Path) -> None:
+def test_base2_requires_mounted_resized_images(tmp_path: Path) -> None:
     """Do not silently use original-resolution images for this condition."""
-    trainer = Base2Trainer({"resized_zip_path": str(tmp_path / "missing.zip")})
+    trainer = Base2Trainer({"resized_images_dir": str(tmp_path / "missing")})
 
-    with pytest.raises(FileNotFoundError, match="requires train_resized.zip"):
+    with pytest.raises(FileNotFoundError, match="requires the mounted train_resized/train"):
         trainer.prepare_dataset()
