@@ -300,6 +300,7 @@ def test_execute_success(
     (train_dir / "results.png").touch()
     (train_dir / "weights").mkdir()
     (train_dir / "weights" / "best.pt").touch()
+    (train_dir / "weights" / "epoch10.pt").touch()
 
     # Set drive IDs
     trainer.io_manager.upload_file_to_drive.return_value = "dummy_id"
@@ -320,6 +321,7 @@ def test_execute_success(
     assert any("results.csv" in f for f in uploaded_files)
     assert any("results.png" in f for f in uploaded_files)
     assert any("best.pt" in f for f in uploaded_files)
+    assert any("epoch10.pt" in f for f in uploaded_files)
 
 
 def test_get_hyperparameters_fast_dev_run(tmp_path):

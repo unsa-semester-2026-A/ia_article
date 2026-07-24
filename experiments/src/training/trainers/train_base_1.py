@@ -627,10 +627,12 @@ names:
                     self._upload_file(fpath, drive_folder_id, strict=True)
 
             weights_dir = save_dir / "weights"
-            for wname in ["best.pt", "last.pt"]:
-                wpath = weights_dir / wname
-                if wpath.exists():
-                    self._upload_file(wpath, drive_folder_id, strict=True)
+            # Ultralytics writes ``last.pt`` every epoch, ``best.pt`` on
+            # improvement, and ``epoch*.pt`` at ``save_period`` intervals.
+            # Sync every checkpoint that exists, so periodic recovery points
+            # are preserved in Drive as well as the rolling last/best files.
+            for wpath in sorted(weights_dir.glob("*.pt")):
+                self._upload_file(wpath, drive_folder_id, strict=True)
 
             print(
                 f"  📤 Verified Drive sync (epoch {current_epoch}/{total_epochs})",
@@ -685,13 +687,11 @@ names:
                 drive_id = self._upload_file(fpath, drive_folder_id)
                 generated_files.append({"local": str(fpath), "drive_id": drive_id})
 
-        # Upload best and last weights
+        # Upload every YOLO checkpoint, including periodic epoch*.pt files.
         weights_dir = train_dir / "weights"
-        for wname in ["best.pt", "last.pt"]:
-            wpath = weights_dir / wname
-            if wpath.exists():
-                drive_id = self._upload_file(wpath, drive_folder_id)
-                generated_files.append({"local": str(wpath), "drive_id": drive_id})
+        for wpath in sorted(weights_dir.glob("*.pt")):
+            drive_id = self._upload_file(wpath, drive_folder_id)
+            generated_files.append({"local": str(wpath), "drive_id": drive_id})
 
         print(
             f"[Base1Trainer] Training complete. {len(epochs_data)} epochs logged.",
