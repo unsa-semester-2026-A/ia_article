@@ -4,7 +4,6 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-import torch
 from src.training.trainers.train_base_1 import Base1Trainer
 
 
@@ -220,7 +219,7 @@ def test_prepare_dataset_symlink_and_fallback(
 def test_save_and_upload_error_branch(trainer: Base1Trainer, tmp_path: Path) -> None:
     """Test _save_and_upload handles Drive upload error."""
     local_path = tmp_path / "data.json"
-    trainer.io_manager.upload_file_to_drive.side_effect = Exception("Upload failed")
+    trainer.io_manager.upload_and_verify_file.side_effect = Exception("Upload failed")
 
     result = trainer._save_and_upload({"data": 1}, local_path, "folder_id")
 
@@ -242,9 +241,20 @@ def test_upload_file_mime_types(trainer: Base1Trainer, tmp_path: Path) -> None:
     for fname, expected_mime in test_files:
         fpath = tmp_path / fname
         trainer._upload_file(fpath, "folder_id")
-        trainer.io_manager.upload_file_to_drive.assert_called_with(
+        trainer.io_manager.upload_and_verify_file.assert_called_with(
             fpath, "folder_id", mime_type=expected_mime
         )
+
+
+def test_upload_file_strict_raises_on_drive_error(
+    trainer: Base1Trainer, tmp_path: Path
+) -> None:
+    """A checkpoint-sync failure must stop training instead of being hidden."""
+    weights_path = tmp_path / "last.pt"
+    trainer.io_manager.upload_and_verify_file.side_effect = Exception("Drive offline")
+
+    with pytest.raises(RuntimeError, match="Required Drive sync failed"):
+        trainer._upload_file(weights_path, "folder_id", strict=True)
 
 
 @patch("ultralytics.YOLO")

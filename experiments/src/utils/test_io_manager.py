@@ -1,5 +1,7 @@
 """Unit tests for IOManager module."""
 
+import json
+from hashlib import md5
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -22,6 +24,7 @@ def io_mgr(tmp_path):
 def test_ensure_token_from_kaggle_secrets_when_missing(tmp_path):
     """White Box: Create token.json from Kaggle Secrets if missing."""
     import sys
+
     token_file = tmp_path / "token.json"
     assert not token_file.exists()
 
@@ -30,9 +33,10 @@ def test_ensure_token_from_kaggle_secrets_when_missing(tmp_path):
     mock_module = MagicMock()
     mock_module.UserSecretsClient.return_value = mock_secrets_client
 
-    with patch.dict(sys.modules, {"kaggle_secrets": mock_module}):
-        with patch.object(IOManager, "_get_drive_service", return_value=None):
-            IOManager(token_path=token_file)
+    with patch("src.utils.io_manager.os.path.exists", return_value=True):
+        with patch.dict(sys.modules, {"kaggle_secrets": mock_module}):
+            with patch.object(IOManager, "_get_drive_service", return_value=None):
+                IOManager(token_path=token_file)
 
     assert token_file.exists()
     assert token_file.read_text() == '{"token": "secret_token"}'
@@ -41,16 +45,20 @@ def test_ensure_token_from_kaggle_secrets_when_missing(tmp_path):
 def test_ensure_token_from_kaggle_secrets_raises_on_failure(tmp_path):
     """White Box: Program MUST fail (RuntimeError) if Kaggle Secrets fails to retrieve token."""
     import sys
+
     token_file = tmp_path / "token.json"
     assert not token_file.exists()
 
     mock_module = MagicMock()
     mock_module.UserSecretsClient.side_effect = Exception("Secrets error")
 
-    with patch.dict(sys.modules, {"kaggle_secrets": mock_module}):
-        with patch.object(IOManager, "_get_drive_service", return_value=None):
-            with pytest.raises(RuntimeError, match="Failed to retrieve Kaggle secret"):
-                IOManager(token_path=token_file)
+    with patch("src.utils.io_manager.os.path.exists", return_value=True):
+        with patch.dict(sys.modules, {"kaggle_secrets": mock_module}):
+            with patch.object(IOManager, "_get_drive_service", return_value=None):
+                with pytest.raises(
+                    RuntimeError, match="Failed to retrieve Kaggle secret"
+                ):
+                    IOManager(token_path=token_file)
 
 
 # ==========================================
@@ -146,8 +154,6 @@ def test_load_image_valid(mock_imread, io_mgr):
 # ==========================================
 def test_save_json(io_mgr, tmp_path):
     """White Box: Verify JSON file persistence on disk."""
-    import json
-
     data = {"key": "value", "number": 42}
     out_path = tmp_path / "subdir" / "data.json"
 
@@ -184,7 +190,9 @@ def test_upload_drive_with_service_new_file(io_mgr, tmp_path):
 def test_upload_drive_with_service_update_existing_file(io_mgr, tmp_path):
     """White Box: Update (overwrite) existing file when file with same name exists in folder."""
     mock_service = MagicMock()
-    mock_service.files().list().execute.return_value = {"files": [{"id": "existing_id", "name": "dummy.json"}]}
+    mock_service.files().list().execute.return_value = {
+        "files": [{"id": "existing_id", "name": "dummy.json"}]
+    }
     mock_service.files().update().execute.return_value = {"id": "existing_id"}
     io_mgr.drive_service = mock_service
 
@@ -193,6 +201,68 @@ def test_upload_drive_with_service_update_existing_file(io_mgr, tmp_path):
 
     res = io_mgr.upload_file_to_drive(dummy_file, "folder_123")
     assert res == "existing_id"
+
+
+def test_get_or_create_drive_folder_returns_existing(io_mgr):
+    """Use an existing condition folder instead of creating a duplicate."""
+    mock_service = MagicMock()
+    mock_service.files().list().execute.return_value = {
+        "files": [{"id": "base2_folder", "name": "base2"}]
+    }
+    io_mgr.drive_service = mock_service
+
+    assert io_mgr.get_or_create_drive_folder("root_folder", "base2") == "base2_folder"
+    mock_service.files().create.assert_not_called()
+
+
+def test_get_or_create_drive_folder_creates_missing(io_mgr):
+    """Create an isolated condition folder when it is missing."""
+    mock_service = MagicMock()
+    mock_service.files().list().execute.return_value = {"files": []}
+    mock_service.files().create().execute.return_value = {"id": "base2_folder"}
+    io_mgr.drive_service = mock_service
+
+    assert io_mgr.get_or_create_drive_folder("root_folder", "base2") == "base2_folder"
+
+
+def test_upload_and_verify_file_checks_drive_metadata(io_mgr, tmp_path):
+    """Accept an artifact only after Drive reports matching size and checksum."""
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"verified model bytes")
+    checksum = md5(artifact.read_bytes()).hexdigest()
+
+    mock_service = MagicMock()
+    mock_service.files().get().execute.return_value = {
+        "id": "artifact_id",
+        "name": "best.pt",
+        "parents": ["base2_folder"],
+        "size": str(artifact.stat().st_size),
+        "md5Checksum": checksum,
+    }
+    io_mgr.drive_service = mock_service
+    io_mgr.upload_file_to_drive = MagicMock(return_value="artifact_id")
+
+    assert io_mgr.upload_and_verify_file(artifact, "base2_folder") == "artifact_id"
+
+
+def test_upload_and_verify_file_rejects_size_mismatch(io_mgr, tmp_path):
+    """Reject a remote artifact that is not the same size as the local one."""
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"verified model bytes")
+
+    mock_service = MagicMock()
+    mock_service.files().get().execute.return_value = {
+        "id": "artifact_id",
+        "name": "best.pt",
+        "parents": ["base2_folder"],
+        "size": "0",
+        "md5Checksum": "ignored",
+    }
+    io_mgr.drive_service = mock_service
+    io_mgr.upload_file_to_drive = MagicMock(return_value="artifact_id")
+
+    with pytest.raises(RuntimeError, match="verification failed"):
+        io_mgr.upload_and_verify_file(artifact, "base2_folder")
 
 
 # ==========================================

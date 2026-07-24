@@ -7,7 +7,6 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-import torch
 from src.training.base_training import BaseTrainingPipeline
 from src.utils.io_manager import IOManager
 
@@ -19,6 +18,9 @@ class Base1Trainer(BaseTrainingPipeline):
     without synthetic augmentations (Mosaic, MixUp, CopyPaste, Erasing disabled)
     to establish a baseline for the ablation study.
     """
+
+    RUN_NAME = "base1"
+    EXPERIMENT_CONDITION = "Base_1_Raw_Data"
 
     # Default hyperparameters for Base 1 (minimal augmentation)
     DEFAULT_HYPERPARAMS: dict[str, Any] = {
@@ -128,6 +130,54 @@ class Base1Trainer(BaseTrainingPipeline):
             "resized_zip_path": self.config.get("resized_zip_path", ""),
         }
 
+    def _prepare_drive_run_folder(
+        self, output_dir: Path, drive_root_folder_id: str | None
+    ) -> str:
+        """Create and verify the isolated Drive folder for this training run.
+
+        A successful round trip for a tiny manifest is required before GPU work
+        starts. This prevents a long training job from finishing with weights
+        that only exist in an ephemeral Kaggle or Colab filesystem.
+
+        Args:
+            output_dir: Local output directory where the probe is written.
+            drive_root_folder_id: Parent folder ID configured outside Git.
+
+        Returns:
+            Verified Drive child-folder ID for this condition.
+
+        Raises:
+            RuntimeError: If the root ID is missing or Drive cannot persist a
+                small verification artifact.
+        """
+        if not drive_root_folder_id:
+            raise RuntimeError(
+                "TRAINING_DRIVE_ROOT_FOLDER_ID is required for training artifact sync."
+            )
+
+        run_folder_id = self.io_manager.get_or_create_drive_folder(
+            drive_root_folder_id, self.RUN_NAME
+        )
+        probe_path = output_dir / f"{self.RUN_NAME}_drive_preflight.json"
+        self.io_manager.save_json(
+            {
+                "experiment_condition": self.config.get(
+                    "experiment_condition", self.EXPERIMENT_CONDITION
+                ),
+                "run_name": self.RUN_NAME,
+                "purpose": "verify Drive write, metadata, and checksum before training",
+            },
+            probe_path,
+        )
+        self.io_manager.upload_and_verify_file(
+            probe_path, run_folder_id, mime_type="application/json"
+        )
+        print(
+            f"[Base1Trainer] ✅ Drive preflight verified for {self.RUN_NAME}.",
+            flush=True,
+        )
+        return run_folder_id
+
     def prepare_dataset(self) -> Path:
         """Prepare Base 1 dataset workspace: copy/unzip labels, symlink images.
 
@@ -144,9 +194,7 @@ class Base1Trainer(BaseTrainingPipeline):
             FileNotFoundError: If labels or images directory is missing.
         """
         dataset_config = self.get_dataset_config()
-        workspace = Path(
-            self.config.get("dataset_workspace", "/tmp/dataset")
-        )
+        workspace = Path(self.config.get("dataset_workspace", "/tmp/dataset"))
 
         labels_source = Path(dataset_config["labels_path"])
         images_dir = Path(dataset_config["images_dir"])
@@ -198,7 +246,9 @@ class Base1Trainer(BaseTrainingPipeline):
 
         if resized_zip.name and resized_zip.exists() and resized_zip.suffix == ".zip":
             # Extract resized images to /tmp workspace (avoids /kaggle/working quota)
-            if not resized_extract_dir.exists() or not any(resized_extract_dir.iterdir()):
+            if not resized_extract_dir.exists() or not any(
+                resized_extract_dir.iterdir()
+            ):
                 print(
                     f"[Base1Trainer] 📦 Extracting resized images: {resized_zip.name}",
                     flush=True,
@@ -381,6 +431,15 @@ names:
             )
             checks["passed"] = False
 
+        if not self.config.get("drive_folder_id"):
+            checks["details"]["drive_root_folder"] = {
+                "configured": False,
+                "error": "Set TRAINING_DRIVE_ROOT_FOLDER_ID before training.",
+            }
+            checks["passed"] = False
+        else:
+            checks["details"]["drive_root_folder"] = {"configured": True}
+
         return checks
 
     # ===================================================================
@@ -404,8 +463,8 @@ names:
         drive_id = None
         if drive_folder_id:
             try:
-                drive_id = self.io_manager.upload_file_to_drive(
-                    local_path, drive_folder_id
+                drive_id = self.io_manager.upload_and_verify_file(
+                    local_path, drive_folder_id, mime_type="application/json"
                 )
             except Exception as e:
                 print(
@@ -414,12 +473,17 @@ names:
                 )
         return {"local": str(local_path), "drive_id": drive_id}
 
-    def _upload_file(self, local_path: Path, drive_folder_id: str | None) -> str | None:
+    def _upload_file(
+        self, local_path: Path, drive_folder_id: str | None, *, strict: bool = False
+    ) -> str | None:
         """Upload an existing file to Google Drive.
 
         Args:
             local_path: Local file path to upload.
             drive_folder_id: Google Drive folder ID for upload.
+            strict: Re-raise a sync failure instead of only logging it. This is
+                used for checkpoints, whose loss would make a training run
+                unrecoverable.
 
         Returns:
             Google Drive file ID, or None on failure.
@@ -434,7 +498,7 @@ names:
                 mime = "text/yaml"
             elif local_path.suffix == ".png":
                 mime = "image/png"
-            return self.io_manager.upload_file_to_drive(
+            return self.io_manager.upload_and_verify_file(
                 local_path, drive_folder_id, mime_type=mime
             )
         except Exception as e:
@@ -442,6 +506,10 @@ names:
                 f"  ⚠️  Drive upload error for {local_path.name}: {e}",
                 flush=True,
             )
+            if strict:
+                raise RuntimeError(
+                    f"Required Drive sync failed for {local_path.name}."
+                ) from e
             return None
 
     # ===================================================================
@@ -461,11 +529,15 @@ names:
         Returns:
             Dictionary with training results, metrics, and generated file paths.
         """
+        output_dir = Path(self.config.get("output_dir", "/kaggle/working/runs"))
+        output_dir.mkdir(parents=True, exist_ok=True)
+        drive_root_folder_id: str | None = self.config.get("drive_folder_id")
+        drive_folder_id = self._prepare_drive_run_folder(
+            output_dir, drive_root_folder_id
+        )
         from ultralytics import YOLO
 
         self.start_hardware_monitoring()
-        output_dir = Path(self.config.get("output_dir", "/kaggle/working/runs"))
-        drive_folder_id: str | None = self.config.get("drive_folder_id")
         save_period: int = self.config.get("save_period", 10)
 
         generated_files: list[dict[str, Any]] = []
@@ -480,11 +552,11 @@ names:
         hyperparams["device"] = device
         hyperparams["data"] = str(data_yaml)
         hyperparams["project"] = str(output_dir)
-        hyperparams["name"] = "base1"
+        hyperparams["name"] = self.RUN_NAME
         hyperparams["save_period"] = save_period
 
         # 3. Check for existing last.pt checkpoint in Drive or local workspace for resume
-        train_dir = output_dir / "base1"
+        train_dir = output_dir / self.RUN_NAME
         local_last_pt = train_dir / "weights" / "last.pt"
         resumed_checkpoint: Path | None = None
 
@@ -525,58 +597,33 @@ names:
 
         total_epochs = hyperparams.get("epochs", 100)
 
-        print(
-            "[Base1Trainer] ⚠️ WARNING: Periodic Drive sync across different epochs is active. "
-            "Note: Further refinement is needed to handle non-multiple save_period intervals and DDP rank-0 sync cleanly.",
-            flush=True,
-        )
-
         def sync_checkpoint_callback(trainer_obj: Any) -> None:
-            """Incremental Drive sync triggered on_model_save (every save_period).
+            """Synchronize every checkpoint event and propagate any upload failure."""
+            current_epoch = getattr(trainer_obj, "epoch", 0) + 1
+            save_dir = Path(getattr(trainer_obj, "save_dir", train_dir))
 
-            Only uploads artifacts every 5 epochs and on the final epoch to
-            prevent Google Drive API rate-limits and storage saturation.
+            artifact_files = [
+                "results.csv",
+                "results.png",
+                "args.yaml",
+                "confusion_matrix.png",
+                "PR_curve.png",
+            ]
+            for fname in artifact_files:
+                fpath = save_dir / fname
+                if fpath.exists():
+                    self._upload_file(fpath, drive_folder_id, strict=True)
 
-            .. warning::
-                Periodic Drive saving across different epoch frequencies needs further
-                refinement to handle non-multiple save_periods and DDP rank-0 synchronization cleanly.
-            """
-            if not drive_folder_id or not self.io_manager.drive_service:
-                return
+            weights_dir = save_dir / "weights"
+            for wname in ["best.pt", "last.pt"]:
+                wpath = weights_dir / wname
+                if wpath.exists():
+                    self._upload_file(wpath, drive_folder_id, strict=True)
 
-            current_epoch = getattr(trainer_obj, "epoch", 0) + 1  # 0-indexed -> 1-indexed
-            is_final = current_epoch >= total_epochs
-
-            if current_epoch % 5 != 0 and not is_final:
-                return
-
-            try:
-                save_dir = Path(getattr(trainer_obj, "save_dir", output_dir / "base1"))
-
-                artifact_files = [
-                    "results.csv",
-                    "results.png",
-                    "args.yaml",
-                    "confusion_matrix.png",  # Recommended for paper
-                    "PR_curve.png",  # Recommended for paper
-                ]
-                for fname in artifact_files:
-                    fpath = save_dir / fname
-                    if fpath.exists():
-                        self._upload_file(fpath, drive_folder_id)
-
-                weights_dir = save_dir / "weights"
-                for wname in ["best.pt", "last.pt"]:
-                    wpath = weights_dir / wname
-                    if wpath.exists():
-                        self._upload_file(wpath, drive_folder_id)
-
-                print(
-                    f"  📤 Drive sync completed (epoch {current_epoch}/{total_epochs})",
-                    flush=True,
-                )
-            except Exception as e:
-                print(f"  ⚠️ Incremental sync callback error: {e}", flush=True)
+            print(
+                f"  📤 Verified Drive sync (epoch {current_epoch}/{total_epochs})",
+                flush=True,
+            )
 
         model.add_callback("on_model_save", sync_checkpoint_callback)
 
@@ -584,10 +631,10 @@ names:
         _ = model.train(**hyperparams)
 
         # 5. Locate training output directory
-        train_dir = output_dir / "base1"
+        train_dir = output_dir / self.RUN_NAME
         if not train_dir.exists():
             # Ultralytics may create base1, base12, etc.
-            candidates = sorted(output_dir.glob("base1*"))
+            candidates = sorted(output_dir.glob(f"{self.RUN_NAME}*"))
             train_dir = candidates[-1] if candidates else output_dir
 
         # 6. Parse results.csv
@@ -701,9 +748,7 @@ if __name__ == "__main__":
         resized_zip = Path("")  # Empty signals no resized zip available
 
     # Use /tmp for dataset workspace on Kaggle to avoid exceeding 20GB output disk limit
-    dataset_workspace = (
-        Path("/tmp/dataset") if IS_KAGGLE else Path("/content/dataset")
-    )
+    dataset_workspace = Path("/tmp/dataset") if IS_KAGGLE else Path("/content/dataset")
     data_yaml_path = dataset_workspace / "smart_dataset.yaml"
 
     output_dir = Path("/kaggle/working/runs") if IS_KAGGLE else Path("/content/runs")
@@ -721,12 +766,15 @@ if __name__ == "__main__":
         "save_period": 10,
         "hardware_name": "Tesla_T4x2_Kaggle" if IS_KAGGLE else "Colab_GPU",
         "experiment_condition": "Base_1_Raw_Data",
-        "token_path": str(
-            Path("/kaggle/working/token.json")
-            if IS_KAGGLE
-            else Path("/content/token.json")
+        "token_path": os.environ.get(
+            "DRIVE_TOKEN_PATH",
+            str(
+                Path("/kaggle/working/token.json")
+                if IS_KAGGLE
+                else Path("/content/drive/MyDrive/ia_article/token/token.json")
+            ),
         ),
-        "drive_folder_id": "1n17lmU2SVz54HmV6a3Cd-bgKs0h6bQP8",
+        "drive_folder_id": os.environ.get("TRAINING_DRIVE_ROOT_FOLDER_ID"),
         "fast_dev_run": args.fast_dev_run,
     }
 

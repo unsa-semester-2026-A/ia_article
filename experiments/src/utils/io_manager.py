@@ -1,6 +1,7 @@
 """Generic Input/Output data manager and autonomous Google Drive API integration module."""
 
 import csv
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -61,6 +62,13 @@ class IOManager:
         if not self.token_path or self.token_path.exists():
             return
 
+        if not os.path.exists("/kaggle/working"):
+            print(
+                "[IOManager] token.json not found outside Kaggle. "
+                "Google Drive disabled."
+            )
+            return
+
         try:
             from kaggle_secrets import UserSecretsClient
 
@@ -72,7 +80,9 @@ class IOManager:
             self.token_path.parent.mkdir(parents=True, exist_ok=True)
             with self.token_path.open("w", encoding="utf-8") as f:
                 f.write(token_data)
-            print(f"[IOManager] ✅ token.json created from Kaggle Secrets -> {self.token_path}")
+            print(
+                f"[IOManager] ✅ token.json created from Kaggle Secrets -> {self.token_path}"
+            )
         except Exception as e:
             err_msg = f"[IOManager] ❌ Failed to retrieve Kaggle secret 'DRIVE_TOKEN_JSON': {e}"
             print(err_msg)
@@ -216,6 +226,131 @@ class IOManager:
             return files[0]["id"] if files else None
         except Exception:
             return None
+
+    def get_or_create_drive_folder(
+        self, parent_folder_id: str, folder_name: str
+    ) -> str:
+        """Return a named child folder, creating it when it does not exist.
+
+        Keeping a folder per experiment prevents generic filenames such as
+        ``best.pt`` and ``last.pt`` from colliding across ablation conditions.
+
+        Args:
+            parent_folder_id: Existing Drive folder that owns experiment folders.
+            folder_name: Name of the child folder for one experiment condition.
+
+        Returns:
+            ID of the existing or newly created child folder.
+
+        Raises:
+            RuntimeError: If Drive is unavailable or the folder cannot be read or
+                created with the configured credentials.
+        """
+        if not self.drive_service:
+            raise RuntimeError("Google Drive service is not initialized.")
+
+        try:
+            query = (
+                f"'{parent_folder_id}' in parents and name = '{folder_name}' and "
+                "mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+            )
+            results = (
+                self.drive_service.files()
+                .list(
+                    q=query,
+                    fields="files(id, name)",
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True,
+                )
+                .execute()
+            )
+            files = results.get("files", [])
+            if files:
+                return str(files[0]["id"])
+
+            metadata = {
+                "name": folder_name,
+                "mimeType": "application/vnd.google-apps.folder",
+                "parents": [parent_folder_id],
+            }
+            created = (
+                self.drive_service.files()
+                .create(
+                    body=metadata,
+                    fields="id",
+                    supportsAllDrives=True,
+                )
+                .execute()
+            )
+            folder_id = created.get("id")
+            if not folder_id:
+                raise RuntimeError("Drive did not return an ID for the run folder.")
+            return str(folder_id)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Could not resolve Drive run folder '{folder_name}': {exc}"
+            ) from exc
+
+    def upload_and_verify_file(
+        self,
+        local_path: str | Path,
+        drive_folder_id: str,
+        mime_type: str = "application/octet-stream",
+    ) -> str:
+        """Upload one artifact and verify its Drive metadata and checksum.
+
+        This is intentionally strict for training artifacts: a missing or
+        incomplete upload must stop a training run before its local VM is lost.
+
+        Args:
+            local_path: Existing local artifact.
+            drive_folder_id: Destination folder for this experiment only.
+            mime_type: MIME type sent to Drive.
+
+        Returns:
+            Verified Drive file ID.
+
+        Raises:
+            FileNotFoundError: If the local artifact does not exist.
+            RuntimeError: If upload or metadata verification fails.
+        """
+        path = Path(local_path)
+        if not path.is_file():
+            raise FileNotFoundError(f"Artifact not found: {path}")
+
+        file_id = self.upload_file_to_drive(path, drive_folder_id, mime_type)
+        if not file_id or not self.drive_service:
+            raise RuntimeError(f"Drive upload failed for {path.name}.")
+
+        try:
+            metadata = (
+                self.drive_service.files()
+                .get(
+                    fileId=file_id,
+                    fields="id,name,parents,size,md5Checksum",
+                    supportsAllDrives=True,
+                )
+                .execute()
+            )
+            if metadata.get("name") != path.name:
+                raise RuntimeError("Drive returned a file with an unexpected name.")
+            if drive_folder_id not in metadata.get("parents", []):
+                raise RuntimeError("Uploaded artifact is not in the requested folder.")
+            if int(metadata.get("size", -1)) != path.stat().st_size:
+                raise RuntimeError("Drive artifact size differs from the local file.")
+
+            remote_md5 = metadata.get("md5Checksum")
+            local_md5 = hashlib.md5(path.read_bytes()).hexdigest()
+            if remote_md5 and remote_md5 != local_md5:
+                raise RuntimeError(
+                    "Drive artifact checksum differs from the local file."
+                )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Drive verification failed for {path.name}: {exc}"
+            ) from exc
+
+        return str(file_id)
 
     def upload_file_to_drive(
         self,
