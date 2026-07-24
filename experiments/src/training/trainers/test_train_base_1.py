@@ -257,6 +257,20 @@ def test_upload_file_strict_raises_on_drive_error(
         trainer._upload_file(weights_path, "folder_id", strict=True)
 
 
+def test_verify_drive_persistence_needs_no_dataset_or_gpu(
+    trainer: Base1Trainer,
+) -> None:
+    """The Drive probe is runnable before data preparation or GPU allocation."""
+    trainer.io_manager.get_or_create_drive_folder.return_value = "base1_folder"
+    trainer.io_manager.upload_and_verify_file.return_value = "probe_file"
+
+    folder_id = trainer.verify_drive_persistence()
+
+    assert folder_id == "base1_folder"
+    trainer.io_manager.save_json.assert_called_once()
+    trainer.io_manager.upload_and_verify_file.assert_called_once()
+
+
 @patch("ultralytics.YOLO")
 @patch.object(Base1Trainer, "detect_device")
 @patch.object(Base1Trainer, "prepare_dataset")

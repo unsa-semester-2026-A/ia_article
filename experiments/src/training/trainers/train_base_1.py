@@ -178,6 +178,22 @@ class Base1Trainer(BaseTrainingPipeline):
         )
         return run_folder_id
 
+    def verify_drive_persistence(self) -> str:
+        """Verify Drive write access without loading data or allocating a GPU.
+
+        This is the mandatory first Kaggle action for a new condition. It creates
+        the condition folder and performs the verified JSON round trip used by
+        the training flow, then returns without importing Ultralytics.
+
+        Returns:
+            Verified Drive folder ID dedicated to this experiment condition.
+        """
+        output_dir = Path(self.config.get("output_dir", "/kaggle/working/runs"))
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return self._prepare_drive_run_folder(
+            output_dir, self.config.get("drive_folder_id")
+        )
+
     def prepare_dataset(self) -> Path:
         """Prepare Base 1 dataset workspace: copy/unzip labels, symlink images.
 
@@ -530,11 +546,7 @@ names:
             Dictionary with training results, metrics, and generated file paths.
         """
         output_dir = Path(self.config.get("output_dir", "/kaggle/working/runs"))
-        output_dir.mkdir(parents=True, exist_ok=True)
-        drive_root_folder_id: str | None = self.config.get("drive_folder_id")
-        drive_folder_id = self._prepare_drive_run_folder(
-            output_dir, drive_root_folder_id
-        )
+        drive_folder_id = self.verify_drive_persistence()
         from ultralytics import YOLO
 
         self.start_hardware_monitoring()
@@ -731,6 +743,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--fraction", type=float, default=None, help="Dataset fraction (0.0 to 1.0)"
     )
+    parser.add_argument(
+        "--drive-preflight-only",
+        action="store_true",
+        help="Verify Drive write/checksum and exit before dataset or GPU use",
+    )
     args = parser.parse_args()
 
     IS_KAGGLE = os.path.exists("/kaggle/working")
@@ -786,6 +803,11 @@ if __name__ == "__main__":
         config["fraction"] = args.fraction
 
     trainer = Base1Trainer(config=config)
+
+    if args.drive_preflight_only:
+        drive_run_folder = trainer.verify_drive_persistence()
+        print(f"[SUCCESS] Drive preflight verified. Run folder: {drive_run_folder}")
+        sys.exit(0)
 
     print("=" * 60)
     print("BASE 1 TRAINING - HEALTH CHECK")

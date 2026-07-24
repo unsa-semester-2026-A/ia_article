@@ -55,6 +55,11 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=None)
     parser.add_argument("--batch", type=int, default=None)
     parser.add_argument("--fraction", type=float, default=None)
+    parser.add_argument(
+        "--drive-preflight-only",
+        action="store_true",
+        help="Verify Drive write/checksum and exit before dataset or GPU use",
+    )
     args = parser.parse_args()
 
     is_kaggle = os.path.exists("/kaggle/working")
@@ -96,6 +101,11 @@ if __name__ == "__main__":
             config[key] = value
 
     trainer = Base2Trainer(config)
+    if args.drive_preflight_only:
+        drive_run_folder = trainer.verify_drive_persistence()
+        print(f"[SUCCESS] Drive preflight verified. Run folder: {drive_run_folder}")
+        sys.exit(0)
+
     health = trainer.health_check()
     for section, detail in health["details"].items():
         print(f"{section}: {detail}")
