@@ -31,6 +31,27 @@ class Base2Trainer(Base1Trainer):
         "hsv_v": 0.4,
     }
 
+    def prepare_dataset(self) -> Path:
+        """Prepare Base 2 data, requiring the resized image archive.
+
+        Base 2 is defined over ``train_resized.zip``. Falling back to the
+        original-resolution images would change the experimental condition, so
+        fail before any training work if the archive is unavailable.
+
+        Returns:
+            Path to the validated dataset YAML file.
+
+        Raises:
+            FileNotFoundError: If ``train_resized.zip`` is not available.
+        """
+        resized_zip = Path(self.get_dataset_config().get("resized_zip_path", ""))
+        if not resized_zip.is_file() or resized_zip.suffix != ".zip":
+            raise FileNotFoundError(
+                "Base 2 requires train_resized.zip; refusing to fall back to "
+                "the original-resolution images."
+            )
+        return super().prepare_dataset()
+
 
 def _find_dataset_dir() -> Path:
     """Discover the mounted dataset path in Kaggle or Colab."""
@@ -88,7 +109,7 @@ if __name__ == "__main__":
         "images_dir": str(dataset_dir / "train-001" / "train"),
         "resized_zip_path": str(resized_zip),
         "dataset_workspace": str(dataset_workspace),
-        "save_period": 10,
+        "save_period": 5,
         "hardware_name": "Tesla_T4x2_Kaggle" if is_kaggle else "Colab_GPU",
         "experiment_condition": Base2Trainer.EXPERIMENT_CONDITION,
         "token_path": os.environ.get("DRIVE_TOKEN_PATH", str(default_token_path)),

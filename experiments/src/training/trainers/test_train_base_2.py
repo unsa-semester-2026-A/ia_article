@@ -1,5 +1,8 @@
 """Tests for the Base 2 classic-augmentation condition."""
 
+from pathlib import Path
+
+import pytest
 from src.training.trainers.train_base_1 import Base1Trainer
 from src.training.trainers.train_base_2 import Base2Trainer
 
@@ -36,3 +39,11 @@ def test_base2_uses_an_isolated_run_name() -> None:
     assert trainer.RUN_NAME == "base2"
     assert trainer.EXPERIMENT_CONDITION == "Base_2_Classic_Augmentation"
     assert trainer.get_hyperparameters()["mosaic"] == 1.0
+
+
+def test_base2_requires_resized_image_archive(tmp_path: Path) -> None:
+    """Do not silently use original-resolution images for this condition."""
+    trainer = Base2Trainer({"resized_zip_path": str(tmp_path / "missing.zip")})
+
+    with pytest.raises(FileNotFoundError, match="requires train_resized.zip"):
+        trainer.prepare_dataset()
