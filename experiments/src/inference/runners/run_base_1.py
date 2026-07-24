@@ -339,7 +339,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-path", default=None, help="Path to Base 1 best.pt")
     parser.add_argument("--max-clips", type=int, default=0)
     parser.add_argument("--output-dir", default=None)
-    parser.add_argument("--drive-folder-id", default="1crSt8Q48JDpB_JfR2dT0mvRwjpYp8WyQ")
+    parser.add_argument("--drive-folder-id", default="1uxxZHpgK-gVBc3FNKEXQ1c64G7xlLGEi")
     return parser.parse_args()
 
 
