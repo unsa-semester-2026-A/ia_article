@@ -68,6 +68,33 @@ Donde $T = \{0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80\}$.
 
 ---
 
+### 2.5 Conjunto final de metricas para reportar
+
+Para el articulo y los reportes generados en Kaggle se usara el siguiente
+conjunto compacto de metricas. Las metricas de deteccion se calculan despues
+de aplicar el filtro de movimiento definido en `07_evaluation.md`.
+
+| Grupo | Metrica | Descripcion | Uso |
+|---|---|---|---|
+| Principal | `Macro mAP-rIoU@[0.50:0.80]` | Promedio uniforme de AP sobre 9 clases y 7 umbrales rIoU. | Score principal del articulo. |
+| Principal | `mAP-rIoU@0.50` | Promedio macro de AP con rIoU minimo de 0.50. | Deteccion con criterio flexible. |
+| Principal | `mAP-rIoU@0.80` | Promedio macro de AP con rIoU estricto de 0.80. | Calidad de localizacion OBB. |
+| Principal | `AP por clase` | AP promedio de cada clase sobre los 7 umbrales. | Diagnosticar clases minoritarias y desbalance. |
+| Analisis | `Precision` | `TP / (TP + FP)` por umbral. | Medir falsos positivos. |
+| Analisis | `Recall` | `TP / (TP + FN)` por umbral. | Medir objetos no detectados. |
+| Analisis | `F1-score` | Media armonica de precision y recall. | Balance precision-recall. |
+| Analisis | `TP, FP, FN` | Conteos agregados por umbral. | Auditoria de errores. |
+| Filtro | `% predicciones eliminadas` | Fraccion de detecciones removidas por el filtro. | Auditar cuanto limpia el filtro. |
+| Filtro | `% tracks estaticos` | Fraccion de tracks clasificados como inmoviles. | Auditar comportamiento temporal. |
+| Eficiencia | `FPS` | Frames por segundo teoricos de inferencia. | Costo computacional. |
+| Eficiencia | `VRAM pico` | Maxima memoria GPU usada durante inferencia. | Requerimiento de hardware. |
+
+El nombre `macro_score` queda como compatibilidad interna del codigo, pero en
+tablas y texto cientifico debe reportarse como
+`Macro mAP-rIoU@[0.50:0.80]` o `macro_map_riou_50_80`.
+
+---
+
 ## 3. Especificación de la Interfaz del Módulo
 
 ### 3.1 Función de Entrada

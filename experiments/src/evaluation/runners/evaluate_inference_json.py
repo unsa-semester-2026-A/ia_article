@@ -1,6 +1,7 @@
 """Evaluate saved inference JSON predictions with homography motion filtering."""
 
 import argparse
+import json
 from pathlib import Path
 from typing import Any
 
@@ -101,6 +102,7 @@ def evaluate_inference_json_dir(
     ground_truth_csv: str | Path,
     output_json: str | Path,
     condition_name: str,
+    inference_metrics_json: str | Path | None = None,
     max_clips: int = 0,
     class_id_offset: int = 1,
     class_id_map: dict[int, int] | None = None,
@@ -143,7 +145,27 @@ def evaluate_inference_json_dir(
             homographies_by_clip,
             ground_truths,
         )
-    return write_evaluation_report(output_json, {condition_name: evaluation})
+    inference_metrics = load_inference_metrics(inference_metrics_json)
+    return write_evaluation_report(
+        output_json,
+        {condition_name: evaluation},
+        inference_metrics=inference_metrics,
+    )
+
+
+def load_inference_metrics(
+    inference_metrics_json: str | Path | None,
+) -> dict[str, Any] | None:
+    """Load optional inference speed and hardware metrics."""
+    if inference_metrics_json is None:
+        return None
+    path = Path(inference_metrics_json)
+    if not path.is_file():
+        raise FileNotFoundError(f"inference metrics JSON not found: {path}")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("inference metrics JSON must contain an object")
+    return data
 
 
 def parse_class_id_map(raw_value: str | None) -> dict[int, int] | None:
@@ -173,6 +195,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ground-truth-csv", required=True)
     parser.add_argument("--output-json", required=True)
     parser.add_argument("--condition-name", default="Base 0")
+    parser.add_argument(
+        "--inference-metrics-json",
+        help="Optional inference_metrics.json file with FPS and VRAM diagnostics.",
+    )
     parser.add_argument("--max-clips", type=int, default=0)
     parser.add_argument("--class-id-offset", type=int, default=1)
     parser.add_argument(
@@ -197,6 +223,7 @@ def main() -> None:
         ground_truth_csv=args.ground_truth_csv,
         output_json=args.output_json,
         condition_name=args.condition_name,
+        inference_metrics_json=args.inference_metrics_json,
         max_clips=args.max_clips,
         class_id_offset=args.class_id_offset,
         class_id_map=parse_class_id_map(args.class_id_map),

@@ -201,6 +201,16 @@ def test_six_conditions_use_the_same_filter_and_report_writer(tmp_path: Path) ->
     report_path = write_evaluation_report(tmp_path / "report.json", results)
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert set(report) == set(condition_names)
+    base_report = report["Base 0"]
+    assert base_report["final_metrics"]["main_detection_metrics"][
+        "macro_map_riou_50_80"
+    ] == pytest.approx(1.0 / 9.0)
+    assert base_report["final_metrics"]["main_detection_metrics"]["map_riou_50"] == (
+        pytest.approx(1.0 / 9.0)
+    )
+    assert base_report["final_metrics"]["motion_filter_metrics"][
+        "removed_predictions"
+    ] == 12
 
 
 def test_synthetic_pipeline_public_smoke_test() -> None:

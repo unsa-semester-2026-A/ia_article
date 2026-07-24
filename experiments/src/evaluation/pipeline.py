@@ -409,12 +409,17 @@ def run_synthetic_pipeline() -> PipelineEvaluation:
 def write_evaluation_report(
     report_path: str | Path,
     evaluations: Mapping[str, PipelineEvaluation],
+    inference_metrics: Mapping[str, object] | None = None,
 ) -> Path:
     """Write small JSON diagnostics suitable for local disk or Drive upload."""
     destination = Path(report_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     serializable = {
         condition: {
+            "final_metrics": build_final_metrics_summary(
+                evaluation,
+                inference_metrics,
+            ),
             "macro_score": evaluation.macro_score,
             "motion_by_clip": {
                 clip_id: asdict(diagnostics)
@@ -429,3 +434,127 @@ def write_evaluation_report(
         encoding="utf-8",
     )
     return destination
+
+
+def build_final_metrics_summary(
+    evaluation: PipelineEvaluation,
+    inference_metrics: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    """Build the compact metric table reported before detailed diagnostics."""
+    details = evaluation.metric_details
+    ap_by_class = details["ap_by_class"]
+    ap_by_class_threshold = details["ap_by_class_threshold"]
+    counts = details["counts"]
+    motion_summary = _summarize_motion_filter(evaluation)
+
+    return {
+        "main_detection_metrics": {
+            "macro_map_riou_50_80": evaluation.macro_score,
+            "map_riou_50": _mean_threshold_ap(ap_by_class_threshold, "0.5"),
+            "map_riou_80": _mean_threshold_ap(ap_by_class_threshold, "0.8"),
+            "ap_by_class_50_80": ap_by_class,
+        },
+        "analysis_metrics": {
+            "precision_recall_f1_by_threshold": _precision_recall_f1_by_threshold(
+                counts
+            ),
+            "counts_by_threshold": _counts_by_threshold(counts),
+        },
+        "motion_filter_metrics": motion_summary,
+        "efficiency_metrics": _summarize_efficiency(inference_metrics),
+    }
+
+
+def _mean_threshold_ap(
+    ap_by_class_threshold: object,
+    threshold_key: str,
+) -> float:
+    values = []
+    for thresholds in dict(ap_by_class_threshold).values():
+        normalized_thresholds = {
+            str(threshold): value for threshold, value in dict(thresholds).items()
+        }
+        values.append(float(normalized_thresholds[threshold_key]))
+    return float(np.mean(values)) if values else 0.0
+
+
+def _counts_by_threshold(counts: object) -> dict[str, dict[str, int]]:
+    totals: dict[str, dict[str, int]] = {}
+    for class_counts in dict(counts).values():
+        for threshold, threshold_counts in dict(class_counts).items():
+            key = str(threshold)
+            bucket = totals.setdefault(key, {"tp": 0, "fp": 0, "fn": 0})
+            normalized_counts = dict(threshold_counts)
+            bucket["tp"] += int(normalized_counts["tp"])
+            bucket["fp"] += int(normalized_counts["fp"])
+            bucket["fn"] += int(normalized_counts["fn"])
+    return totals
+
+
+def _precision_recall_f1_by_threshold(counts: object) -> dict[str, dict[str, float]]:
+    metrics: dict[str, dict[str, float]] = {}
+    for threshold, threshold_counts in _counts_by_threshold(counts).items():
+        tp = threshold_counts["tp"]
+        fp = threshold_counts["fp"]
+        fn = threshold_counts["fn"]
+        precision = tp / (tp + fp) if tp + fp > 0 else 0.0
+        recall = tp / (tp + fn) if tp + fn > 0 else 0.0
+        f1 = (
+            2.0 * precision * recall / (precision + recall)
+            if precision + recall > 0.0
+            else 0.0
+        )
+        metrics[threshold] = {
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+        }
+    return metrics
+
+
+def _summarize_motion_filter(evaluation: PipelineEvaluation) -> dict[str, object]:
+    total_tracks = sum(
+        diagnostics.total_tracks for diagnostics in evaluation.motion_by_clip.values()
+    )
+    static_tracks = sum(
+        len(diagnostics.static_track_ids)
+        for diagnostics in evaluation.motion_by_clip.values()
+    )
+    retained_tracks = sum(
+        len(diagnostics.retained_track_ids)
+        for diagnostics in evaluation.motion_by_clip.values()
+    )
+    removed_predictions = sum(
+        diagnostics.removed_predictions
+        for diagnostics in evaluation.motion_by_clip.values()
+    )
+    filtered_predictions = sum(
+        len(detections) for detections in evaluation.filtered_predictions.values()
+    )
+    original_predictions = filtered_predictions + removed_predictions
+    return {
+        "total_tracks": total_tracks,
+        "retained_tracks": retained_tracks,
+        "static_tracks": static_tracks,
+        "static_track_ratio": static_tracks / total_tracks if total_tracks else 0.0,
+        "removed_predictions": removed_predictions,
+        "removed_prediction_ratio": (
+            removed_predictions / original_predictions if original_predictions else 0.0
+        ),
+    }
+
+
+def _summarize_efficiency(
+    inference_metrics: Mapping[str, object] | None,
+) -> dict[str, object]:
+    if inference_metrics is None:
+        return {
+            "fps": None,
+            "peak_vram_mb": None,
+            "source": None,
+        }
+    return {
+        "fps": inference_metrics.get("theoretical_fps"),
+        "peak_vram_mb": inference_metrics.get("peak_vram_mb"),
+        "source": "inference_metrics.json",
+    }
