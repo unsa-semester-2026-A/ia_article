@@ -228,6 +228,18 @@ def test_check_drive_fails_without_service(tmp_path: Path):
     assert "error" in result["details"]
 
 
+def test_check_drive_reports_credential_error_without_raising(tmp_path: Path):
+    """White Box: A preflight reports; it must never abort the remaining checks."""
+    with patch(
+        "src.utils.io_manager.IOManager",
+        side_effect=RuntimeError("secret not attached"),
+    ):
+        result = check_drive(tmp_path / "token.json", {"results": "abc"})
+
+    assert result["passed"] is False
+    assert "secret not attached" in result["details"]["error"]
+
+
 def test_check_drive_probes_every_folder(tmp_path: Path):
     """White Box: Each configured destination is resolved by ID."""
     mock_service = MagicMock()

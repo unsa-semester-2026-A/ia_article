@@ -1,5 +1,6 @@
 """Unit tests for IOManager module."""
 
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -253,6 +254,34 @@ def test_download_drive_discards_truncated_file(io_mgr, tmp_path):
 
     assert res is None
     assert not dest.exists()
+
+
+# ==========================================
+# Credential Strictness Tests
+# ==========================================
+def test_missing_secret_is_fatal_when_drive_is_required(tmp_path, monkeypatch):
+    """Black Box: A production run must not start without a way to persist results."""
+    fake_secrets = MagicMock()
+    fake_secrets.UserSecretsClient.return_value.get_secret.side_effect = RuntimeError(
+        "secret not attached"
+    )
+    monkeypatch.setitem(sys.modules, "kaggle_secrets", fake_secrets)
+
+    with pytest.raises(RuntimeError, match="DRIVE_TOKEN_JSON"):
+        IOManager(token_path=tmp_path / "token.json", require_drive=True)
+
+
+def test_missing_secret_degrades_when_drive_is_optional(tmp_path, monkeypatch):
+    """Black Box: A disposable run continues with Drive disabled."""
+    fake_secrets = MagicMock()
+    fake_secrets.UserSecretsClient.return_value.get_secret.side_effect = RuntimeError(
+        "secret not attached"
+    )
+    monkeypatch.setitem(sys.modules, "kaggle_secrets", fake_secrets)
+
+    manager = IOManager(token_path=tmp_path / "token.json", require_drive=False)
+
+    assert manager.drive_service is None
 
 
 # ==========================================

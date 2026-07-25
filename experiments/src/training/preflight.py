@@ -333,9 +333,21 @@ def check_drive(
     from src.utils.io_manager import IOManager
 
     details: dict[str, Any] = {"token_path": str(token_path), "folders": {}}
-    manager = IOManager(token_path=str(token_path))
+
+    # A preflight reports; it does not abort. Resolving the credentials must not
+    # be allowed to hide the verdicts of the GPU, dataset and collective checks.
+    try:
+        manager = IOManager(token_path=str(token_path), require_drive=False)
+    except Exception as e:
+        details["error"] = f"Drive credentials could not be resolved: {e}"
+        return CheckResult("drive", False, details)
+
     if not manager.drive_service:
-        details["error"] = "Drive service could not be initialized"
+        details["error"] = (
+            "Drive service could not be initialized. On Kaggle this usually means "
+            "the 'DRIVE_TOKEN_JSON' secret is not attached to this notebook "
+            "(Add-ons -> Secrets)."
+        )
         return CheckResult("drive", False, details)
 
     passed = True

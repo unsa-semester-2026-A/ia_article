@@ -141,7 +141,14 @@ class Base1Trainer(BaseTrainingPipeline):
         #: results.
         self.run_name = f"f1_{condition}" + ("_smoke" if self.smoke_test else "")
         config.setdefault("experiment_condition", f"F1_{condition.upper()}")
-        self.io_manager = IOManager(token_path=config.get("token_path"))
+        # A production run must not start if it cannot persist its weights: a
+        # Kaggle session dies after 12 hours and the quota would be spent for
+        # nothing. A smoke run produces disposable artifacts, so it proceeds and
+        # still validates the GPU and dataset path when Drive is unavailable.
+        self.io_manager = IOManager(
+            token_path=config.get("token_path"),
+            require_drive=not self.smoke_test,
+        )
 
     # ===================================================================
     # Drive Destinations

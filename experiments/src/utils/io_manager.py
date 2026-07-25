@@ -20,6 +20,7 @@ class IOManager:
     def __init__(
         self,
         token_path: str | Path | None = None,
+        require_drive: bool = True,
     ) -> None:
         """Initialize I/O manager and resolve Google Drive authentication.
 
@@ -33,7 +34,13 @@ class IOManager:
             token_path: Local path to token.json file. If None, reads from
                 ``os.environ["DRIVE_TOKEN_PATH"]`` or falls back to default
                 environment paths (/kaggle/working/token.json or token.json).
+            require_drive: Whether an unreachable Drive is fatal. True protects a
+                long run from producing results it cannot persist. False lets
+                callers whose output is disposable, or who report the failure
+                themselves, degrade to local-only I/O.
         """
+        self.require_drive = require_drive
+
         # 1. Resolve token path
         if token_path:
             self.token_path: Path | None = Path(token_path)
@@ -56,7 +63,10 @@ class IOManager:
         """Retrieve token.json from Kaggle Secrets if not present on disk.
 
         Raises:
-            RuntimeError: If Kaggle Secrets client fails or DRIVE_TOKEN_JSON is missing/unreadable.
+            RuntimeError: If the secret cannot be read and ``require_drive`` is set.
+                A production run that cannot persist its results would waste hours
+                of GPU quota, so it must not start. Callers whose artifacts are
+                disposable pass ``require_drive=False`` and continue without Drive.
         """
         if not self.token_path or self.token_path.exists():
             return
@@ -76,7 +86,13 @@ class IOManager:
         except Exception as e:
             err_msg = f"[IOManager] ❌ Failed to retrieve Kaggle secret 'DRIVE_TOKEN_JSON': {e}"
             print(err_msg)
-            raise RuntimeError(err_msg) from e
+            if self.require_drive:
+                raise RuntimeError(err_msg) from e
+            print(
+                "[IOManager] ⚠️ Continuing without Google Drive: "
+                "artifacts will only be written locally.",
+                flush=True,
+            )
 
     def list_files_in_dir(
         self,
