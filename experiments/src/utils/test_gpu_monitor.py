@@ -32,8 +32,12 @@ def test_sample_gpus_without_nvidia_smi():
 
 def test_sample_gpus_parses_two_devices():
     """White Box: Parse index, name, utilization and memory for every device."""
-    with patch("src.utils.gpu_monitor.shutil.which", return_value="/usr/bin/nvidia-smi"):
-        with patch("src.utils.gpu_monitor.subprocess.run", return_value=_mock_smi(TWO_T4)):
+    with patch(
+        "src.utils.gpu_monitor.shutil.which", return_value="/usr/bin/nvidia-smi"
+    ):
+        with patch(
+            "src.utils.gpu_monitor.subprocess.run", return_value=_mock_smi(TWO_T4)
+        ):
             samples = sample_gpus()
 
     assert [s["index"] for s in samples] == [0, 1]
@@ -46,8 +50,12 @@ def test_sample_gpus_parses_two_devices():
 def test_sample_gpus_ignores_malformed_lines():
     """White Box: A truncated or non-numeric row must not break the sampler."""
     noisy = "0, Tesla T4, 97, 9000, 15360\ngarbage line\n1, Tesla T4, N/A, 100, 15360\n"
-    with patch("src.utils.gpu_monitor.shutil.which", return_value="/usr/bin/nvidia-smi"):
-        with patch("src.utils.gpu_monitor.subprocess.run", return_value=_mock_smi(noisy)):
+    with patch(
+        "src.utils.gpu_monitor.shutil.which", return_value="/usr/bin/nvidia-smi"
+    ):
+        with patch(
+            "src.utils.gpu_monitor.subprocess.run", return_value=_mock_smi(noisy)
+        ):
             samples = sample_gpus()
 
     assert [s["index"] for s in samples] == [0]
@@ -55,7 +63,9 @@ def test_sample_gpus_ignores_malformed_lines():
 
 def test_sample_gpus_survives_subprocess_failure():
     """Black Box: A failing nvidia-smi degrades to no samples, not an exception."""
-    with patch("src.utils.gpu_monitor.shutil.which", return_value="/usr/bin/nvidia-smi"):
+    with patch(
+        "src.utils.gpu_monitor.shutil.which", return_value="/usr/bin/nvidia-smi"
+    ):
         with patch(
             "src.utils.gpu_monitor.subprocess.run",
             side_effect=subprocess.TimeoutExpired("nvidia-smi", 10),
@@ -163,7 +173,9 @@ def test_sampler_thread_collects_samples():
     """White Box: The background thread actually polls while training runs."""
     sampler = GpuSampler(interval_seconds=0.01)
     with patch("src.utils.gpu_monitor.nvidia_smi_available", return_value=True):
-        with patch("src.utils.gpu_monitor.shutil.which", return_value="/usr/bin/nvidia-smi"):
+        with patch(
+            "src.utils.gpu_monitor.shutil.which", return_value="/usr/bin/nvidia-smi"
+        ):
             with patch(
                 "src.utils.gpu_monitor.subprocess.run", return_value=_mock_smi(TWO_T4)
             ):

@@ -427,9 +427,7 @@ def test_smoke_batch_is_even_and_at_least_two(
 ) -> None:
     """White Box: The smoke batch must divide across 2 GPUs and allow >1 step."""
     for images in [2, 4, 10, 16, 25]:
-        trainer = Base1Trainer(
-            {**config, "smoke_test": True, "smoke_images": images}
-        )
+        trainer = Base1Trainer({**config, "smoke_test": True, "smoke_images": images})
         batch = trainer.get_hyperparameters()["batch"]
         assert batch >= 2
         assert batch % 2 == 0
@@ -454,9 +452,7 @@ def test_weights_and_results_target_different_folders(
     mock_io_manager: MagicMock, config: dict[str, Any]
 ) -> None:
     """Black Box: Checkpoints go to their own Drive folder when configured."""
-    trainer = Base1Trainer(
-        {**config, "drive_checkpoints_folder_id": "ckpt_folder"}
-    )
+    trainer = Base1Trainer({**config, "drive_checkpoints_folder_id": "ckpt_folder"})
     trainer.io_manager.drive_service = MagicMock()
     assert trainer.drive_results_folder_id == "dummy_folder_id"
     assert trainer.drive_checkpoints_folder_id == "ckpt_folder"

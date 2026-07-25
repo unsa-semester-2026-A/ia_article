@@ -34,6 +34,7 @@ def io_mgr(tmp_path):
 def test_ensure_token_from_kaggle_secrets_when_missing(tmp_path):
     """White Box: Create token.json from Kaggle Secrets if missing."""
     import sys
+
     token_file = tmp_path / "token.json"
     assert not token_file.exists()
 
@@ -53,6 +54,7 @@ def test_ensure_token_from_kaggle_secrets_when_missing(tmp_path):
 def test_ensure_token_from_kaggle_secrets_raises_on_failure(tmp_path):
     """White Box: Program MUST fail (RuntimeError) if Kaggle Secrets fails to retrieve token."""
     import sys
+
     token_file = tmp_path / "token.json"
     assert not token_file.exists()
 
@@ -196,7 +198,9 @@ def test_upload_drive_with_service_new_file(io_mgr, tmp_path):
 def test_upload_drive_with_service_update_existing_file(io_mgr, tmp_path):
     """White Box: Update (overwrite) existing file when file with same name exists in folder."""
     mock_service = MagicMock()
-    mock_service.files().list().execute.return_value = {"files": [{"id": "existing_id", "name": "dummy.json"}]}
+    mock_service.files().list().execute.return_value = {
+        "files": [{"id": "existing_id", "name": "dummy.json"}]
+    }
     mock_service.files().update().execute.return_value = {"id": "existing_id"}
     io_mgr.drive_service = mock_service
 

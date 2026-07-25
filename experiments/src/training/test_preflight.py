@@ -102,9 +102,7 @@ def test_check_nccl_passes_when_spawn_succeeds():
 
 def test_check_nccl_reports_failure_reason():
     """White Box: A hanging or broken collective is reported, not raised."""
-    with patch(
-        "torch.multiprocessing.spawn", side_effect=RuntimeError("NCCL timeout")
-    ):
+    with patch("torch.multiprocessing.spawn", side_effect=RuntimeError("NCCL timeout")):
         result = check_nccl(expected_gpus=2)
 
     assert result["passed"] is False
@@ -280,11 +278,27 @@ def test_run_preflight_aggregates_and_fails_fast_on_any_check(tmp_path: Path):
             with patch("src.training.preflight.check_labels") as labels:
                 with patch("src.training.preflight.check_image_sets") as images:
                     with patch("src.training.preflight.check_drive") as drive:
-                        packages.return_value = {"name": "p", "passed": True, "details": {}}
+                        packages.return_value = {
+                            "name": "p",
+                            "passed": True,
+                            "details": {},
+                        }
                         gpus.return_value = {"name": "g", "passed": True, "details": {}}
-                        labels.return_value = {"name": "l", "passed": True, "details": {}}
-                        images.return_value = {"name": "i", "passed": False, "details": {}}
-                        drive.return_value = {"name": "d", "passed": True, "details": {}}
+                        labels.return_value = {
+                            "name": "l",
+                            "passed": True,
+                            "details": {},
+                        }
+                        images.return_value = {
+                            "name": "i",
+                            "passed": False,
+                            "details": {},
+                        }
+                        drive.return_value = {
+                            "name": "d",
+                            "passed": True,
+                            "details": {},
+                        }
 
                         report = run_preflight(
                             labels_dir=tmp_path / "labels",

@@ -340,9 +340,7 @@ class Base1Trainer(BaseTrainingPipeline):
             FileNotFoundError: If labels or images directory is missing.
         """
         dataset_config = self.get_dataset_config()
-        workspace = Path(
-            self.config.get("dataset_workspace", "/tmp/dataset")
-        )
+        workspace = Path(self.config.get("dataset_workspace", "/tmp/dataset"))
 
         labels_source = Path(dataset_config["labels_path"])
         images_dir = Path(dataset_config["images_dir"])
@@ -394,7 +392,9 @@ class Base1Trainer(BaseTrainingPipeline):
 
         if resized_zip.name and resized_zip.exists() and resized_zip.suffix == ".zip":
             # Extract resized images to /tmp workspace (avoids /kaggle/working quota)
-            if not resized_extract_dir.exists() or not any(resized_extract_dir.iterdir()):
+            if not resized_extract_dir.exists() or not any(
+                resized_extract_dir.iterdir()
+            ):
                 print(
                     f"[Base1Trainer] 📦 Extracting resized images: {resized_zip.name}",
                     flush=True,
@@ -751,7 +751,9 @@ names:
             if not _is_primary_process():
                 return
 
-            current_epoch = getattr(trainer_obj, "epoch", 0) + 1  # 0-indexed -> 1-indexed
+            current_epoch = (
+                getattr(trainer_obj, "epoch", 0) + 1
+            )  # 0-indexed -> 1-indexed
             is_final = current_epoch >= total_epochs
 
             if current_epoch % save_period != 0 and not is_final:
@@ -891,9 +893,7 @@ names:
         """
         sampling = hardware_metrics.get("gpu_sampling", {})
         devices = sampling.get("devices", [])
-        expected = int(
-            self.config.get("expected_gpus", torch.cuda.device_count())
-        )
+        expected = int(self.config.get("expected_gpus", torch.cuda.device_count()))
         engaged = int(sampling.get("gpus_engaged", 0))
         verified = bool(devices) and engaged >= expected and expected > 0
 
@@ -1029,7 +1029,7 @@ if __name__ == "__main__":
         "save_period": 5,
         "hardware_name": "Tesla_T4x2_Kaggle" if IS_KAGGLE else "Colab_GPU",
         "token_path": str(
-            Path("/kaggle/working/token.json")
+            Path("/tmp/ia_article_drive_token.json")
             if IS_KAGGLE
             else Path("/content/token.json")
         ),

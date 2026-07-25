@@ -48,7 +48,7 @@ class IOManager:
         Args:
             token_path: Local path to token.json file. If None, reads from
                 ``os.environ["DRIVE_TOKEN_PATH"]`` or falls back to default
-                environment paths (/kaggle/working/token.json or token.json).
+                environment paths (/tmp/ia_article_drive_token.json or token.json).
             require_drive: Whether an unreachable Drive is fatal. True protects a
                 long run from producing results it cannot persist. False lets
                 callers whose output is disposable, or who report the failure
@@ -64,7 +64,10 @@ class IOManager:
             if env_path:
                 self.token_path = Path(env_path)
             elif os.path.exists("/kaggle/working"):
-                self.token_path = Path("/kaggle/working/token.json")
+                # /kaggle/working is exported as the notebook's output. OAuth
+                # credentials must never land there because they would be
+                # included in the downloadable kernel artifacts.
+                self.token_path = Path("/tmp/ia_article_drive_token.json")
             else:
                 self.token_path = Path("token.json")
 
@@ -137,7 +140,9 @@ class IOManager:
             self.token_path.parent.mkdir(parents=True, exist_ok=True)
             with self.token_path.open("w", encoding="utf-8") as f:
                 f.write(token_data)
-            print(f"[IOManager] ✅ token.json created from Kaggle Secrets -> {self.token_path}")
+            print(
+                f"[IOManager] ✅ token.json created from Kaggle Secrets -> {self.token_path}"
+            )
         except Exception as e:
             err_msg = f"[IOManager] ❌ Failed to retrieve Kaggle secret 'DRIVE_TOKEN_JSON': {e}"
             print(err_msg)

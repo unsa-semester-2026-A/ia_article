@@ -163,7 +163,9 @@ def check_nccl(expected_gpus: int, port: int = 29555) -> CheckResult:
     try:
         import torch.multiprocessing as mp
 
-        mp.spawn(_nccl_worker, args=(expected_gpus, port), nprocs=expected_gpus, join=True)
+        mp.spawn(
+            _nccl_worker, args=(expected_gpus, port), nprocs=expected_gpus, join=True
+        )
         return CheckResult(
             "nccl_all_reduce", True, {"world_size": expected_gpus, "backend": "nccl"}
         )
@@ -269,7 +271,28 @@ def check_labels(labels_dir: Path) -> CheckResult:
     )
 
 
-def check_image_sets(raw_dir: Path, lama_dir: Path, sample_size: int = 5) -> CheckResult:
+def scan_label_stems(labels_dir: Path) -> set[str]:
+    """Return the deterministic set of image names selected by label files.
+
+    Args:
+        labels_dir: Directory containing one split's YOLO ``.txt`` files.
+
+    Returns:
+        Stems of every label file, or an empty set when the directory is absent.
+    """
+    if not labels_dir.is_dir():
+        return set()
+
+    with os.scandir(labels_dir) as entries:
+        return {entry.name[:-4] for entry in entries if entry.name.endswith(".txt")}
+
+
+def check_image_sets(
+    raw_dir: Path,
+    lama_dir: Path,
+    expected_stems: set[str] | None = None,
+    sample_size: int = 5,
+) -> CheckResult:
     """Compare the raw and LaMa image sets for count and resolution parity.
 
     C1 and C3 differ only in whether the pixels were inpainted. A different image
@@ -279,14 +302,21 @@ def check_image_sets(raw_dir: Path, lama_dir: Path, sample_size: int = 5) -> Che
     Args:
         raw_dir: Directory with the resized raw images.
         lama_dir: Directory with the LaMa-cleaned images.
+        expected_stems: Optional label-derived training split. If given, the
+            comparison ignores images from other splits in a flat source folder.
         sample_size: How many shared file names to measure.
 
     Returns:
         Result with counts, sampled sizes and whether both sets are comparable.
     """
-    raw_count, raw_stems = scan_images(raw_dir)
-    lama_count, lama_stems = scan_images(lama_dir)
-    shared = sorted(raw_stems & lama_stems)[:sample_size]
+    raw_total, raw_stems = scan_images(raw_dir)
+    lama_total, lama_stems = scan_images(lama_dir)
+    target_stems = (
+        expected_stems if expected_stems is not None else raw_stems | lama_stems
+    )
+    raw_selected = raw_stems & target_stems
+    lama_selected = lama_stems & target_stems
+    shared = sorted(raw_selected & lama_selected)[:sample_size]
 
     sizes: dict[str, dict[str, Any]] = {}
     resolutions_match = True
@@ -300,11 +330,16 @@ def check_image_sets(raw_dir: Path, lama_dir: Path, sample_size: int = 5) -> Che
     details = {
         "raw_dir": str(raw_dir),
         "lama_dir": str(lama_dir),
-        "raw_count": raw_count,
-        "lama_count": lama_count,
-        "counts_match": raw_count == lama_count and raw_count > 0,
-        "only_in_raw": len(raw_stems - lama_stems),
-        "only_in_lama": len(lama_stems - raw_stems),
+        "expected_count": len(target_stems),
+        "raw_total_count": raw_total,
+        "lama_total_count": lama_total,
+        "raw_count": len(raw_selected),
+        "lama_count": len(lama_selected),
+        "counts_match": raw_selected == target_stems and lama_selected == target_stems,
+        "missing_in_raw": len(target_stems - raw_stems),
+        "missing_in_lama": len(target_stems - lama_stems),
+        "only_in_raw": len(raw_selected - lama_selected),
+        "only_in_lama": len(lama_selected - raw_selected),
         "sampled_sizes": sizes,
         "resolutions_match": resolutions_match,
     }
@@ -315,9 +350,7 @@ def check_image_sets(raw_dir: Path, lama_dir: Path, sample_size: int = 5) -> Che
 # =====================================================================
 # Drive
 # =====================================================================
-def check_drive(
-    token_path: Path, folder_ids: dict[str, str]
-) -> CheckResult:
+def check_drive(token_path: Path, folder_ids: dict[str, str]) -> CheckResult:
     """Verify Drive credentials resolve and every destination folder is writable.
 
     A run that trains for hours and then cannot upload its weights has wasted the
@@ -355,7 +388,11 @@ def check_drive(
         try:
             metadata = (
                 manager.drive_service.files()
-                .get(fileId=folder_id, fields="id, name, mimeType", supportsAllDrives=True)
+                .get(
+                    fileId=folder_id,
+                    fields="id, name, mimeType",
+                    supportsAllDrives=True,
+                )
                 .execute()
             )
             details["folders"][role] = {
@@ -403,7 +440,11 @@ def run_preflight(
         check_packages(),
         check_gpus(expected_gpus),
         check_labels(labels_dir),
-        check_image_sets(raw_images_dir, lama_images_dir),
+        check_image_sets(
+            raw_images_dir,
+            lama_images_dir,
+            expected_stems=scan_label_stems(labels_dir / "train"),
+        ),
         check_drive(token_path, folder_ids),
     ]
     if check_collective:
@@ -454,7 +495,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--token-path",
-        default="/kaggle/working/token.json",
+        default="/tmp/ia_article_drive_token.json",
         help="Path to the Drive OAuth token JSON",
     )
     parser.add_argument(
