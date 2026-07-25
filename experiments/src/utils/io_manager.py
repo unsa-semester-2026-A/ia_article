@@ -55,6 +55,7 @@ class IOManager:
                 themselves, degrade to local-only I/O.
         """
         self.require_drive = require_drive
+        self.drive_error: str | None = None
 
         # 1. Resolve token path
         if token_path:
@@ -258,7 +259,8 @@ class IOManager:
             service = build("drive", "v3", credentials=creds)
             return service
         except Exception as e:
-            print(f"[IOManager] Credentials or OAuth error: {e}")
+            self.drive_error = str(e)
+            print(f"[IOManager] Credentials or OAuth error: {self.drive_error}")
             return None
 
     def _find_existing_file_id(

@@ -587,6 +587,15 @@ def test_prepare_dataset_uses_common_raw_lama_train_manifest(
     assert [p.stem for p in (workspace / "images" / "val").iterdir()] == ["v"]
 
 
+def test_image_stems_accepts_case_insensitive_extensions(tmp_path: Path) -> None:
+    """The Raw/LaMa manifest includes supported image extensions consistently."""
+    (tmp_path / "a.JPG").write_bytes(b"image")
+    (tmp_path / "b.png").write_bytes(b"image")
+    (tmp_path / "notes.txt").write_text("not an image")
+
+    assert Base1Trainer._image_stems(tmp_path) == {"a", "b"}
+
+
 def test_report_gpu_usage_flags_single_gpu_fallback(trainer: Base1Trainer) -> None:
     """Black Box: Requesting two GPUs but engaging one must not pass silently."""
     trainer.config["expected_gpus"] = 2

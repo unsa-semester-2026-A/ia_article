@@ -46,6 +46,20 @@ The smoke validation subset also selected ten val images with no OBB labels, so
 its mAP values are necessarily zero. This does not invalidate the DDP smoke
 result, but it is not a model-quality measurement.
 
+## 2026-07-25 — smoke test C1, version 6
+
+Version 6 used commit `7f12258` and the shared 43,310-frame Raw/LaMa training
+manifest. The image-set, package, GPU and NCCL preflight checks passed; the
+smoke completed three DDP epochs and engaged both T4 GPUs. The reported peaks
+were 1113 MiB (GPU 0) and 1103 MiB (GPU 1).
+
+Drive still failed. Kaggle copied the token from the private dataset, and its
+SHA-256 matches the local `experiments/token.json`, but Google returned
+`invalid_client: The provided client secret is invalid.` The copied file records
+an expired access token (`2026-07-23T15:54:44`) and cannot be refreshed. Do not
+start production until the exact token file uploaded to the private dataset has
+been regenerated with valid OAuth client credentials and has passed preflight.
+
 ### Next iteration
 
 1. The trainer now builds `common_train_stems.txt` from the intersection of

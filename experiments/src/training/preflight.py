@@ -394,8 +394,11 @@ def check_drive(token_path: Path, folder_ids: dict[str, str]) -> CheckResult:
         return CheckResult("drive", False, details)
 
     if not manager.drive_service:
+        auth_error = getattr(manager, "drive_error", None)
         details["error"] = (
-            "Drive service could not be initialized. On Kaggle this usually means "
+            auth_error
+            if isinstance(auth_error, str) and auth_error
+            else "Drive service could not be initialized. On Kaggle this usually means "
             "the 'DRIVE_TOKEN_JSON' secret is not attached to this notebook "
             "(Add-ons -> Secrets)."
         )

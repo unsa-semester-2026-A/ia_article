@@ -285,11 +285,15 @@ class Base1Trainer(BaseTrainingPipeline):
         """
         if not directory.is_dir():
             return set()
-        return {
-            path.stem
-            for path in directory.iterdir()
-            if path.is_file() and path.suffix in cls.IMAGE_EXTENSIONS
+        suffixes = {
+            extension.lower().removeprefix(".") for extension in cls.IMAGE_EXTENSIONS
         }
+        with os.scandir(directory) as entries:
+            return {
+                entry.name.rsplit(".", 1)[0]
+                for entry in entries
+                if entry.is_file() and entry.name.rsplit(".", 1)[-1].lower() in suffixes
+            }
 
     @staticmethod
     def _link_label_files(
