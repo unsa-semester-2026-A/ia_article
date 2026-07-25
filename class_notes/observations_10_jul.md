@@ -5,7 +5,7 @@
 * **Trabajos Relacionados:** Es obligatorio incluir una tabla o un párrafo de resumen para consolidar la revisión bibliográfica. *HECHO*
 * **Formato de texto:** Prohibido usar negritas para resaltar conceptos en el texto. *HECHO*
 * **Notas al pie:** Evitar su uso en la medida de lo posible. *HECHO*
-* **Tablas y Gráficos:** Cualquier tabla insertada en el documento debe ser mencionada y referenciada explícitamente en el cuerpo del texto.
+* **Tablas y Gráficos:** Cualquier tabla insertada en el documento debe ser mencionada y referenciada explícitamente en el cuerpo del texto.  *HECHO*
 
 ---
 
@@ -13,10 +13,11 @@
 
 **Estructura y Formato General**
 
-* **Tipografía:** Corregir y unificar el tamaño de la fuente en todo el documento.
+* **Tipografía:** Corregir y unificar el tamaño de la fuente en todo el documento. *NO ENCUENTRO*
 * **Párrafos:** Evitar por completo los párrafos de una sola línea u oración; deben tener un desarrollo adecuado.
-
-**1. Introducción**
+*HECHO*
+**1. Introducción** 
+*HECHO*
 
 * **Contexto:** Eliminar la mención inicial sobre el problema del MTC y no mencionar directamente el concurso. Enfocar el inicio en el vacío de conocimiento (gap) y centrar la problemática en la ciudad de Lima.
 * **Dataset:** No hacer ninguna mención al dataset en la introducción; esto debe reservarse estrictamente para su propia sección.

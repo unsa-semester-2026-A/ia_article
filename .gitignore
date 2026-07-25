@@ -14,7 +14,7 @@ __pycache__/
 venv/
 env/
 ENV/
-
+.commandcode/
 # Testing and Coverage caches
 .pytest_cache/
 .coverage
@@ -32,3 +32,4 @@ experiments/dataset/
 experiments/audit_output/
 experiments/dummy_train.csv
 experiments/*.json
+
