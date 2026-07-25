@@ -544,6 +544,49 @@ def test_link_split_images_skips_labels_without_image(
     assert [p.stem for p in dest.iterdir()] == ["present"]
 
 
+def test_prepare_dataset_uses_common_raw_lama_train_manifest(
+    trainer: Base1Trainer, tmp_path: Path
+) -> None:
+    """C1/C2/C3 must train on only the frames present in both image variants."""
+    labels = tmp_path / "labels"
+    raw = tmp_path / "raw"
+    lama = tmp_path / "lama"
+    for split, stems in {"train": ["a", "b", "missing"], "val": ["v"]}.items():
+        for stem in stems:
+            path = labels / split / f"{stem}.txt"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("0 0 0 0 0 0 0 0 0")
+    for stem in ["a", "b", "missing", "v"]:
+        (raw / f"{stem}.jpg").parent.mkdir(parents=True, exist_ok=True)
+        (raw / f"{stem}.jpg").write_bytes(b"raw")
+    for stem in ["a", "b"]:
+        (lama / f"{stem}.jpg").parent.mkdir(parents=True, exist_ok=True)
+        (lama / f"{stem}.jpg").write_bytes(b"lama")
+
+    trainer.config.update(
+        {
+            "labels_path": str(labels),
+            "images_dir": str(raw),
+            "lama_images_dir": str(lama),
+            "data_yaml_path": str(tmp_path / "workspace" / "smart_dataset.yaml"),
+            "dataset_workspace": str(tmp_path / "workspace"),
+        }
+    )
+    trainer.prepare_dataset()
+
+    workspace = Path(trainer.config["dataset_workspace"])
+    assert (workspace / "common_train_stems.txt").read_text().splitlines() == ["a", "b"]
+    assert sorted(p.stem for p in (workspace / "labels" / "train").iterdir()) == [
+        "a",
+        "b",
+    ]
+    assert sorted(p.stem for p in (workspace / "images" / "train").iterdir()) == [
+        "a",
+        "b",
+    ]
+    assert [p.stem for p in (workspace / "images" / "val").iterdir()] == ["v"]
+
+
 def test_report_gpu_usage_flags_single_gpu_fallback(trainer: Base1Trainer) -> None:
     """Black Box: Requesting two GPUs but engaging one must not pass silently."""
     trainer.config["expected_gpus"] = 2

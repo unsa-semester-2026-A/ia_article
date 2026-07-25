@@ -292,6 +292,7 @@ def check_image_sets(
     lama_dir: Path,
     expected_stems: set[str] | None = None,
     sample_size: int = 5,
+    allow_common_train_subset: bool = False,
 ) -> CheckResult:
     """Compare the raw and LaMa image sets for count and resolution parity.
 
@@ -305,6 +306,8 @@ def check_image_sets(
         expected_stems: Optional label-derived training split. If given, the
             comparison ignores images from other splits in a flat source folder.
         sample_size: How many shared file names to measure.
+        allow_common_train_subset: Whether a deterministic intersection of the
+            two image sets is the declared training protocol.
 
     Returns:
         Result with counts, sampled sizes and whether both sets are comparable.
@@ -316,7 +319,8 @@ def check_image_sets(
     )
     raw_selected = raw_stems & target_stems
     lama_selected = lama_stems & target_stems
-    shared = sorted(raw_selected & lama_selected)[:sample_size]
+    common_stems = raw_selected & lama_selected
+    shared = sorted(common_stems)[:sample_size]
 
     sizes: dict[str, dict[str, Any]] = {}
     resolutions_match = True
@@ -335,6 +339,8 @@ def check_image_sets(
         "lama_total_count": lama_total,
         "raw_count": len(raw_selected),
         "lama_count": len(lama_selected),
+        "common_train_count": len(common_stems),
+        "excluded_from_common_train": len(target_stems - common_stems),
         "counts_match": raw_selected == target_stems and lama_selected == target_stems,
         "missing_in_raw": len(target_stems - raw_stems),
         "missing_in_lama": len(target_stems - lama_stems),
@@ -343,7 +349,19 @@ def check_image_sets(
         "sampled_sizes": sizes,
         "resolutions_match": resolutions_match,
     }
-    passed = bool(details["counts_match"]) and resolutions_match and bool(shared)
+    full_match = bool(details["counts_match"])
+    passed = (
+        (full_match or allow_common_train_subset)
+        and resolutions_match
+        and bool(common_stems)
+    )
+    details["training_protocol"] = (
+        "full_label_split"
+        if full_match
+        else "common_raw_lama_intersection"
+        if allow_common_train_subset
+        else "incompatible"
+    )
     return CheckResult("image_sets", passed, details)
 
 
@@ -421,6 +439,7 @@ def run_preflight(
     folder_ids: dict[str, str],
     expected_gpus: int = 2,
     check_collective: bool = True,
+    allow_common_train_subset: bool = False,
 ) -> dict[str, Any]:
     """Run every check and aggregate the verdicts.
 
@@ -432,6 +451,8 @@ def run_preflight(
         folder_ids: Mapping of role name to Drive folder ID.
         expected_gpus: Number of GPUs the run is meant to use.
         check_collective: Whether to run the NCCL all-reduce probe.
+        allow_common_train_subset: Accept a non-empty, reproducible raw/LaMa
+            intersection as the declared training split.
 
     Returns:
         Dictionary with ``passed`` and the list of individual check results.
@@ -444,6 +465,7 @@ def run_preflight(
             raw_images_dir,
             lama_images_dir,
             expected_stems=scan_label_stems(labels_dir / "train"),
+            allow_common_train_subset=allow_common_train_subset,
         ),
         check_drive(token_path, folder_ids),
     ]
@@ -515,6 +537,11 @@ def main() -> int:
         help="Skip the NCCL all-reduce probe",
     )
     parser.add_argument(
+        "--allow-common-train-subset",
+        action="store_true",
+        help="Accept the common Raw/LaMa train intersection as the F1 protocol",
+    )
+    parser.add_argument(
         "--output",
         default=None,
         help="Optional path to write the report as JSON",
@@ -532,6 +559,7 @@ def main() -> int:
         },
         expected_gpus=args.expected_gpus,
         check_collective=not args.skip_nccl,
+        allow_common_train_subset=args.allow_common_train_subset,
     )
     print_report(report)
 

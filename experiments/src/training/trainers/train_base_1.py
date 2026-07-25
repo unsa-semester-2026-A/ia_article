@@ -254,21 +254,65 @@ class Base1Trainer(BaseTrainingPipeline):
         labels_src = self.config.get("labels_path") or self.config.get(
             "labels_zip_path", ""
         )
-        if self.condition == "c3":
-            images_dir = self.config.get("lama_images_dir") or self.config.get(
-                "images_dir", ""
-            )
-        else:
-            images_dir = self.config.get("images_dir", "")
+        raw_images_dir = self.config.get("images_dir", "")
+        lama_images_dir = self.config.get("lama_images_dir", "")
+        train_images_dir = lama_images_dir if self.condition == "c3" else raw_images_dir
         return {
             "data_yaml_path": self.config.get("data_yaml_path", ""),
             "model_weights": self.config.get("model_weights", "yolo26s-obb.pt"),
             "labels_path": labels_src,
-            "images_dir": images_dir,
+            "images_dir": train_images_dir,
+            "train_images_dir": train_images_dir,
+            # Validation is always raw. LaMa changes the training pixels only;
+            # keeping validation fixed makes every F1 metric directly comparable.
+            "val_images_dir": raw_images_dir,
+            "raw_images_dir": raw_images_dir,
+            "lama_images_dir": lama_images_dir,
             "resized_zip_path": self.config.get("resized_zip_path", ""),
         }
 
     IMAGE_EXTENSIONS = (".jpg", ".png", ".jpeg", ".JPG", ".PNG")
+
+    @classmethod
+    def _image_stems(cls, directory: Path) -> set[str]:
+        """Return image stems directly contained in a directory.
+
+        Args:
+            directory: Flat image directory to scan.
+
+        Returns:
+            Set of filename stems with a supported image extension.
+        """
+        if not directory.is_dir():
+            return set()
+        return {
+            path.stem
+            for path in directory.iterdir()
+            if path.is_file() and path.suffix in cls.IMAGE_EXTENSIONS
+        }
+
+    @staticmethod
+    def _link_label_files(
+        source: Path, destination: Path, allowed_stems: set[str] | None = None
+    ) -> None:
+        """Link labels, optionally retaining only a reproducible stem manifest.
+
+        Args:
+            source: Directory containing YOLO ``.txt`` labels.
+            destination: Workspace directory that receives the label links.
+            allowed_stems: Optional set of stems to retain.
+        """
+        destination.mkdir(parents=True, exist_ok=True)
+        for label in sorted(source.glob("*.txt")):
+            if allowed_stems is not None and label.stem not in allowed_stems:
+                continue
+            target = destination / label.name
+            if target.exists():
+                continue
+            try:
+                target.symlink_to(label)
+            except OSError:
+                shutil.copy2(label, target)
 
     def _link_split_images(
         self,
@@ -277,6 +321,7 @@ class Base1Trainer(BaseTrainingPipeline):
         split_subdir: Path | None,
         destination: Path,
         limit: int | None = None,
+        skip_empty_labels: bool = False,
     ) -> int:
         """Link the image matching each label of a split into ``destination``.
 
@@ -292,6 +337,7 @@ class Base1Trainer(BaseTrainingPipeline):
                 already divided by split. Searched before ``images_dir``.
             destination: Directory to populate with links.
             limit: Maximum number of images to link. None links all of them.
+            skip_empty_labels: Whether empty label files should be skipped.
 
         Returns:
             Number of images linked.
@@ -305,6 +351,8 @@ class Base1Trainer(BaseTrainingPipeline):
         for txt_path in sorted(labels_dir.glob("*.txt")):
             if limit is not None and linked >= limit:
                 break
+            if skip_empty_labels and txt_path.stat().st_size == 0:
+                continue
             for search_dir in search_dirs:
                 found = False
                 for ext in self.IMAGE_EXTENSIONS:
@@ -370,6 +418,35 @@ class Base1Trainer(BaseTrainingPipeline):
         labels_dest = workspace / "labels"
         images_dest = workspace / "images"
 
+        # The 79 frames not processed by LaMa must be excluded from *all* F1
+        # conditions. Otherwise C1/C2 and C3 would learn from different frames.
+        raw_images_dir = Path(dataset_config.get("raw_images_dir", ""))
+        lama_images_dir = Path(dataset_config.get("lama_images_dir", ""))
+        common_train_stems: set[str] | None = None
+        if (
+            labels_source.is_dir()
+            and raw_images_dir.is_dir()
+            and lama_images_dir.is_dir()
+        ):
+            label_stems = {
+                path.stem for path in (labels_source / "train").glob("*.txt")
+            }
+            common_train_stems = (
+                label_stems
+                & self._image_stems(raw_images_dir)
+                & self._image_stems(lama_images_dir)
+            )
+            if not common_train_stems:
+                raise RuntimeError("No common raw/LaMa training images were found.")
+            manifest = workspace / "common_train_stems.txt"
+            manifest.write_text("\n".join(sorted(common_train_stems)) + "\n")
+            excluded = len(label_stems) - len(common_train_stems)
+            print(
+                f"[{self.run_name}] Common F1 train manifest: "
+                f"{len(common_train_stems)} frames ({excluded} excluded)",
+                flush=True,
+            )
+
         # Handle labels source (directory vs zip file)
         if labels_source.name and labels_source.exists():
             labels_dest.mkdir(parents=True, exist_ok=True)
@@ -377,7 +454,13 @@ class Base1Trainer(BaseTrainingPipeline):
                 for split in ["train", "val"]:
                     src = labels_source / split
                     dst = labels_dest / split
-                    if src.exists() and not dst.exists():
+                    if common_train_stems is not None:
+                        self._link_label_files(
+                            src,
+                            dst,
+                            common_train_stems if split == "train" else None,
+                        )
+                    elif src.exists() and not dst.exists():
                         try:
                             dst.symlink_to(src)
                         except OSError:
@@ -417,20 +500,21 @@ class Base1Trainer(BaseTrainingPipeline):
         if images_dir.name and images_dir.exists():
             images_dest.mkdir(parents=True, exist_ok=True)
 
-            # Check if images_dir has train/ and val/ subdirectories directly
-            has_split_subdirs = (images_dir / "train").exists() or (
-                images_dir / "val"
-            ).exists()
-
             # A whole-directory symlink cannot express a subset, so a smoke run
             # always links image by image even when the source is already split.
             limit = self.smoke_images if self.smoke_test else None
-
-            if has_split_subdirs and limit is None:
+            train_images_dir = Path(dataset_config["train_images_dir"])
+            val_images_dir = Path(dataset_config["val_images_dir"])
+            has_matching_split_dirs = (
+                train_images_dir == val_images_dir
+                and (train_images_dir / "train").is_dir()
+                and (train_images_dir / "val").is_dir()
+            )
+            if common_train_stems is None and limit is None and has_matching_split_dirs:
                 for split in ["train", "val"]:
-                    src = images_dir / split
+                    src = train_images_dir / split
                     dst = images_dest / split
-                    if src.exists() and not dst.exists():
+                    if not dst.exists():
                         try:
                             dst.symlink_to(src)
                         except OSError:
@@ -443,12 +527,17 @@ class Base1Trainer(BaseTrainingPipeline):
                     flush=True,
                 )
                 for split in ["train", "val"]:
+                    split_images_dir = Path(dataset_config[f"{split}_images_dir"])
+                    has_split_subdirs = (split_images_dir / split).is_dir()
                     linked = self._link_split_images(
                         labels_dir=labels_dest / split,
-                        images_dir=images_dir,
-                        split_subdir=images_dir / split if has_split_subdirs else None,
+                        images_dir=split_images_dir,
+                        split_subdir=(
+                            split_images_dir / split if has_split_subdirs else None
+                        ),
                         destination=images_dest / split,
                         limit=limit,
+                        skip_empty_labels=self.smoke_test and split == "val",
                     )
                     print(f"[{self.run_name}]   {split}: {linked} images", flush=True)
 

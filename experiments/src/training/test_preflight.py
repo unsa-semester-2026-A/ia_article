@@ -213,6 +213,20 @@ def test_check_image_sets_detects_count_mismatch(tmp_path: Path):
     assert result["details"]["only_in_raw"] == 1
 
 
+def test_check_image_sets_allows_declared_common_subset(tmp_path: Path):
+    """A non-empty Raw/LaMa intersection is valid when every F1 run uses it."""
+    raw, lama = tmp_path / "raw", tmp_path / "lama"
+    _write_image(raw / "v_a_0001.jpg", 640, 360)
+    _write_image(raw / "v_a_0002.jpg", 640, 360)
+    _write_image(lama / "v_a_0001.jpg", 640, 360)
+
+    result = check_image_sets(raw, lama, allow_common_train_subset=True)
+
+    assert result["passed"] is True
+    assert result["details"]["common_train_count"] == 1
+    assert result["details"]["training_protocol"] == "common_raw_lama_intersection"
+
+
 # ==========================================
 # Drive Checks
 # ==========================================
