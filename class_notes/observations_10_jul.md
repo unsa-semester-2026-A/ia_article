@@ -1,10 +1,10 @@
 
 ### Correcciones Generales (Para todos)
 
-* **Versionado de software:** Especificar siempre la versión de las herramientas utilizadas (por ejemplo, `Python v1.13.xxx`).
-* **Trabajos Relacionados:** Es obligatorio incluir una tabla o un párrafo de resumen para consolidar la revisión bibliográfica.
-* **Formato de texto:** Prohibido usar negritas para resaltar conceptos en el texto.
-* **Notas al pie:** Evitar su uso en la medida de lo posible.
+* **Versionado de software:** Especificar siempre la versión de las herramientas utilizadas (por ejemplo, `Python v1.13.xxx`). *HECHO*
+* **Trabajos Relacionados:** Es obligatorio incluir una tabla o un párrafo de resumen para consolidar la revisión bibliográfica. *HECHO*
+* **Formato de texto:** Prohibido usar negritas para resaltar conceptos en el texto. *HECHO*
+* **Notas al pie:** Evitar su uso en la medida de lo posible. *HECHO*
 * **Tablas y Gráficos:** Cualquier tabla insertada en el documento debe ser mencionada y referenciada explícitamente en el cuerpo del texto.
 
 ---

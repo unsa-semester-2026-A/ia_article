@@ -179,3 +179,60 @@ jointly: OBB detection, class-imbalance mitigation, and stationary-vehicle filte
 within a single, real-time-capable pipeline evaluated on urban intersection footage.
 This multi-dimensional gap directly motivates the layered experimental design of the
 present study.
+
+Table~\ref{tab:related_work_summary} summarizes the related works.
+\begin{table}[htbp]
+  \caption{Summary of related work.}
+  \label{tab:related_work_summary}
+  \centering
+  \small
+  \begin{tabular}{p{0.16\columnwidth} p{0.45\columnwidth} p{0.3\columnwidth}}
+    \toprule
+    \textbf{Reference} & \textbf{Approach} & \textbf{Main Limitation} \\
+    \midrule
+    Gomaa et al.~\cite{Gomaa2022} &
+      YOLOv2 + K-means motion clustering + KLT optical-flow tracker for fast vehicle counting (18.7 FPS) &
+      Axis-aligned boxes only; no class-imbalance or motion-state handling \\
+    \midrule
+    Kumar et al.~\cite{Kumar2023} &
+      YOLOv5 (140 FPS) + DeepSORT with Kalman filter and Hungarian algorithm; 92.18\% mAP on BDD100K/PASCAL &
+      Horizontal boxes; no class-imbalance or parked-vehicle discrimination \\
+    \midrule
+    Bin Zuraimi \& Kamaru Zaman~\cite{BinZuraimi2021} &
+      Comparison of YOLOv3/v3-tiny/v4/v4-tiny + DeepSORT on a consumer GPU; YOLOv4 reaches 82.08\% mAP@0.5 at 14.12 FPS &
+      Axis-aligned boxes; orientation unaddressed \\
+    \midrule
+    Balamuralidhar et al.~\cite{Balamuralidhar2021} &
+      Joint detection/tracking/speed-estimation with a segmentation head on Jetson Xavier NX (29--33 FPS) &
+      Aerial, horizontal boxes only; no class-imbalance or stationary-vehicle handling \\
+    \midrule
+    Alás et al.~\cite{Alas2026} &
+      CPU-only cross-camera re-identification across 27 cameras using transformer embeddings and topology constraints &
+      Re-identification task, not oriented per-frame detection; no imbalance or motion-state filtering \\
+    \midrule
+    Espinosa et al.~\cite{Espinosa2020} &
+      Structured review of motorcycle detection/tracking; introduces the Urban Motorbike Dataset (UMD) &
+      No OBB evaluation; stationary-vehicle filtering out of scope \\
+    \midrule
+    Mo \& Yan~\cite{Mo2020} &
+      Faster R-CNN with oversampling-and-stitching augmentation, bilinear feature amplification, and center loss; 60.1\% mAP (OBB) on VEDAI &
+      Two-stage architecture precludes real-time use; misclassifies complex backgrounds \\
+    \midrule
+    Ahmed et al.~\cite{Ahmed2025} &
+      Comparison of YOLOv8, YOLOv8+SAM, and YOLOv8-OBB with SIFT georeferencing for TTC accuracy; YOLOv8-OBB achieves 0.99 m RMSE &
+      No local fine-tuning; sensitive to weather/illumination \\
+    \midrule
+    Chen et al.~\cite{Chen2025} &
+      ArbiTrack: OBB detector + MCA, AMS, and SEM (ConvGRU) modules for MOT from moving drones; 44.6\% MOTA / 56.9\% IDF1 on OriDrone &
+      Assumes all detected vehicles are tracked; degrades in low light; no moving/stationary distinction \\
+    \midrule
+    Jocher et al.~\cite{Jocher2026} &
+      YOLO26: dual-head NMS-free design with MuSGD, Progressive Loss, and STAL; 40.9--57.5\% mAP at 1.7--11.8 ms on COCO &
+      Not yet evaluated on domain-specific, class-imbalanced urban traffic data \\
+    \midrule
+    Fernández-Rodríguez et al.~\cite{FernandezRodriguez2023} &
+      YOLO detection + trajectory tracking + velocity-vector comparison to flag anomalous (e.g., wrong-way) trajectories &
+      Distinguishes anomalous vs.\ normal motion, not stationary (parked) vs.\ circulating vehicles \\
+    \bottomrule
+  \end{tabular}
+\end{table}

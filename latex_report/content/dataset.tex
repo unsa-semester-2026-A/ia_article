@@ -1,15 +1,8 @@
 \subsection{Dataset}
 \label{sec:dataset}
 
-\subsubsection{Provenance \& Purpose}
-% Aquí va el párrafo inicial: origen del dataset, propósito del estudio,
-% motivación de la recopilación de datos.
-The dataset used in this work originates from the SMART Challenge 2026 competition, hosted on Kaggle by Peru's Ministry of Transportation and Communications (MTC). The challenge description defines the task as oriented vehicle detection and classification, together with the required prediction format for evaluation with oriented bounding boxes (OBB)  \cite{MTC2026SmartChallenge}.
+The dataset used in this work originates from the SMART Challenge 2026 competition, hosted on Kaggle by Peru's Ministry of Transportation and Communications (MTC). The challenge description defines the task as oriented vehicle detection and classification, together with the required prediction format for evaluation with oriented bounding boxes (OBB)  \cite{MTC2026SmartChallenge}. Table~\ref{tab:dataset_structure} summarizes the inspected file structure.
 
-\subsubsection{Acquisition \& File Structure}
-% Aquí va la descripción de cómo se adquirieron los datos,
-% estructura de archivos, referencia a Table I.
-Table~\ref{tab:dataset_structure} summarizes the inspected file structure.
 
 \begin{table*}[!t]
   \caption{Inspected local dataset structure}
@@ -27,7 +20,7 @@ Table~\ref{tab:dataset_structure} summarizes the inspected file structure.
   \end{tabular}
 \end{table*}
 
-\subsubsection{Annotation Schema}
+
 Annotations follow an oriented bounding box (OBB) format. Each annotated object is represented by six fields: 
 \texttt{category\_id}, \texttt{cx}, \texttt{cy}, \texttt{width}, \texttt{height}, and \texttt{angle\_deg}. 
 Coordinates \texttt{cx} and \texttt{cy} denote the center of the box in pixel units; \texttt{width} and \texttt{height} denote the box dimensions in pixels; \texttt{angle\_deg} expresses the orientation of the box in degrees, measured counterclockwise from the image x-axis.
@@ -41,8 +34,8 @@ Example annotation entry for a single image row (CSV \texttt{Target} field):
 \end{verbatim}
 (The example above encodes two objects: a class 1 object and a class 7 object.)
 
-\subsubsection{Class Taxonomy}
-The dataset defines nine vehicle categories, listed in Table~\ref{tab:class_taxonomy}. Visual inspection of the training dataset suggests that the boundaries between \emph{combi}, \emph{microbus}, and \emph{minibus} may exhibit inter-class ambiguity due to overlapping vehicle dimensions and similar appearance from the elevated viewpoint. This potential ambiguity, if confirmed through systematic inter-annotator agreement analysis, could introduce class-conditional noise that disproportionately affects minority categories already underrepresented in the training distribution. Fig.~\ref{fig:dataset_obb_sample} illustrates annotated instances from five classes in a representative intersection frame.
+
+About taxonomy, the dataset defines nine vehicle categories, listed in Table~\ref{tab:class_taxonomy}. Visual inspection of the training dataset suggests that the boundaries between \emph{combi}, \emph{microbus}, and \emph{minibus} may exhibit inter-class ambiguity due to overlapping vehicle dimensions and similar appearance from the elevated viewpoint. This potential ambiguity, if confirmed through systematic inter-annotator agreement analysis, could introduce class-conditional noise that disproportionately affects minority categories already underrepresented in the training distribution. Fig.~\ref{fig:dataset_obb_sample} illustrates annotated instances from five classes in a representative intersection frame.
 
 \begin{figure}[ht]
   \centering
@@ -70,9 +63,6 @@ The dataset defines nine vehicle categories, listed in Table~\ref{tab:class_taxo
     \bottomrule
   \end{tabular}
 \end{table}
-
-\subsubsection{Descriptive Statistics}
-\label{sec:descriptive_stats}
 
 Exploratory analysis identified 601,934 annotated objects across the 54,262 training frames. Of these frames, 3,394 contain no annotated objects (\texttt{Target}\allowbreak\texttt{==}\allowbreak\texttt{none}), 6,212 contain exactly one object, and 44,656 contain two or more objects, with a maximum of 53 objects observed in a single frame. Validation detected no parsing errors, out-of-range class identifiers (outside 1--9), non-positive box dimensions, out-of-bounds centers, or angles outside $[0^\circ, 360^\circ)$. Cross-referencing the CSV identifiers against the image names inside the compressed archives confirmed a one-to-one correspondence: no orphaned annotations and no unannotated images were found. Table~\ref{tab:dataset_frame_summary} reports these frame-level statistics, and Fig.~\ref{fig:dataset_objects_per_frame} shows the per-frame object density distribution.
 
