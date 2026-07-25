@@ -4,7 +4,6 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-import torch
 from src.training.trainers.train_base_1 import Base1Trainer
 
 
@@ -44,6 +43,68 @@ def test_get_hyperparameters_defaults(trainer: Base1Trainer) -> None:
     params = trainer.get_hyperparameters()
     for key, value in Base1Trainer.DEFAULT_HYPERPARAMS.items():
         assert params[key] == value
+
+
+def test_default_epoch_budget_matches_plan(trainer: Base1Trainer) -> None:
+    """Test the epoch budget follows the pilot calibration of 06_training.md §2."""
+    params = trainer.get_hyperparameters()
+    assert params["epochs"] == 40
+    assert params["patience"] == 5
+    # RAM caching does not fit this dataset and degrades silently if requested.
+    assert params["cache"] is False
+
+
+def test_condition_defaults_to_c1(trainer: Base1Trainer) -> None:
+    """Test the trainer defaults to the raw-data baseline condition."""
+    assert trainer.condition == "c1"
+    assert trainer.run_name == "f1_c1"
+
+
+def test_unknown_condition_is_rejected(config: dict[str, Any]) -> None:
+    """Test an unsupported condition fails fast instead of training silently."""
+    config["condition"] = "c9"
+    with pytest.raises(ValueError, match="Unknown condition"):
+        Base1Trainer(config)
+
+
+@pytest.mark.parametrize(
+    ("condition", "expect_mosaic"),
+    [("c1", 0.0), ("c2", 1.0), ("c3", 0.0)],
+)
+@patch("src.training.trainers.train_base_1.IOManager")
+def test_augmentation_profile_per_condition(
+    mock_io_manager: MagicMock,
+    config: dict[str, Any],
+    condition: str,
+    expect_mosaic: float,
+) -> None:
+    """Test only C2 enables object-combining augmentation."""
+    config["condition"] = condition
+    params = Base1Trainer(config).get_hyperparameters()
+    assert params["mosaic"] == expect_mosaic
+
+
+@patch("src.training.trainers.train_base_1.IOManager")
+def test_c1_and_c3_share_every_hyperparameter(
+    mock_io_manager: MagicMock, config: dict[str, Any]
+) -> None:
+    """Test C1 and C3 differ only in the dataset, which the intra-family gain requires."""
+    c1_params = Base1Trainer({**config, "condition": "c1"}).get_hyperparameters()
+    c3_params = Base1Trainer({**config, "condition": "c3"}).get_hyperparameters()
+    assert c1_params == c3_params
+
+
+@patch("src.training.trainers.train_base_1.IOManager")
+def test_c3_reads_the_lama_images(
+    mock_io_manager: MagicMock, config: dict[str, Any]
+) -> None:
+    """Test C3 points at the cleaned images while sharing the labels."""
+    config["lama_images_dir"] = "/data/smart_lama_corrected/train"
+    c1 = Base1Trainer({**config, "condition": "c1"}).get_dataset_config()
+    c3 = Base1Trainer({**config, "condition": "c3"}).get_dataset_config()
+    assert c1["images_dir"] == config["images_dir"]
+    assert c3["images_dir"] == "/data/smart_lama_corrected/train"
+    assert c1["labels_path"] == c3["labels_path"]
 
 
 def test_get_hyperparameters_overrides(trainer: Base1Trainer) -> None:
@@ -243,7 +304,10 @@ def test_upload_file_mime_types(trainer: Base1Trainer, tmp_path: Path) -> None:
         fpath = tmp_path / fname
         trainer._upload_file(fpath, "folder_id")
         trainer.io_manager.upload_file_to_drive.assert_called_with(
-            fpath, "folder_id", mime_type=expected_mime
+            fpath,
+            "folder_id",
+            mime_type=expected_mime,
+            remote_name=f"{trainer.run_name}_{fname}",
         )
 
 
@@ -270,7 +334,7 @@ def test_execute_success(
     mock_yolo.return_value = mock_model
 
     # Create dummy output files
-    train_dir = Path(trainer.config["output_dir"]) / "base1"
+    train_dir = Path(trainer.config["output_dir"]) / trainer.run_name
     train_dir.mkdir(parents=True, exist_ok=True)
     (train_dir / "results.csv").touch()
     (train_dir / "results.png").touch()
@@ -298,14 +362,246 @@ def test_execute_success(
     assert any("best.pt" in f for f in uploaded_files)
 
 
-def test_get_hyperparameters_fast_dev_run(tmp_path):
-    """Black Box: Verify fast_dev_run sets epochs=1 and fraction=0.01 for smoke testing."""
-    config = {
-        "output_dir": str(tmp_path),
-        "fast_dev_run": True,
+@patch("src.training.trainers.train_base_1.IOManager")
+def test_smoke_run_keeps_the_production_recipe(
+    mock_io_manager: MagicMock, config: dict[str, Any]
+) -> None:
+    """Black Box: A smoke run may only shrink the workload, never the recipe."""
+    real = Base1Trainer({**config, "condition": "c1"}).get_hyperparameters()
+    smoke = Base1Trainer(
+        {**config, "condition": "c1", "smoke_test": True}
+    ).get_hyperparameters()
+
+    # Only the amount of work changes
+    assert smoke["epochs"] == 3
+    assert smoke["save_period"] == 1
+    assert smoke["batch"] < real["batch"]
+
+    # Everything that defines the experiment stays identical
+    for key in [
+        "imgsz",
+        "optimizer",
+        "lr0",
+        "lrf",
+        "weight_decay",
+        "amp",
+        "seed",
+        "mosaic",
+        "mixup",
+        "copy_paste",
+        "degrees",
+        "fliplr",
+        "patience",
+    ]:
+        assert smoke[key] == real[key], f"smoke run altered '{key}'"
+
+
+@patch("ultralytics.YOLO")
+@patch.object(Base1Trainer, "detect_device")
+@patch.object(Base1Trainer, "prepare_dataset")
+@patch.object(Base1Trainer, "parse_results_csv")
+@patch("src.training.trainers.train_base_1.IOManager")
+def test_smoke_save_period_survives_the_config(
+    mock_io_manager: MagicMock,
+    mock_parse: MagicMock,
+    mock_prepare: MagicMock,
+    mock_detect_device: MagicMock,
+    mock_yolo: MagicMock,
+    config: dict[str, Any],
+    tmp_path: Path,
+) -> None:
+    """White Box: The smoke cadence of 1 epoch must not be overridden by config."""
+    mock_prepare.return_value = tmp_path / "data.yaml"
+    mock_detect_device.return_value = "0,1"
+    mock_parse.return_value = {"total_epochs_completed": 3}
+
+    trainer = Base1Trainer({**config, "smoke_test": True, "save_period": 5})
+    trainer.execute()
+
+    assert mock_yolo.return_value.train.call_args.kwargs["save_period"] == 1
+
+
+@patch("src.training.trainers.train_base_1.IOManager")
+def test_smoke_batch_is_even_and_at_least_two(
+    mock_io_manager: MagicMock, config: dict[str, Any]
+) -> None:
+    """White Box: The smoke batch must divide across 2 GPUs and allow >1 step."""
+    for images in [2, 4, 10, 16, 25]:
+        trainer = Base1Trainer(
+            {**config, "smoke_test": True, "smoke_images": images}
+        )
+        batch = trainer.get_hyperparameters()["batch"]
+        assert batch >= 2
+        assert batch % 2 == 0
+        assert batch <= images
+
+
+@patch("src.training.trainers.train_base_1.IOManager")
+def test_smoke_run_name_is_separate(
+    mock_io_manager: MagicMock, config: dict[str, Any]
+) -> None:
+    """Black Box: Smoke artifacts must not collide with real results in Drive."""
+    real = Base1Trainer({**config, "condition": "c1"})
+    smoke = Base1Trainer({**config, "condition": "c1", "smoke_test": True})
+    assert real.run_name == "f1_c1"
+    assert smoke.run_name == "f1_c1_smoke"
+    assert real.remote_name_for("last.pt") == "f1_c1_last.pt"
+    assert smoke.remote_name_for("last.pt") == "f1_c1_smoke_last.pt"
+
+
+@patch("src.training.trainers.train_base_1.IOManager")
+def test_weights_and_results_target_different_folders(
+    mock_io_manager: MagicMock, config: dict[str, Any]
+) -> None:
+    """Black Box: Checkpoints go to their own Drive folder when configured."""
+    trainer = Base1Trainer(
+        {**config, "drive_checkpoints_folder_id": "ckpt_folder"}
+    )
+    trainer.io_manager.drive_service = MagicMock()
+    assert trainer.drive_results_folder_id == "dummy_folder_id"
+    assert trainer.drive_checkpoints_folder_id == "ckpt_folder"
+
+
+@patch("src.training.trainers.train_base_1.IOManager")
+def test_checkpoints_fall_back_to_results_folder(
+    mock_io_manager: MagicMock, config: dict[str, Any]
+) -> None:
+    """White Box: Without a dedicated folder, weights land beside the results."""
+    trainer = Base1Trainer(config)
+    trainer.io_manager.drive_service = MagicMock()
+    assert trainer.drive_checkpoints_folder_id == "dummy_folder_id"
+
+
+def test_link_split_images_is_deterministic_and_limited(
+    trainer: Base1Trainer, tmp_path: Path
+) -> None:
+    """White Box: The subset is the sorted prefix of the labels, so it is stable."""
+    labels = tmp_path / "labels"
+    images = tmp_path / "images"
+    dest = tmp_path / "dest"
+    labels.mkdir()
+    images.mkdir()
+    stems = [f"v_clip_{i:04d}" for i in range(20)]
+    for stem in stems:
+        (labels / f"{stem}.txt").write_text("0 0 0 0 0 0 0 0 0")
+        (images / f"{stem}.jpg").write_bytes(b"x")
+
+    linked = trainer._link_split_images(
+        labels_dir=labels,
+        images_dir=images,
+        split_subdir=None,
+        destination=dest,
+        limit=5,
+    )
+
+    assert linked == 5
+    assert sorted(p.stem for p in dest.iterdir()) == stems[:5]
+
+
+def test_link_split_images_without_limit_takes_all(
+    trainer: Base1Trainer, tmp_path: Path
+) -> None:
+    """Black Box: A production run links every labelled image of the split."""
+    labels = tmp_path / "labels"
+    images = tmp_path / "images"
+    dest = tmp_path / "dest"
+    labels.mkdir()
+    images.mkdir()
+    for i in range(7):
+        (labels / f"f{i}.txt").write_text("0 0 0 0 0 0 0 0 0")
+        (images / f"f{i}.jpg").write_bytes(b"x")
+
+    assert (
+        trainer._link_split_images(
+            labels_dir=labels,
+            images_dir=images,
+            split_subdir=None,
+            destination=dest,
+            limit=None,
+        )
+        == 7
+    )
+
+
+def test_link_split_images_skips_labels_without_image(
+    trainer: Base1Trainer, tmp_path: Path
+) -> None:
+    """White Box: A label with no image is not counted, keeping the count honest."""
+    labels = tmp_path / "labels"
+    images = tmp_path / "images"
+    dest = tmp_path / "dest"
+    labels.mkdir()
+    images.mkdir()
+    (labels / "present.txt").write_text("0 0 0 0 0 0 0 0 0")
+    (labels / "missing.txt").write_text("0 0 0 0 0 0 0 0 0")
+    (images / "present.jpg").write_bytes(b"x")
+
+    linked = trainer._link_split_images(
+        labels_dir=labels,
+        images_dir=images,
+        split_subdir=None,
+        destination=dest,
+        limit=None,
+    )
+
+    assert linked == 1
+    assert [p.stem for p in dest.iterdir()] == ["present"]
+
+
+def test_report_gpu_usage_flags_single_gpu_fallback(trainer: Base1Trainer) -> None:
+    """Black Box: Requesting two GPUs but engaging one must not pass silently."""
+    trainer.config["expected_gpus"] = 2
+    hardware = {
+        "gpu_sampling": {
+            "available": True,
+            "gpus_engaged": 1,
+            "devices": [
+                {
+                    "index": 0,
+                    "name": "Tesla T4",
+                    "memory_total_mib": 15360.0,
+                    "peak_memory_used_mib": 9000.0,
+                    "peak_utilization_pct": 98.0,
+                    "mean_utilization_pct": 80.0,
+                },
+                {
+                    "index": 1,
+                    "name": "Tesla T4",
+                    "memory_total_mib": 15360.0,
+                    "peak_memory_used_mib": 3.0,
+                    "peak_utilization_pct": 0.0,
+                    "mean_utilization_pct": 0.0,
+                },
+            ],
+        }
     }
-    trainer = Base1Trainer(config=config)
-    params = trainer.get_hyperparameters()
-    assert params["epochs"] == 1
-    assert params["fraction"] == 0.01
-    assert params["save_period"] == 1
+
+    report = trainer.report_gpu_usage(hardware)
+
+    assert report["multi_gpu_verified"] is False
+    assert report["expected_gpus"] == 2
+    assert report["gpus_engaged"] == 1
+
+
+def test_report_gpu_usage_confirms_both_gpus(trainer: Base1Trainer) -> None:
+    """Black Box: Two engaged GPUs satisfy the multi-GPU expectation."""
+    trainer.config["expected_gpus"] = 2
+    hardware = {
+        "gpu_sampling": {
+            "available": True,
+            "gpus_engaged": 2,
+            "devices": [
+                {
+                    "index": i,
+                    "name": "Tesla T4",
+                    "memory_total_mib": 15360.0,
+                    "peak_memory_used_mib": 9000.0,
+                    "peak_utilization_pct": 97.0,
+                    "mean_utilization_pct": 82.0,
+                }
+                for i in range(2)
+            ],
+        }
+    }
+
+    assert trainer.report_gpu_usage(hardware)["multi_gpu_verified"] is True

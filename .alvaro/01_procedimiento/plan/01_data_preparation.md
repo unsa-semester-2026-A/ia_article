@@ -110,14 +110,14 @@ dataset/
 ├── train/
 │   ├── images/
 │   │   ├── v_ab12cd34ef_0000.jpg
-│   │   └── ... (copias o symlinks de ~43,400 imágenes)
+│   │   └── ... (copias o symlinks de 43,392 imágenes)
 │   └── labels/
 │       ├── v_ab12cd34ef_0000.txt (labels en formato OBB normalizado de 4 puntos)
 │       └── ...
 └── val/
     ├── images/
     │   ├── v_zy98xw76vu_0000.jpg
-    │   └── ... (copias o symlinks de ~10,862 imágenes)
+    │   └── ... (copias o symlinks de 10,873 imágenes)
     └── labels/
         ├── v_zy98xw76vu_0000.txt
         └── ...

@@ -1,4 +1,15 @@
-# Fase 2: Aumentación Generativa de Clases Minoritarias (05_augmentation.md)
+# [DESCARTADO] Fase 2: Aumentación Generativa de Clases Minoritarias
+
+> [!WARNING]
+> **Documento descartado.** La Fase 2 con IC-Light fue retirada del alcance del estudio y
+> reemplazada por la comparativa entre familias de arquitecturas de detección orientada
+> especificada en `05_architecture_comparison.md`.
+>
+> Se conserva por dos motivos: (1) la fundamentación matemática del volumen sintético de la
+> Sección 3 y sus citas (Mumuni & Mumuni 2024, Benkedadra et al. 2024, Mo et al. 2020) siguen
+> siendo material válido para la sección de *Trabajo Futuro* del artículo; (2) el módulo de
+> extracción y deduplicación de recortes de la Sección 2.1 documenta el conteo de vehículos
+> físicamente únicos por clase, dato que se cita en el análisis de desbalance.
 
 Este documento detalla las especificaciones de diseño, flujo de trabajo, control de calidad y justificaciones para la inyección de datos sintéticos armonizados de las clases menos representadas del dataset.
 

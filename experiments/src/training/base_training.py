@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
+from src.utils.gpu_monitor import GpuSampler
 
 
 class BaseTrainingPipeline(ABC):
@@ -39,6 +40,9 @@ class BaseTrainingPipeline(ABC):
         self.config: dict[str, Any] = config
         self.start_time: float = 0.0
         self.total_time_seconds: float = 0.0
+        self.gpu_sampler = GpuSampler(
+            interval_seconds=float(config.get("gpu_sample_interval_seconds", 5.0))
+        )
 
     # ===================================================================
     # Abstract Methods (must be overridden by subclasses)
@@ -109,28 +113,32 @@ class BaseTrainingPipeline(ABC):
     # ===================================================================
 
     def start_hardware_monitoring(self) -> None:
-        """Reset GPU peak memory statistics and record training start timestamp."""
+        """Reset GPU peak memory statistics and start sampling every device."""
         if torch.cuda.is_available():
             for i in range(torch.cuda.device_count()):
                 try:
                     torch.cuda.reset_peak_memory_stats(i)
                 except Exception:
                     pass
+        self.gpu_sampler.start()
         self.start_time = time.time()
 
     def record_hardware_metrics(self) -> dict[str, Any]:
-        """Capture peak CPU RAM, per-GPU peak VRAM, and total elapsed time.
+        """Capture peak CPU RAM, per-GPU utilization, and total elapsed time.
 
         Returns:
-            Dictionary with hardware utilization metrics.
+            Dictionary with hardware utilization metrics. ``gpu_sampling`` comes
+            from ``nvidia-smi`` and therefore covers the DDP child processes,
+            whereas ``gpu_vram`` only reflects allocations of the calling process.
         """
         self.total_time_seconds = time.time() - self.start_time
+        gpu_sampling = self.gpu_sampler.stop()
 
         # Peak CPU RAM (ru_maxrss is in kilobytes on Linux)
         peak_ram_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         peak_cpu_ram_gb = peak_ram_kb / (1024 * 1024)
 
-        # Per-GPU peak VRAM
+        # Per-GPU peak VRAM as seen by this process only
         gpu_vram: dict[str, float] = {}
         if torch.cuda.is_available():
             for i in range(torch.cuda.device_count()):
@@ -147,6 +155,7 @@ class BaseTrainingPipeline(ABC):
             "total_time_hours": round(self.total_time_seconds / 3600, 3),
             "peak_cpu_ram_gb": round(peak_cpu_ram_gb, 2),
             "gpu_vram": gpu_vram,
+            "gpu_sampling": gpu_sampling,
         }
 
     # ===================================================================

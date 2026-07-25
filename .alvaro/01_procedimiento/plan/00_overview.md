@@ -1,123 +1,230 @@
 # Plan de Procedimiento - Resumen General (00_overview.md)
 
-Este documento presenta la visión general y la estructura maestro del estudio de ablación para la detección y clasificación de vehículos mediante cajas delimitadoras orientadas (OBB). El objetivo principal del estudio es evaluar el impacto de la limpieza de ruido de etiquetas basada en modelos generativos de inpainting (LaMa) y la aumentación de datos generativos armonizados (IC-Light) utilizando el modelo YOLO26s-OBB sobre el dataset SMART Challenge 2026 (MTC Perú).
+Este documento presenta la visión general y la estructura maestra del estudio. El objetivo es
+evaluar si la limpieza de ruido de etiquetas mediante inpainting generativo (LaMa) mejora la
+detección y clasificación de vehículos con cajas delimitadoras orientadas (OBB) **de forma
+independiente de la familia arquitectónica del detector**, sobre el dataset SMART Challenge 2026
+(MTC Perú).
+
+> [!NOTE]
+> **Cambio de alcance vigente.** La Fase 2 original (aumentación generativa armonizada con
+> IC-Light) fue **descartada** y reemplazada por una comparativa entre tres familias de detectores
+> orientados. El documento original se conserva en
+> `_descartado/05_augmentation_iclight_descartado.md` y su fundamentación sobre volumen sintético
+> pasa a la sección de Trabajo Futuro del artículo. La justificación del cambio está en
+> `05_architecture_comparison.md` §1.
 
 ---
 
 ## 1. Resumen Ejecutivo
-El tráfico en el contexto urbano peruano representa un desafío que puede ser abordado mediante visión computacional. Sin embargo, el dataset del SMART Challenge 2026 presenta una limitación crítica: **solo se anotan vehículos en movimiento**, omitiendo sistemáticamente vehículos estacionados idénticos en apariencia. Esto introduce una señal contradictoria en el entrenamiento.
 
-Para solucionar este sesgo, se propone un pipeline compuesto de tres fases:
-1. **Fase 0 (Pseudo-labeling):** Detección exhaustiva de todos los vehículos y filtrado temporal compensando el movimiento del dron para aislar vehículos estacionados omitidos.
-2. **Fase 1 (Limpieza con LaMa):** Remoción de vehículos estacionados y reconstrucción del fondo vial con Large Mask Inpainting (LaMa).
-3. **Fase 2 (Aumentación con IC-Light):** Extracción de recortes reales de clases minoritarias, composición sobre los fondos limpios y armonización de iluminación con IC-Light.
+El tráfico urbano peruano es un problema abordable con visión computacional, pero el dataset del
+SMART Challenge 2026 tiene una limitación crítica: **solo anota vehículos en movimiento**, y omite
+sistemáticamente vehículos estacionados visualmente idénticos. Para el detector, cada auto
+estacionado es una región con todas las características de la clase positiva etiquetada como
+fondo: una señal contradictoria.
 
-El estudio de ablación evaluará de forma rigurosa el aporte individual de estas fases a través de 6 condiciones experimentales en un entorno de hardware mixto y bajo un cronograma ajustado con deadline el **22 de julio de 2026**.
+El estudio se articula en tres fases:
+
+1. **Fase 0 (Pseudo-labeling):** detección exhaustiva de todos los vehículos y filtrado temporal
+   con compensación del movimiento del dron, para aislar los vehículos estacionados omitidos.
+2. **Fase 1 (Limpieza con LaMa):** remoción de esos vehículos y reconstrucción del fondo vial con
+   Large Mask Inpainting, sin modificar las anotaciones.
+3. **Fase 2 (Comparativa arquitectónica):** entrenamiento de tres detectores de familias disjuntas
+   sobre el dataset crudo y sobre el limpiado, para medir si la ganancia de la limpieza es
+   universal y qué mecanismo la modula.
 
 ---
 
 ## 2. Hipótesis
-La integración secuencial de limpieza de ruido de etiquetas (LaMa) y aumentación espacial armonizada (IC-Light) incrementará el Macro AP-rIoU@[0.50:0.80] del modelo YOLO26s-OBB en un set de validación real e inalterado. La limpieza elimina la penalización por detectar autos estacionados no anotados en el entrenamiento, mientras que la aumentación mitiga el desbalance extremo de las clases minoritarias sin generar un *domain gap* destructivo.
+
+El ruido de etiquetas por omisión sistemática es una limitación **del dataset** y no de la
+arquitectura elegida. En consecuencia, la limpieza con LaMa incrementa el Macro AP-rIoU@[0.50:0.80]
+sobre un `val` real e inalterado en las tres familias, y la magnitud de esa ganancia está
+gobernada por cómo cada familia convierte un objeto no anotado en señal de entrenamiento:
+
+$$\Delta_{\text{S²A-Net}} > \Delta_{\text{YOLO26}} > \Delta_{\text{Oriented R-CNN}}$$
+
+donde $\Delta_F = \text{AP}(\text{C3 limpia}) - \text{AP}(\text{C1 cruda})$. El orden se predice
+porque S²A-Net pondera los negativos densos con Focal Loss, que amplifica justamente el negativo
+más difícil (un objeto real etiquetado como fondo); YOLO26 usa negativos densos sin sobre-ponderar
+los difíciles; y Oriented R-CNN **muestrea** sus negativos, diluyendo estadísticamente el ruido. El
+desarrollo completo está en `05_architecture_comparison.md` §4.
 
 ---
 
-## 3. Grafo de Dependencias entre Tareas
+## 3. Las Tres Familias Comparadas
 
-```mermaid
-graph TD
-    A[01_data_preparation.md] --> B[03_pseudo_labeling.md]
-    A --> F1[06_training.md: Base 0, 1, 2]
-    C[02_metric.md] --> H[07_evaluation.md]
-    
-    B --> D[04_lama_cleaning.md]
-    D --> E[05_augmentation.md]
-    D --> F2[06_training.md: Mejora A]
-    
-    E --> F3[06_training.md: Mejora B, C]
-    D --> F3
-    
-    F1 --> H
-    F2 --> H
-    F3 --> H
-```
+El eje de la taxonomía es **cómo el detector accede a los features del objeto rotado**, porque ahí
+radica la dificultad propia de la detección orientada: los features convolucionales están alineados
+a los ejes de la imagen y los objetos no.
 
-### Flujos Paralelos:
-- **Flujo A (Métrica):** `02_metric.md` puede implementarse y validarse de forma independiente en cualquier momento desde el Día 1.
-- **Flujo B (Baselines):** `Base 0`, `Base 1` y `Base 2` de `06_training.md` pueden ejecutarse inmediatamente después de finalizar `01_data_preparation.md` sin esperar las fases de limpieza generativa.
-- **Flujo C (Limpieza y Aumento en la Nube):** La limpieza con LaMa (`04_lama_cleaning.md`) y la extracción de recortes se ejecutan en Google Colab con GPU acelerada, mientras que los entrenamientos de ablación corren en paralelo en Kaggle.
-
----
-
-## 4. Infraestructura de Cómputo
-
-| Plataforma | GPU | VRAM | RAM | Almacenamiento | Rol Asignado |
-|---|---|---|---|---|---|
-| **Kaggle Notebooks (×5)** | P100 / 2×T4 | 16-32 GB | 29 GB | 20 GB (Persistente) + 73 GB (Scratch) | 1. **Fase 0:** Inferencia de pseudo-labeling.<br>2. **Fase 3 (Entrenamiento):** Entrenamientos paralelos de YOLO26s-OBB (las 5 condiciones de entrenamiento). Quota: 30h/semana por cuenta. |
-| **Google Colab Free (×5)** | T4 | 15-16 GB | ~12 GB | ~78 GB (Efímero) | 1. **Fase 1 (Limpieza):** Inpainting con LaMa de forma masiva sobre la VM local.<br>2. **Fase 2 (Aumentación):** Inferencia con IC-Light para clases minoritarias.<br>3. **Evaluación:** Mapas Grad-CAM y benchmarks de ONNX/FP16. |
-| **Google Drive Pro (×1)** | N/A | N/A | N/A | 1 TB (Nube) | Almacén central de datasets crudos, procesados en zip, parches extraídos y checkpoints de modelos. |
-
----
-
-## 5. Logística de Datos
-
-```mermaid
-graph TD
-    GD[Google Drive Pro 1TB] -->|Descarga directa rápida| GC[Google Colab VM]
-    GC -->|Inferencia + LaMa + IC-Light| GC
-    GC -->|Subida comprimida .zip| GD
-    GD -->|Descarga de zip ligero| KN[Kaggle Notebooks]
-    KN -->|kaggle datasets create| K[Kaggle Datasets]
-    K -->|Attach a notebook| KN
-```
-
-1. El dataset crudo (`train.zip` de 40.3 GB) se descarga a una máquina virtual de **Google Colab** desde Google Drive Pro (aprovechando la velocidad interna de fibra de Google de >100 MB/s).
-2. En Colab, se ejecuta el pipeline de la Fase 0 (detección de estacionados) y la Fase 1 (limpieza con LaMa). Al procesar, cada imagen se redimensiona a 640x640 para optimizar almacenamiento y ajustarse a la resolución de entrenamiento (`imgsz=640`).
-3. El dataset limpio redimensionado (~4.3 GB) se comprime en un `.zip` y se sube de vuelta a Google Drive Pro en pocos minutos.
-4. Para los entrenamientos en **Kaggle Notebooks**, se descarga este `.zip` ligero, se descomprime en el scratch disk y se registra como un Dataset Privado de Kaggle para que las 5 cuentas puedan montarlo de forma simultánea con latencia cero.
-
----
-
-## 6. Cronograma de Ejecución (8 Días: 15–22 de Julio)
-
-Las tareas críticas de la ruta principal están marcadas con una estrella (★).
-
-| Día | Tarea en Google Colab (Interactivo/Generativo) | Tarea en Kaggle Notebooks (Entrenamientos/Filtros) | Entregable |
+| Familia | Mecanismo | Modelo | mAP DOTA de referencia |
 |---|---|---|---|
-| **Día 1** (15 Jul) | ★ Descarga de `train.zip` a Colab.<br>★ Parseo de `train.csv` y conversión a YOLO OBB. | ★ Implementación y validación de la métrica `Macro AP-rIoU` con casos sintéticos. | `smart_dataset.yaml` y tests de la métrica aprobados. |
-| **Día 2** (16 Jul) | ★ Inferencia Zero-Shot con YOLO26s-OBB (pesos de DOTA) y extracción de recortes de clases minoritarias. | ★ Lanzamiento de entrenamiento de **Base 1** (Data Cruda) en Kaggle.<br>★ Subida del dataset original a Kaggle Datasets. | Detecciones Zero-Shot DOTA. Inicio de Base 1. |
-| **Día 3** (17 Jul) | ★ Cálculo de homografía inter-frame (Ego-motion) en Colab.<br>★ Pseudo-labeling y auditoría manual (50 clips). | ★ Lanzamiento de entrenamiento de **Base 2** (Aumento Clásico) en Kaggle. | JSON con coordenadas de autos estacionados validadas. |
-| **Día 4** (18 Jul) | ★ Ejecución de LaMa Inpainting en Colab GPU.<br>★ Redimensionamiento a 640x640 y subida del `.zip` limpio a Drive. | ★ Implementación del post-procesamiento del Filtro de Movimiento en Kaggle. | `dataset_lama_640.zip` subido a Drive. |
-| **Día 5** (19 Jul) | ★ Armonización de imágenes compuestas con IC-Light en Colab GPU. | ★ Creación del dataset de Kaggle `smart-lama-cleaned`.<br>★ Lanzamiento de **Mejora A** (Data LaMa) en Kaggle. | Dataset sintético armonizado y Mejora A entrenando. |
-| **Día 6** (20 Jul) | ★ Preparación final de los sets de datos consolidados. | ★ Lanzamiento de **Mejora B** (Cruda+Sintéticos) y **Mejora C** (Pipeline Completo). | Todos los modelos en entrenamiento en Kaggle. |
-| **Día 7** (21 Jul) | ★ Extracción de mapas Grad-CAM de saliencia.<br>★ Benchmark de latencia de ONNX/FP16 en T4. | ★ Descarga de checkpoints y corrida de evaluación completa de las 6 condiciones (AP + Filtro). | Tabla completa de AP por clase y figuras de diagnóstico. |
-| **Día 8** (22 Jul) | ★ **DEADLINE.** Compilación de resultados, redacción del borrador en LaTeX e integración. | N/A | Artículo listo para entrega. |
+| **F1** Dense end-to-end real-time | Sin alineación explícita; predice el OBB desde features axis-aligned, sin NMS | `YOLO26s-OBB` | — |
+| **F2** Two-stage proposal-based | Alineación esparsa por RoI: propuestas rotadas (midpoint offset) + rotated RoIAlign | `Oriented R-CNN` R50-FPN | 75.87 % |
+| **F3** Single-stage feature-aligned | Alineación densa en el feature map: AlignConv + Active Rotating Filters | `S²A-Net` R50-FPN | ~74.1 % |
+
+> [!WARNING]
+> La taxonomía preliminar etiquetaba F1 como "anchor-based" y F3 como "anchor-free". **Es
+> incorrecta y no debe llegar al artículo:** YOLO26-OBB es anchor-free (asignación TAL + DFL) y
+> S²A-Net sí usa un anchor cuadrado por posición. El eje anchor no separa F1 de F3. Ver
+> `05_architecture_comparison.md` §2.
 
 ---
 
-## 7. Índice de Documentos de Detalle
+## 4. Grafo de Dependencias entre Tareas
 
-Para ver las especificaciones de diseño y flujos de trabajo de cada fase, consulte los siguientes archivos:
+```mermaid
+graph TD
+    A[01_data_preparation.md] --> DS1[smart-640 crudo 640x360]
+    A --> B[03_pseudo_labeling.md]
+    C[02_metric.md] --> H[07_evaluation.md]
 
-1. **[01_data_preparation.md](file:///home/alvaro9rqc/1_Pacha/1-unsa/7_S/ia/article/.alvaro/01_procedimiento/plan/01_data_preparation.md):** Parseo, verificación estadística del dataset y split libre de fuga de datos.
-2. **[02_metric.md](file:///home/alvaro9rqc/1_Pacha/1-unsa/7_S/ia/article/.alvaro/01_procedimiento/plan/02_metric.md):** Especificación matemática y unit testing de Macro AP-rIoU.
-3. **[03_pseudo_labeling.md](file:///home/alvaro9rqc/1_Pacha/1-unsa/7_S/ia/article/.alvaro/01_procedimiento/plan/03_pseudo_labeling.md):** Detección de recall, ego-motion compensation y lógica de rastreo.
-4. **[04_lama_cleaning.md](file:///home/alvaro9rqc/1_Pacha/1-unsa/7_S/ia/article/.alvaro/01_procedimiento/plan/04_lama_cleaning.md):** Inpainting con LaMa y auditoría visual.
-5. **[05_augmentation.md](file:///home/alvaro9rqc/1_Pacha/1-unsa/7_S/ia/article/.alvaro/01_procedimiento/plan/05_augmentation.md):** Composición física realista y re-iluminación con IC-Light en Colab.
-6. **[06_training.md](file:///home/alvaro9rqc/1_Pacha/1-unsa/7_S/ia/article/.alvaro/01_procedimiento/plan/06_training.md):** Configuración de hiperparámetros de las 6 condiciones experimentales.
-7. **[07_evaluation.md](file:///home/alvaro9rqc/1_Pacha/1-unsa/7_S/ia/article/.alvaro/01_procedimiento/plan/07_evaluation.md):** Post-procesamiento temporal (filtro de movimiento) y diagnóstico de saliencia.
-8. **[08_risks.md](file:///home/alvaro9rqc/1_Pacha/1-unsa/7_S/ia/article/.alvaro/01_procedimiento/plan/08_risks.md):** Mapa de contingencia y prioridades si el tiempo apremia.
+    B --> D[04_lama_cleaning.md]
+    D --> DS2[smart-640-lama]
+
+    E[05_architecture_comparison.md] --> ENV[10_environment_mmrotate.md]
+    ENV --> CONV[Conversor a DOTA + adaptador angular]
+
+    DS1 --> T1[06_training: F1 C1, C2]
+    DS2 --> T2[06_training: F1 C3]
+    DS1 --> T3[06_training: F2/F3 C1]
+    DS2 --> T4[06_training: F2/F3 C3]
+    CONV --> T3
+    CONV --> T4
+
+    T1 --> H
+    T2 --> H
+    T3 --> H
+    T4 --> H
+    CONV --> H
+```
+
+### Flujos Paralelos
+
+- **Flujo A (Métrica):** `02_metric.md` es independiente y arranca el Día 1.
+- **Flujo B (Baselines F1):** las corridas de YOLO26 pueden lanzarse de inmediato sobre
+  `smart-640`, sin esperar nada del eje arquitectónico. La secuencia ejecutable está en
+  `11_training_runbook.md` S1-S4.
+- **Flujo C (Limpieza en Colab):** LaMa corre en Colab con GPU mientras los entrenamientos corren
+  en Kaggle.
+- **Flujo D (Eje arquitectónico, ruta crítica nueva):** spike de instalación de `onedl-mmrotate` →
+  wheels precompiladas → conversión a DOTA → test de equivalencia angular → corridas de F2 y F3.
+  Este flujo es **bloqueante y secuencial**: es el riesgo de cronograma más alto del proyecto y
+  debe iniciarse el Día 1 en paralelo con todo lo demás.
 
 ---
 
-## 8. Decisiones Técnicas Tomadas
+## 5. Infraestructura de Cómputo
 
-| Decisión | Valor Seleccionado | Justificación Técnica |
+| Plataforma | GPU | VRAM | RAM | Almacenamiento | Rol |
+|---|---|---|---|---|---|
+| **Kaggle Notebooks (×5)** | P100 / 2×T4 | 16-32 GB | 29 GB | 20 GB persistente + 73 GB scratch | Fase 0 (inferencia de pseudo-labeling) y las 7 corridas de entrenamiento. Cuota: 30 h/semana por cuenta; 9 h por sesión interactiva y 12 h en modo background. |
+| **Google Colab Free (×5)** | T4 | 15-16 GB | ~12 GB | ~78 GB efímero | Fase 1 (LaMa masivo), construcción de las wheels de mmrotate, Grad-CAM y benchmark de latencia. |
+| **Google Drive Pro (×1)** | N/A | N/A | N/A | 1 TB | Almacén central: datasets crudos, variantes procesadas en zip, pesos DOTA respaldados y checkpoints. |
+| **VM local (GTX 1070)** | GTX 1070 | 8 GB | — | — | Desarrollo y tests del conversor a DOTA y de los adaptadores; corridas de humo con `batch=1`. |
+
+---
+
+## 6. Logística de Datos
+
+```mermaid
+graph TD
+    GD[Google Drive Pro 1TB] -->|descarga directa| GC[Colab VM]
+    GC -->|Fase 0 + LaMa + resize 640x360| GC
+    GC -->|conversion a DOTA| GC
+    GC -->|zip| GD
+    GD -->|zip ligero| KN[Kaggle Notebooks]
+    KN -->|kaggle datasets create| K[Kaggle Datasets]
+    K -->|attach| KN
+    GC -->|pip wheel| W[Kaggle Dataset: mmrotate-wheels]
+    W -->|install offline| KN
+```
+
+1. El dataset crudo (`train.zip`, 40.3 GB) se descarga a una VM de Colab desde Drive (>100 MB/s de
+   red interna de Google).
+2. En Colab se ejecutan Fase 0 y Fase 1, con redimensionamiento a **640×360** (factor exacto de 3
+   desde 1920×1080, que preserva la relación de aspecto) para ajustarse a la resolución de
+   entrenamiento y al límite de 20 GB de almacenamiento persistente de Kaggle. **El filtro de
+   remuestreo debe ser el mismo para la variante cruda y la variante LaMa**, o la diferencia de
+   nitidez se confundiría con el efecto de la limpieza (riesgo R15).
+3. Se genera además la **copia en formato DOTA** requerida por mmrotate.
+4. Los zips ligeros se suben a Drive y se registran como Datasets privados de Kaggle, de modo que
+   las 5 cuentas los monten con latencia cero.
+5. Las wheels precompiladas de mmrotate se construyen una única vez en Colab y viven como Kaggle
+   Dataset propio, para que ninguna corrida gaste cuota de GPU compilando `mmcv`.
+
+Artefactos versionados resultantes: `smart-640` (43,392 frames de train y 10,873 de val),
+`smart-640-lama`, sus equivalentes en formato DOTA, y `mmrotate-wheels`.
+
+---
+
+## 7. Cronograma de Ejecución (8 días)
+
+> [!IMPORTANT]
+> El cronograma se expresa en días relativos (D1…D8) porque el deadline original del 22 de julio de
+> 2026 ya venció. **Falta fijar la nueva fecha de entrega y anclar D1**; hasta entonces las
+> dependencias son válidas pero las fechas absolutas no.
+
+Las tareas de la ruta crítica van marcadas con ★.
+
+| Día | Colab (generativo/interactivo) | Kaggle (entrenamiento/inferencia) | Entregable |
+|---|---|---|---|
+| **D1** | ★ Descarga de `train.zip`. Parseo de `train.csv` a YOLO-OBB.<br>★ **Spike de instalación de `onedl-mmrotate`** y construcción de wheels. | ★ Validación de la métrica `Macro AP-rIoU` con casos sintéticos. | `smart_dataset.yaml`, tests de métrica aprobados, Kaggle Dataset `mmrotate-wheels`. |
+| **D2** | ★ Inferencia zero-shot con pesos DOTA de las tres arquitecturas.<br>★ Conversor `YOLO-OBB → DOTA` con test de ida y vuelta. | ★ Inventario de datos (runbook S0) y correcciones al trainer (S1).<br>★ Lanzamiento de **F1 C1**. | Detecciones zero-shot de las 3 familias. F1 C1 entrenando. |
+| **D3** | ★ Homografía inter-frame (ego-motion).<br>★ Pseudo-labeling y auditoría manual (50 clips).<br>★ **Adaptador angular + test de equivalencia rIoU ≥ 0.999**. | ★ Lanzamiento de **F1 C2**.<br>★ Corridas de humo de F2 y F3 (200 iteraciones). | `static_vehicles.json` validado, adaptadores con tests verdes. |
+| **D4** | ★ LaMa inpainting en GPU.<br>★ Resize a 640×360 con el mismo filtro que la variante cruda y subida de `smart-640-lama`. | ★ Lanzamiento de **F2 C1** y **F3 C1**. | `smart-640-lama` en Drive y Kaggle. |
+| **D5** | ★ Auditoría visual de LaMa (100 imágenes). | ★ Lanzamiento de **F1 C3**, **F2 C3** y **F3 C3**. | Auditoría aprobada, todas las corridas de C3 en marcha. |
+| **D6** | ★ Grad-CAM de C1 vs C3 en las tres familias.<br>★ Benchmark de latencia en T4. | ★ Descarga de checkpoints y reintentos si hubo fallos. | Figuras de saliencia y tabla de eficiencia. |
+| **D7** | ★ Cómputo de la métrica sobre las 10 filas condición×familia.<br>★ Bootstrap de intervalos de confianza por clip. | ★ Reintentos de corridas fallidas si hubo. | Tablas de $\Delta_F$, por clase y de eficiencia completas. |
+| **D8** | ★ **DEADLINE.** Compilación de resultados y redacción en LaTeX. | N/A | Artículo listo para entrega. |
+
+---
+
+## 8. Índice de Documentos de Detalle
+
+1. **[01_data_preparation.md](./01_data_preparation.md):** parseo, verificación estadística y split
+   libre de fuga.
+2. **[02_metric.md](./02_metric.md):** especificación matemática y unit testing de Macro AP-rIoU.
+3. **[03_pseudo_labeling.md](./03_pseudo_labeling.md):** detección de recall, compensación de
+   ego-motion y lógica de rastreo.
+4. **[04_lama_cleaning.md](./04_lama_cleaning.md):** inpainting con LaMa y auditoría visual.
+5. **[05_architecture_comparison.md](./05_architecture_comparison.md):** taxonomía de familias,
+   selección de modelos, hipótesis mecanísticas, protocolo de comparación justa y matriz
+   experimental.
+6. **[06_training.md](./06_training.md):** evidencia empírica del piloto, hiperparámetros y recetas
+   por framework de las 7 corridas, presupuesto de cómputo y gestión de checkpoints.
+7. **[07_evaluation.md](./07_evaluation.md):** adaptadores de formato, filtro de movimiento, tablas
+   de resultados, saliencia y latencia.
+8. **[08_risks.md](./08_risks.md):** mapa de contingencia y priorización si el tiempo apremia.
+9. **[10_environment_mmrotate.md](./10_environment_mmrotate.md):** entorno de F2/F3, instalación
+   reproducible e interoperabilidad de formatos.
+10. **[11_training_runbook.md](./11_training_runbook.md):** secuencia ejecutable de los siete
+    entrenamientos, con criterios de salida y puntos de control por paso.
+11. **[_descartado/05_augmentation_iclight_descartado.md](./_descartado/05_augmentation_iclight_descartado.md):**
+    Fase 2 original con IC-Light, fuera de alcance.
+
+---
+
+## 9. Decisiones Técnicas Tomadas
+
+| Decisión | Valor seleccionado | Justificación |
 |---|---|---|
-| **Modelo Principal** | `YOLO26s-obb` | Aporta **+2.4 mAP** sobre la versión `nano`, mientras que pasar a la versión `medium` solo aporta **+0.5 mAP** a costa del doble de tiempo y recursos. |
-| **Tamaño de Imagen** | `imgsz=640` | Permite entrenar con un batch size estable (batch=16 en Kaggle, batch=4 en GTX 1070 local) controlando el consumo de VRAM y previniendo errores OOM. |
-| **Partición** | Aleatoria por Clip (`seed=42`) | Los frames de un mismo clip comparten el mismo fondo. El split a nivel de clip (80% train, 20% val) evita que frames del mismo clip terminen en ambos lados (*data leakage*). |
-| **Dron Ego-motion** | Homografía ORB+RANSAC | Al grabarse desde un dron, el fondo se mueve sutilmente. El cálculo de la homografía permite compensar este movimiento antes de rastrear el centroide de los vehículos. |
-| **Aumento Base 2** | `mosaic=1.0, mixup=0.15, copy_paste=0.3` | Hiperparámetros estándar e intermedios para aumentación clásica en datasets de teledetección/aéreos (DOTA). |
-| **Aumento Mejora A/B/C** | Mínima (Sin Mosaic/MixUp/Copy-Paste) | Se desactivan las aumentaciones clásicas de YOLO para aislar y medir de forma pura el impacto de nuestras técnicas generativas. |
-| **Ratio de Sintéticos** | Máx 50% por clase minoritaria | No superar 50% de la clase minoritaria y un límite de 1× de oversampling para buses articulados debido a la escasez de vehículos únicos (~5). |
-| **Filtro de Movimiento** | Post-procesamiento idéntico en evaluación | Los modelos entrenados detectan vehículos estacionados. Se aplica un filtro de movimiento en inferencia para evaluar limpiamente contra la métrica de MTC. |
+| **Modelo F1** | `YOLO26s-obb` | Aporta +2.4 mAP sobre `nano`, mientras que `medium` solo aporta +0.5 mAP al doble de costo. |
+| **Modelo F2** | `Oriented R-CNN` R50-FPN | Arquetipo two-stage orientado: su RPN genera propuestas **rotadas** por midpoint offset a costo casi nulo, no es un Faster R-CNN con ángulo añadido. 75.87 % mAP en DOTA con R-50, superando a métodos con R-101. Tiene pesos DOTA para el zero-shot. |
+| **Modelo F3** | `S²A-Net` R50-FPN | Arquetipo literal de feature alignment (AlignConv + ARF). Su paper aísla que AlignConv vale ~3 mAP por 1.41 GFLOPs y que mejora especialmente las categorías **densamente distribuidas**, que es la composición de nuestro dataset. El más estable de entrenar del grupo. |
+| **Reserva de F3** | `Oriented RepPoints` (CVPR'22) | Estrictamente anchor-free, 75.97 % mAP (+1.85 sobre S²A-Net) y diseñado para objetos pequeños agrupados, pero su esquema APAA es más sensible al learning rate. Se añade solo si sobra cuota. |
+| **Framework F2/F3** | `onedl-mmrotate` (PyTorch 2.x) | Un solo toolbox contiene los tres modelos, así que F2 y F3 comparten pipeline de datos y optimizador: la diferencia medida es arquitectónica, no de implementación. El MMRotate original está descontinuado y exige `mmdet<3.0.0`. |
+| **Volumen de datos** | Dataset completo, 43,392 frames de train, **sin submuestrear** | Con early stopping el costo es el número de muestras hasta converger (~260 k en el piloto), no el tamaño de la época: submuestrear 5× haría las épocas 5× más cortas y exigiría ~5× más épocas, sin ahorro real. El submuestreo solo añadía riesgo metodológico (`06_training.md` §2.1). |
+| **Presupuesto de épocas** | Tope de 40 con **`patience=5`** y `min_delta=0.001`, igual en las tres familias | El piloto converge en la época 6 y 33 épocas más aportaron ~0.01 de mAP. Igualar el *criterio de parada* en lugar del *número de épocas* es más defendible: un número fijo favorece arbitrariamente a la arquitectura que converge más lento. |
+| **Resolución** | **640×360** en las tres familias, sobre lienzo 640×640 con letterbox | Factor exacto de 3 desde 1920×1080, así que preserva la relación de aspecto y el remapeo a coordenadas oficiales es exacto. 1920×1080 tiene 9× más píxeles y volvería el estudio imposible. Igualar los píxeles de entrada es el invariante más fuerte disponible entre frameworks distintos (`06_training.md` §3.1). |
+| **Batch** | Por familia (96 en F1, 8 en F2/F3), idéntico entre condiciones de la misma familia | El piloto de F1 ya usa 13.6 de 15 GB de VRAM con batch 96; forzar un batch común de 16 desperdiciaría VRAM e invalidaría el piloto. Es diferencia declarada, no invariante, y no afecta a $\Delta_F$ porque este es intra-familia (`06_training.md` §5.2). |
+| **Partición** | Aleatoria por clip (`seed=42`), 80/20 | Los frames de un clip comparten fondo; el split por clip evita fuga de datos. |
+| **Ego-motion del dron** | Homografía ORB+RANSAC | Compensa el movimiento sutil del fondo antes de rastrear centroides. |
+| **Aumento F1 C2** | `mosaic=1.0, mixup=0.15, copy_paste=0.3` | Valores estándar para datasets aéreos tipo DOTA. |
+| **Aumento F1 C1/C3, F2/F3** | Solo geométrico (volteos + rotación libre) | Aísla el efecto de la limpieza: entre C1 y C3 lo único que cambia son los píxeles del dataset. |
+| **C2 solo en F1** | Sí | Mosaic/mixup/copy-paste son específicos del pipeline de Ultralytics; replicarlos a mano en mmrotate introduciría una variable de implementación propia justo donde se necesita comparabilidad. |
+| **Filtro de movimiento** | Post-procesamiento idéntico en las 3 familias | Los modelos detectan estacionados; el filtro permite evaluar limpiamente contra la métrica del MTC. |
+| **Métrica reportada** | Solo `src/evaluation/metric.py` | Queda **prohibido** reportar el mAP interno de Ultralytics o de mmrotate: no son comparables entre sí ni con la métrica del challenge. |
+| **Fase IC-Light** | Descartada | Se solapaba con `copy_paste`, introducía brecha de dominio que hacía inconcluyente un resultado negativo, y consumía la cuota de GPU que ahora financia el eje arquitectónico. |

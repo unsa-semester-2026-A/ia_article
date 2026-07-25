@@ -79,7 +79,10 @@ No forman parte de esta issue:
 
 - generación de `static_vehicles.json`;
 - limpieza con LaMa;
-- aumentación con IC-Light;
+- ~~aumentación con IC-Light~~ (fase descartada del proyecto);
+- `src/evaluation/adapters.py`, el adaptador de convención angular para las predicciones de
+  mmrotate: vive en el mismo directorio pero pertenece a la issue del entorno de F2/F3
+  (`10_environment_mmrotate.md` §4.2). Consume el `rIoU` de `metric.py` sin modificarlo;
 - entrenamiento de las condiciones experimentales;
 - Grad-CAM; o
 - benchmark ONNX/FP16.

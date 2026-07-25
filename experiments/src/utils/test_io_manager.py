@@ -214,3 +214,84 @@ def test_download_drive_not_found(io_mgr, tmp_path):
 
     res = io_mgr.download_file_from_drive("last.pt", "folder_123", tmp_path / "last.pt")
     assert res is None
+
+
+def _mock_download(io_mgr, remote_size, written_bytes):
+    """Wire a Drive mock that reports remote_size and writes written_bytes locally."""
+    mock_service = MagicMock()
+    mock_service.files().list().execute.return_value = {
+        "files": [{"id": "ckpt_id", "name": "last.pt", "size": str(remote_size)}]
+    }
+    io_mgr.drive_service = mock_service
+
+    class _Downloader:
+        def __init__(self, fh, _request):
+            self.fh = fh
+
+        def next_chunk(self):
+            self.fh.write(written_bytes)
+            return None, True
+
+    return patch("googleapiclient.http.MediaIoBaseDownload", _Downloader)
+
+
+def test_download_drive_accepts_complete_file(io_mgr, tmp_path):
+    """White Box: Keep the file when its size matches the size reported by Drive."""
+    dest = tmp_path / "last.pt"
+    with _mock_download(io_mgr, remote_size=4, written_bytes=b"abcd"):
+        res = io_mgr.download_file_from_drive("last.pt", "folder_123", dest)
+
+    assert res == dest
+    assert dest.exists()
+
+
+def test_download_drive_discards_truncated_file(io_mgr, tmp_path):
+    """White Box: Discard a partial checkpoint instead of letting the load fail later."""
+    dest = tmp_path / "last.pt"
+    with _mock_download(io_mgr, remote_size=100, written_bytes=b"ab"):
+        res = io_mgr.download_file_from_drive("last.pt", "folder_123", dest)
+
+    assert res is None
+    assert not dest.exists()
+
+
+# ==========================================
+# remote_name Tests (White Box)
+# ==========================================
+def test_upload_uses_remote_name_when_creating(io_mgr, tmp_path):
+    """White Box: The Drive file takes the run-prefixed name, not the local one."""
+    mock_service = MagicMock()
+    mock_service.files().list().execute.return_value = {"files": []}
+    mock_service.files().create().execute.return_value = {"id": "new_id"}
+    io_mgr.drive_service = mock_service
+
+    dummy = tmp_path / "last.pt"
+    dummy.write_bytes(b"weights")
+
+    io_mgr.upload_file_to_drive(dummy, "folder_123", remote_name="f1_c1_last.pt")
+
+    body = mock_service.files().create.call_args.kwargs["body"]
+    assert body["name"] == "f1_c1_last.pt"
+
+
+def test_upload_looks_up_existing_by_remote_name(io_mgr, tmp_path):
+    """White Box: Overwrite lookup must use the remote name to stay per-run."""
+    mock_service = MagicMock()
+    mock_service.files().list().execute.return_value = {
+        "files": [{"id": "existing_id", "name": "f1_c1_last.pt"}]
+    }
+    mock_service.files().update().execute.return_value = {"id": "existing_id"}
+    io_mgr.drive_service = mock_service
+
+    dummy = tmp_path / "last.pt"
+    dummy.write_bytes(b"weights")
+
+    with patch.object(
+        IOManager, "_find_existing_file_id", return_value="existing_id"
+    ) as mock_find:
+        result = io_mgr.upload_file_to_drive(
+            dummy, "folder_123", remote_name="f1_c1_last.pt"
+        )
+
+    assert result == "existing_id"
+    mock_find.assert_called_once_with("f1_c1_last.pt", "folder_123")

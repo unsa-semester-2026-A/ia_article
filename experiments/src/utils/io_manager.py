@@ -222,6 +222,7 @@ class IOManager:
         local_path: str | Path,
         drive_folder_id: str,
         mime_type: str = "application/json",
+        remote_name: str | None = None,
     ) -> str | None:
         """Upload a local file to a specific Google Drive folder.
 
@@ -233,6 +234,10 @@ class IOManager:
             local_path: Path to the local file.
             drive_folder_id: Target Google Drive folder ID.
             mime_type: MIME content type.
+            remote_name: Name to store the file under. Defaults to the local file
+                name. Callers that share a destination folder across runs must pass
+                a run-specific name, since every framework writes generic names such
+                as ``last.pt`` and one run would otherwise overwrite another.
 
         Returns:
             Google Drive file ID (created or updated), or None on failure.
@@ -242,9 +247,10 @@ class IOManager:
             return None
 
         path = Path(local_path)
+        target_name = remote_name or path.name
         try:
             media = MediaFileUpload(str(path), mimetype=mime_type, resumable=True)
-            existing_id = self._find_existing_file_id(path.name, drive_folder_id)
+            existing_id = self._find_existing_file_id(target_name, drive_folder_id)
 
             if existing_id:
                 # Update (overwrite) the existing file
@@ -261,7 +267,7 @@ class IOManager:
                 return updated_file.get("id")
             else:
                 # Create a new file
-                file_metadata = {"name": path.name, "parents": [drive_folder_id]}
+                file_metadata = {"name": target_name, "parents": [drive_folder_id]}
                 uploaded_file = (
                     self.drive_service.files()
                     .create(
@@ -285,13 +291,18 @@ class IOManager:
     ) -> Path | None:
         """Search for a file by name in a Google Drive folder and download it locally.
 
+        A truncated checkpoint fails to load only after the session has already
+        spent its setup minutes, so the downloaded size is compared against the
+        size reported by Drive and a mismatch discards the file.
+
         Args:
             file_name: Name of the file to search for (e.g. 'last.pt').
             drive_folder_id: Google Drive parent folder ID.
             local_destination_path: Local destination path for the downloaded file.
 
         Returns:
-            Path object of the downloaded file, or None if not found or failed.
+            Path object of the downloaded file, or None if not found, incomplete,
+            or failed.
         """
         if not self.drive_service:
             print("[IOManager] Drive service not initialized. Skipping download.")
@@ -309,7 +320,7 @@ class IOManager:
                 self.drive_service.files()
                 .list(
                     q=query,
-                    fields="files(id, name)",
+                    fields="files(id, name, size)",
                     supportsAllDrives=True,
                     includeItemsFromAllDrives=True,
                 )
@@ -323,6 +334,7 @@ class IOManager:
                 return None
 
             file_id = files[0]["id"]
+            expected_size = int(files[0].get("size") or 0)
             dest_path.parent.mkdir(parents=True, exist_ok=True)
 
             request = self.drive_service.files().get_media(
@@ -334,8 +346,19 @@ class IOManager:
                 while not done:
                     _, done = downloader.next_chunk()
 
+            actual_size = dest_path.stat().st_size
+            if expected_size and actual_size != expected_size:
+                print(
+                    f"[IOManager] ❌ {file_name} is incomplete "
+                    f"({actual_size} of {expected_size} bytes). Discarding.",
+                    flush=True,
+                )
+                dest_path.unlink(missing_ok=True)
+                return None
+
             print(
-                f"[IOManager] ✅ Downloaded {file_name} from Drive -> {dest_path}",
+                f"[IOManager] ✅ Downloaded {file_name} from Drive -> {dest_path} "
+                f"({actual_size} bytes)",
                 flush=True,
             )
             return dest_path
