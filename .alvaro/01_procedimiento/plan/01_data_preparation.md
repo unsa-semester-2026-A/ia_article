@@ -110,14 +110,14 @@ dataset/
 ├── train/
 │   ├── images/
 │   │   ├── v_ab12cd34ef_0000.jpg
-│   │   └── ... (copias o symlinks de 43,392 imágenes)
+│   │   └── ... (copias o symlinks de ~43,400 imágenes)
 │   └── labels/
 │       ├── v_ab12cd34ef_0000.txt (labels en formato OBB normalizado de 4 puntos)
 │       └── ...
 └── val/
     ├── images/
     │   ├── v_zy98xw76vu_0000.jpg
-    │   └── ... (copias o symlinks de 10,873 imágenes)
+    │   └── ... (copias o symlinks de ~10,862 imágenes)
     └── labels/
         ├── v_zy98xw76vu_0000.txt
         └── ...
@@ -127,11 +127,11 @@ dataset/
 
 ## 4. Archivo de Configuración: `smart_dataset.yaml`
 
-El archivo de configuración debe guardarse en la raíz de ejecución y debe adaptar la ruta `path` según la plataforma de cómputo utilizada:
+El archivo de configuración debe guardarse en la raíz del proyecto y debe tener exactamente la siguiente estructura de rutas relativas:
 
 ```yaml
 # smart_dataset.yaml
-path: /content/dataset  # En Colab: /content/dataset. En Kaggle: /kaggle/input/smart-dataset/dataset
+path: /home/alvaro9rqc/1_Pacha/1-unsa/7_S/ia/article/dataset  # Ruta absoluta al dataset
 train: train/images
 val: val/images
 

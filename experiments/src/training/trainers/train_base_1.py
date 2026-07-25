@@ -1,14 +1,17 @@
 """YOLO26s-OBB trainer for the F1 conditions of the ablation study (C1, C2, C3)."""
 
 import os
+import resource
 import shutil
 import sys
+import time
 import zipfile
 from pathlib import Path
 from typing import Any
 
 import torch
 from src.training.base_training import BaseTrainingPipeline
+from src.utils.gpu_monitor import sample_gpus
 from src.utils.io_manager import IOManager
 
 
@@ -20,6 +23,24 @@ def _is_primary_process() -> bool:
     files and triggers conflicting writes against the Drive API.
     """
     return int(os.environ.get("RANK", -1)) in (-1, 0)
+
+
+# Results and checkpoints deliberately use separate folders. The run prefix is
+# still applied by ``remote_name_for`` so generic framework names never collide.
+DRIVE_DESTINATIONS: dict[str, dict[str, str]] = {
+    "c1": {
+        "results": "1n17lmU2SVz54HmV6a3Cd-bgKs0h6bQP8",
+        "checkpoints": "1pn8OzJX_kctgluEZkSC6WEfbSCaPyKMa",
+    },
+    "c2": {
+        "results": "1tQ4j3sd0BajIiE1uGV11jD1UogJe3xlh",
+        "checkpoints": "1navKsrapRDxJzbLVrDIHpmDbkU4zHtVN",
+    },
+    "c3": {
+        "results": "1maJ2IelUfaV4DPMSzmd8gK-eaFOhOchs",
+        "checkpoints": "1Hi8OmTIMNzLfadjFbk79OL8yiIZewhpz",
+    },
+}
 
 
 class Base1Trainer(BaseTrainingPipeline):
@@ -738,6 +759,48 @@ names:
             )
             return None
 
+    def _checkpoint_state(
+        self, epoch: int, save_dir: Path, hyperparameters: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Build a durable latest-state record paired with ``last.pt``.
+
+        The state file is intentionally overwritten under one run-specific
+        remote name. It describes the exact epoch represented by the likewise
+        overwritten ``last.pt`` and prevents a partial session from being
+        mistaken for a completed run.
+
+        Args:
+            epoch: One-based epoch whose checkpoint was just saved.
+            save_dir: Ultralytics run directory.
+            hyperparameters: Effective train arguments for this run.
+
+        Returns:
+            JSON-serializable checkpoint state.
+        """
+        elapsed = max(0.0, time.time() - self.start_time)
+        peak_ram_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        results_csv = save_dir / "results.csv"
+        latest_metrics: dict[str, Any] = {}
+        if results_csv.exists():
+            rows = self.parse_results_csv(results_csv)
+            if rows:
+                latest_metrics = rows[-1]
+        return {
+            "run_name": self.run_name,
+            "experiment_condition": self.config.get("experiment_condition"),
+            "checkpoint_epoch": epoch,
+            "checkpoint_kind": "latest resumable state",
+            "elapsed_seconds": round(elapsed, 2),
+            "peak_cpu_ram_gb": round(peak_ram_kb / (1024 * 1024), 2),
+            "gpu_snapshot": sample_gpus(),
+            "latest_epoch_metrics": latest_metrics,
+            "hyperparameters": hyperparameters,
+            "weights": {
+                "last": "last.pt",
+                "best": "best.pt",
+            },
+        }
+
     # ===================================================================
     # Main Execution
     # ===================================================================
@@ -872,6 +935,13 @@ names:
                     wpath = weights_dir / wname
                     if wpath.exists():
                         self._upload_file(wpath, checkpoints_folder_id)
+
+                state_path = save_dir / "checkpoint_state.json"
+                self.io_manager.save_json(
+                    self._checkpoint_state(current_epoch, save_dir, hyperparams),
+                    state_path,
+                )
+                self._upload_file(state_path, checkpoints_folder_id)
 
                 print(
                     f"  📤 Drive sync completed (epoch {current_epoch}/{total_epochs})",
@@ -1073,6 +1143,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--fraction", type=float, default=None, help="Dataset fraction (0.0 to 1.0)"
     )
+    parser.add_argument(
+        "--drive-folder-id", default=None, help="Override results Drive folder ID"
+    )
+    parser.add_argument(
+        "--drive-checkpoints-folder-id",
+        default=None,
+        help="Override checkpoints Drive folder ID",
+    )
     args = parser.parse_args()
 
     IS_KAGGLE = os.path.exists("/kaggle/working")
@@ -1109,6 +1187,7 @@ if __name__ == "__main__":
 
     output_dir = Path("/kaggle/working/runs") if IS_KAGGLE else Path("/content/runs")
 
+    destinations = DRIVE_DESTINATIONS[args.condition]
     config = {
         "condition": args.condition,
         "output_dir": str(output_dir),
@@ -1126,9 +1205,11 @@ if __name__ == "__main__":
             if IS_KAGGLE
             else Path("/content/token.json")
         ),
-        # Results (logs, plots, metrics) and weights live in different Drive folders
-        "drive_folder_id": "1n17lmU2SVz54HmV6a3Cd-bgKs0h6bQP8",
-        "drive_checkpoints_folder_id": "1pn8OzJX_kctgluEZkSC6WEfbSCaPyKMa",
+        # Results and weights are condition-specific and never share folders.
+        "drive_folder_id": args.drive_folder_id or destinations["results"],
+        "drive_checkpoints_folder_id": (
+            args.drive_checkpoints_folder_id or destinations["checkpoints"]
+        ),
         "smoke_test": args.smoke_test,
         "smoke_images": args.smoke_images,
         "smoke_epochs": args.smoke_epochs,

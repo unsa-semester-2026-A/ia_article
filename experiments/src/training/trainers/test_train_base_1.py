@@ -4,7 +4,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from src.training.trainers.train_base_1 import Base1Trainer
+from src.training.trainers.train_base_1 import DRIVE_DESTINATIONS, Base1Trainer
 
 
 @pytest.fixture
@@ -58,6 +58,13 @@ def test_condition_defaults_to_c1(trainer: Base1Trainer) -> None:
     """Test the trainer defaults to the raw-data baseline condition."""
     assert trainer.condition == "c1"
     assert trainer.run_name == "f1_c1"
+
+
+def test_every_condition_has_isolated_drive_destinations() -> None:
+    """Production conditions never write checkpoints into each other's folders."""
+    assert set(DRIVE_DESTINATIONS) == {"c1", "c2", "c3"}
+    assert len({entry["results"] for entry in DRIVE_DESTINATIONS.values()}) == 3
+    assert len({entry["checkpoints"] for entry in DRIVE_DESTINATIONS.values()}) == 3
 
 
 def test_unknown_condition_is_rejected(config: dict[str, Any]) -> None:
