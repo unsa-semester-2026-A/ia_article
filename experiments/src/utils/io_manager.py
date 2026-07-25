@@ -3,6 +3,7 @@
 import csv
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,20 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+
+#: Globs matching the OAuth token inside any attached Kaggle dataset. A private
+#: dataset is the only credential channel that can be wired up entirely through
+#: the API: Kaggle Secrets require the web interface, and committing the token to
+#: the repository is rejected by GitHub push protection.
+#:
+#: Two patterns because Kaggle mounts user datasets under two layouts, the flat
+#: ``<dataset>/`` and the nested ``datasets/<owner>/<dataset>/``. They are spelled
+#: out rather than discovered with ``rglob`` so the search never walks into the
+#: attached image datasets, which hold tens of thousands of files.
+KAGGLE_TOKEN_GLOBS = ("*/token.json", "datasets/*/*/token.json")
+
+#: Root under which Kaggle mounts attached datasets.
+KAGGLE_INPUT_ROOT = Path("/kaggle/input")
 
 
 class IOManager:
@@ -53,11 +68,51 @@ class IOManager:
             else:
                 self.token_path = Path("token.json")
 
-        # 2. Automatically generate token.json from Kaggle Secrets if missing
+        # 2. Obtain the token: read-only sources first, Kaggle Secrets as fallback
+        self._ensure_token_from_source()
         self._ensure_token_from_kaggle_secrets()
 
         # 3. Initialize Google Drive API service (with auto-refresh)
         self.drive_service: Any | None = self._get_drive_service()
+
+    def token_source_candidates(self) -> list[Path]:
+        """Return the read-only locations that may hold the OAuth token.
+
+        Returns:
+            Candidate paths in priority order. ``DRIVE_TOKEN_SOURCE`` overrides the
+            list entirely so a caller can point at any location.
+        """
+        override = os.environ.get("DRIVE_TOKEN_SOURCE")
+        if override:
+            return [Path(override)]
+
+        found: list[Path] = []
+        for pattern in KAGGLE_TOKEN_GLOBS:
+            found.extend(sorted(KAGGLE_INPUT_ROOT.glob(pattern)))
+        return found
+
+    def _ensure_token_from_source(self) -> None:
+        """Copy the OAuth token from the first available read-only source.
+
+        The file is copied instead of being read in place because refreshing an
+        expired token has to be written back, and ``/kaggle/input`` is read-only.
+        """
+        if not self.token_path or self.token_path.exists():
+            return
+
+        for candidate in self.token_source_candidates():
+            if not candidate.is_file():
+                continue
+            try:
+                self.token_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(candidate, self.token_path)
+                print(
+                    f"[IOManager] ✅ Drive token copied from {candidate} "
+                    f"-> {self.token_path}"
+                )
+                return
+            except OSError as e:
+                print(f"[IOManager] ⚠️ Could not copy token from {candidate}: {e}")
 
     def _ensure_token_from_kaggle_secrets(self) -> None:
         """Retrieve token.json from Kaggle Secrets if not present on disk.

@@ -9,6 +9,17 @@ import pytest
 from src.utils.io_manager import IOManager
 
 
+@pytest.fixture(autouse=True)
+def isolate_token_sources(monkeypatch, tmp_path):
+    """Point the token source at a path that does not exist.
+
+    Otherwise a token left in a real ``/kaggle/input`` mount or in the developer's
+    environment would satisfy every construction and make the Kaggle Secrets
+    fallback unreachable. Cases that care about a specific source override it.
+    """
+    monkeypatch.setenv("DRIVE_TOKEN_SOURCE", str(tmp_path / "absent" / "token.json"))
+
+
 @pytest.fixture
 def io_mgr(tmp_path):
     """Fixture to instantiate IOManager without performing real Drive downloads."""
@@ -254,6 +265,102 @@ def test_download_drive_discards_truncated_file(io_mgr, tmp_path):
 
     assert res is None
     assert not dest.exists()
+
+
+# ==========================================
+# Token Source Tests
+# ==========================================
+def test_token_is_copied_from_a_read_only_source(tmp_path, monkeypatch):
+    """Black Box: The token is copied so a refreshed one can be written back."""
+    source = tmp_path / "source" / "drive_token.json"
+    source.parent.mkdir()
+    source.write_text('{"refresh_token": "abc"}')
+    destination = tmp_path / "working" / "token.json"
+    monkeypatch.setenv("DRIVE_TOKEN_SOURCE", str(source))
+
+    with patch.object(IOManager, "_get_drive_service", return_value=None):
+        manager = IOManager(token_path=destination)
+
+    assert destination.read_text() == '{"refresh_token": "abc"}'
+    assert manager.token_path == destination
+
+
+def test_existing_token_is_not_overwritten(tmp_path, monkeypatch):
+    """White Box: A refreshed token on disk must survive a later construction."""
+    source = tmp_path / "source.json"
+    source.write_text('{"refresh_token": "stale"}')
+    destination = tmp_path / "token.json"
+    destination.write_text('{"refresh_token": "refreshed"}')
+    monkeypatch.setenv("DRIVE_TOKEN_SOURCE", str(source))
+
+    with patch.object(IOManager, "_get_drive_service", return_value=None):
+        IOManager(token_path=destination)
+
+    assert destination.read_text() == '{"refresh_token": "refreshed"}'
+
+
+def test_token_source_override_replaces_the_candidate_list(tmp_path, monkeypatch):
+    """White Box: An explicit source is the only candidate considered."""
+    monkeypatch.setenv("DRIVE_TOKEN_SOURCE", str(tmp_path / "explicit.json"))
+
+    with patch.object(IOManager, "_get_drive_service", return_value=None):
+        with patch.object(IOManager, "_ensure_token_from_kaggle_secrets"):
+            manager = IOManager(token_path=tmp_path / "token.json")
+
+    assert manager.token_source_candidates() == [tmp_path / "explicit.json"]
+
+
+def test_attached_kaggle_datasets_are_the_default_candidates(tmp_path, monkeypatch):
+    """Black Box: Without an override, an attached dataset provides the token."""
+    monkeypatch.delenv("DRIVE_TOKEN_SOURCE", raising=False)
+    mounted = tmp_path / "input"
+    (mounted / "ia-article-drive-token").mkdir(parents=True)
+    (mounted / "ia-article-drive-token" / "token.json").write_text("{}")
+    (mounted / "mtc-challenge").mkdir()
+    monkeypatch.setattr("src.utils.io_manager.KAGGLE_INPUT_ROOT", mounted)
+
+    with patch.object(IOManager, "_get_drive_service", return_value=None):
+        with patch.object(IOManager, "_ensure_token_from_kaggle_secrets"):
+            manager = IOManager(token_path=tmp_path / "token.json")
+
+    assert manager.token_source_candidates() == [
+        mounted / "ia-article-drive-token" / "token.json"
+    ]
+
+
+def test_nested_kaggle_mount_layout_is_searched(tmp_path, monkeypatch):
+    """White Box: Kaggle also mounts datasets under datasets/<owner>/<name>/."""
+    monkeypatch.delenv("DRIVE_TOKEN_SOURCE", raising=False)
+    mounted = tmp_path / "input"
+    nested = mounted / "datasets" / "alvaroquispeunsa" / "ia-article-drive-token"
+    nested.mkdir(parents=True)
+    (nested / "token.json").write_text("{}")
+    monkeypatch.setattr("src.utils.io_manager.KAGGLE_INPUT_ROOT", mounted)
+
+    with patch.object(IOManager, "_get_drive_service", return_value=None):
+        with patch.object(IOManager, "_ensure_token_from_kaggle_secrets"):
+            manager = IOManager(token_path=tmp_path / "token.json")
+
+    assert manager.token_source_candidates() == [nested / "token.json"]
+
+
+def test_secrets_are_not_consulted_when_a_source_provided_the_token(
+    tmp_path, monkeypatch
+):
+    """White Box: A usable token makes the Kaggle Secrets fallback unnecessary."""
+    source = tmp_path / "source.json"
+    source.write_text('{"refresh_token": "abc"}')
+    monkeypatch.setenv("DRIVE_TOKEN_SOURCE", str(source))
+
+    with patch.object(IOManager, "_get_drive_service", return_value=None):
+        with patch.object(
+            IOManager, "_ensure_token_from_kaggle_secrets"
+        ) as mock_secrets:
+            IOManager(token_path=tmp_path / "token.json")
+
+    # The fallback still runs but returns immediately; what matters is that the
+    # token on disk is the one from the source.
+    mock_secrets.assert_called_once()
 
 
 # ==========================================

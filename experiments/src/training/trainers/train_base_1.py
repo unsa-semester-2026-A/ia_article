@@ -561,10 +561,20 @@ names:
             "available": drive_available,
         }
         if self.config.get("drive_folder_id") and not drive_available:
-            checks["details"]["drive_service"]["error"] = (
-                "drive_folder_id configured but Google Drive service is unavailable (Auth/token failed)."
+            message = (
+                "drive_folder_id configured but Google Drive service is unavailable "
+                "(Auth/token failed)."
             )
-            checks["passed"] = False
+            # Only a real run depends on Drive to survive a Kaggle session timeout.
+            # Blocking the smoke run here would withhold the GPU and dataset
+            # evidence it exists to produce.
+            if self.smoke_test:
+                checks["details"]["drive_service"]["warning"] = (
+                    f"{message} Tolerated: smoke artifacts are disposable."
+                )
+            else:
+                checks["details"]["drive_service"]["error"] = message
+                checks["passed"] = False
 
         return checks
 
