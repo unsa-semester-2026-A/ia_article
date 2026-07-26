@@ -36,6 +36,52 @@ def undo_letterbox(
     return cv2.resize(cropped, output_size, interpolation=cv2.INTER_LANCZOS4)
 
 
+def composite_relighted_foreground(
+    background: np.ndarray,
+    relit: np.ndarray,
+    foreground_bgra: np.ndarray,
+    *,
+    dilation_px: int = 2,
+    feather_px: int = 1,
+) -> np.ndarray:
+    """Keep the real background and blend only the relit OBB region.
+
+    IC-Light's background-conditioned model generates a complete image rather
+    than an alpha composite. Its generated background must therefore never be
+    allowed to replace road pixels outside the intended synthetic vehicle.
+
+    Args:
+        background: Original BGR frame.
+        relit: Full-frame BGR result produced by IC-Light.
+        foreground_bgra: Full-frame warped vehicle whose alpha is the target OBB.
+        dilation_px: Small safety margin around the OBB for vehicle edges.
+        feather_px: Gaussian mask softness in pixels.
+
+    Returns:
+        BGR frame retaining ``background`` outside the soft OBB mask.
+    """
+    if (
+        background.shape != relit.shape
+        or background.shape[:2] != foreground_bgra.shape[:2]
+    ):
+        raise ValueError(
+            "Background, relit result, and foreground must share frame dimensions"
+        )
+    alpha = foreground_bgra[:, :, 3]
+    if dilation_px:
+        kernel_size = 2 * dilation_px + 1
+        kernel = cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE, (kernel_size, kernel_size)
+        )
+        alpha = cv2.dilate(alpha, kernel)
+    if feather_px:
+        alpha = cv2.GaussianBlur(alpha, (0, 0), sigmaX=feather_px)
+    mask = alpha.astype(np.float32)[..., None] / 255.0
+    return (
+        relit.astype(np.float32) * mask + background.astype(np.float32) * (1.0 - mask)
+    ).astype(np.uint8)
+
+
 def warp_crop_to_slot(
     crop_path: Path,
     target_points: list[list[float]],
@@ -92,9 +138,7 @@ def relight_variant(
     requires both dimensions to be divisible by 64.
     """
     working_width, working_height = (
-        (working_size, working_size)
-        if isinstance(working_size, int)
-        else working_size
+        (working_size, working_size) if isinstance(working_size, int) else working_size
     )
     if (
         working_width < 64
@@ -150,6 +194,7 @@ def relight_variant(
     if result is None:
         raise RuntimeError(f"IC-Light returned unreadable output: {generated}")
     restored = cv2.resize(result, (640, 360), interpolation=cv2.INTER_LANCZOS4)
+    restored = composite_relighted_foreground(background, restored, foreground_bgra)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if not cv2.imwrite(str(output_path), restored, [cv2.IMWRITE_JPEG_QUALITY, 95]):
         raise OSError(f"Could not write IC-Light output: {output_path}")

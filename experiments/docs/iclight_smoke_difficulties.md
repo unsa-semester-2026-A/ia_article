@@ -50,3 +50,13 @@ part of the image and led to dark, distorted output. The renderer now flattens
 transparent pixels against white before uploading, allowing RMBG to identify
 the vehicle as a conventional foreground. This still requires manual review:
 IC-Light was not trained specifically for tiny aerial vehicles.
+
+## 2026-07-26 — Full-frame background hallucination
+
+The background-conditioned callback returns a newly generated *full frame*;
+the background image is conditioning, not a pixel-preservation guarantee. In
+the quality smoke it produced a large grey region over an otherwise correct
+road image. The production renderer now composites only the dilated,
+one-pixel-feathered alpha/OBB region of the generated output over the original
+background. This preserves every road pixel outside the intended vehicle and
+keeps the prompt/model responsible only for the local foreground appearance.

@@ -15,7 +15,7 @@ from src.augmentation.pipeline import (
     obb_to_yolo_line,
     quota_by_class,
 )
-from src.augmentation.render import relight_variant
+from src.augmentation.render import composite_relighted_foreground, relight_variant
 
 
 def _write_image(path: Path) -> None:
@@ -93,7 +93,9 @@ def test_package_full_dataset_is_self_contained_and_reports_checksum(
         }
 
 
-def test_relight_variant_sends_white_backed_foreground_to_iclight(tmp_path: Path) -> None:
+def test_relight_variant_sends_white_backed_foreground_to_iclight(
+    tmp_path: Path,
+) -> None:
     """IC-Light receives a three-channel white-backed image for upstream RMBG."""
     background = tmp_path / "background.jpg"
     output = tmp_path / "result.jpg"
@@ -126,3 +128,18 @@ def test_relight_variant_sends_white_backed_foreground_to_iclight(tmp_path: Path
         )
         == output
     )
+
+
+def test_composite_relighted_foreground_preserves_background_outside_obb() -> None:
+    """A model hallucination outside the vehicle OBB cannot alter the frame."""
+    background = np.full((32, 32, 3), (10, 20, 30), dtype=np.uint8)
+    relit = np.full((32, 32, 3), (200, 210, 220), dtype=np.uint8)
+    foreground = np.zeros((32, 32, 4), dtype=np.uint8)
+    foreground[12:20, 12:20, 3] = 255
+
+    merged = composite_relighted_foreground(
+        background, relit, foreground, dilation_px=0, feather_px=0
+    )
+
+    assert tuple(merged[0, 0]) == (10, 20, 30)
+    assert tuple(merged[16, 16]) == (200, 210, 220)
