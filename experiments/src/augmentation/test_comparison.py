@@ -19,7 +19,7 @@ def _label(class_id: int, x: float) -> str:
 
 
 def test_prepare_three_frame_comparison_covers_five_classes(tmp_path: Path) -> None:
-    """Three paired frames produce six jobs and persist human-review inputs."""
+    """Three paired frames produce three LaMa jobs and persist review inputs."""
     labels, raw, lama = tmp_path / "labels", tmp_path / "raw", tmp_path / "lama"
     labels.mkdir()
     for index, class_id in enumerate((1, 2, 4, 5, 7)):
@@ -41,7 +41,7 @@ def test_prepare_three_frame_comparison_covers_five_classes(tmp_path: Path) -> N
         output_dir=tmp_path / "output",
     )
 
-    assert len(jobs) == 6
+    assert len(jobs) == 3
     assert manifest["class_coverage"] == {
         "1": "combi",
         "2": "microbus",

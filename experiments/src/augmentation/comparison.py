@@ -31,15 +31,15 @@ def _image_path(directory: Path, stem: str) -> Path | None:
     return None
 
 
-def _area(box: OBB) -> float:
-    """Return the polygon area of an OBB."""
-    return float(abs(cv2.contourArea(np.asarray(box.points, dtype=np.float32))))
-
-
 def _select_sources(
     labels_dir: Path, raw_images_dir: Path, class_ids: tuple[int, ...]
 ) -> dict[int, tuple[Path, OBB]]:
-    """Select the largest available real crop for every requested class."""
+    """Select the first readable crop for every requested class.
+
+    The smoke only needs coverage of the five planned vehicle forms. Unlike the
+    production crop-ranking workflow, it stops immediately once that coverage
+    is found and never scans remaining label files.
+    """
     selected: dict[int, tuple[Path, OBB]] = {}
     for label_path in sorted(labels_dir.glob("*.txt")):
         image_path = _image_path(raw_images_dir, label_path.stem)
@@ -48,9 +48,9 @@ def _select_sources(
         for box in load_yolo_obb(label_path):
             if box.class_id not in class_ids:
                 continue
-            current = selected.get(box.class_id)
-            if current is None or _area(box) > _area(current[1]):
-                selected[box.class_id] = (image_path, box)
+            selected.setdefault(box.class_id, (image_path, box))
+        if len(selected) == len(class_ids):
+            break
     missing = sorted(set(class_ids) - set(selected))
     if missing:
         raise RuntimeError(f"No readable crop source was found for classes {missing}")
@@ -65,20 +65,20 @@ def _select_target_frames(
 ) -> list[tuple[str, Path, Path, list[OBB]]]:
     """Choose distinct paired Raw/LaMa frames with enough target OBBs."""
     selected = []
-    for required in objects_per_frame:
-        for label_path in sorted(labels_dir.glob("*.txt")):
-            if any(frame_id == label_path.stem for frame_id, *_ in selected):
-                continue
-            raw = _image_path(raw_images_dir, label_path.stem)
-            lama = _image_path(lama_images_dir, label_path.stem)
-            boxes = load_yolo_obb(label_path)
-            if raw is not None and lama is not None and len(boxes) >= required:
-                selected.append((label_path.stem, raw, lama, boxes[:required]))
-                break
-        else:
-            raise RuntimeError(
-                f"Could not find a paired Raw/LaMa frame with {required} OBBs"
-            )
+    for label_path in sorted(labels_dir.glob("*.txt")):
+        if len(selected) == len(objects_per_frame):
+            break
+        required = objects_per_frame[len(selected)]
+        raw = _image_path(raw_images_dir, label_path.stem)
+        lama = _image_path(lama_images_dir, label_path.stem)
+        boxes = load_yolo_obb(label_path)
+        if raw is not None and lama is not None and len(boxes) >= required:
+            selected.append((label_path.stem, raw, lama, boxes[:required]))
+    if len(selected) != len(objects_per_frame):
+        required = objects_per_frame[len(selected)]
+        raise RuntimeError(
+            f"Could not find a paired Raw/LaMa frame with {required} OBBs"
+        )
     return selected
 
 
@@ -99,7 +99,7 @@ def prepare_three_frame_comparison(
     output_dir: Path,
     class_ids: tuple[int, ...] = tuple(SYNTHETIC_CLASS_NAMES),
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Create three Raw/LaMa comparison frames covering all target classes.
+    """Create three LaMa-rendered comparison frames covering all target classes.
 
     The target OBBs are smoke-test locations, not accepted production static
     slots. A full production run must instead use the stationary-slot manifest.
@@ -158,21 +158,23 @@ def prepare_three_frame_comparison(
             "inserted_vehicles": str(frame_dir / "inserted_vehicles.png"),
         }
         frames.append(frame_metadata)
-        for variant, background in (("raw", raw), ("lama", lama)):
-            jobs.append(
-                {
-                    "id": f"comparison/frame_{frame_index:02d}_{frame_id}/{variant}_relight",
-                    "foreground_bgra": foreground,
-                    "background_path": background,
-                    "seed": 20260726 + frame_index,
-                    "frame_id": frame_id,
-                    "background_variant": variant,
-                    "class_ids": list(assigned),
-                    "class_names": [
-                        SYNTHETIC_CLASS_NAMES[class_id] for class_id in assigned
-                    ],
-                }
-            )
+        # The smoke renders only the LaMa condition. The paired unmodified Raw
+        # and LaMa inputs above are preserved for visual comparison, avoiding an
+        # unnecessary second diffusion invocation for each frame.
+        jobs.append(
+            {
+                "id": f"comparison/frame_{frame_index:02d}_{frame_id}/iclight_relight",
+                "foreground_bgra": foreground,
+                "background_path": lama,
+                "seed": 20260726 + frame_index,
+                "frame_id": frame_id,
+                "background_variant": "lama",
+                "class_ids": list(assigned),
+                "class_names": [
+                    SYNTHETIC_CLASS_NAMES[class_id] for class_id in assigned
+                ],
+            }
+        )
     manifest = {
         "scope": "three-frame smoke comparison; target OBBs are not production slots",
         "class_coverage": {str(key): SYNTHETIC_CLASS_NAMES[key] for key in class_ids},
