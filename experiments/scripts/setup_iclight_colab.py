@@ -26,8 +26,12 @@ COMPATIBILITY_PINS = [
 ]
 RELIGHT_CLICK = "relight_button.click(fn=process_relight, inputs=ips, outputs=[result_gallery])"
 RELIGHT_CLICK_WITH_API = (
-    "relight_button.click(fn=_logged_process_relight, inputs=ips, outputs=[result_gallery], "
-    'api_name="process_relight")'
+    "relight_button.click(fn=_logged_process_relight, inputs=ips, outputs=[result_gallery])\n"
+    "    _api_relight_button = gr.Button(visible=False)\n"
+    "    _api_relight_button.click(\n"
+    "        fn=_logged_process_relight_image, inputs=ips,\n"
+    '        outputs=[dummy_image_for_outputs], api_name="process_relight"\n'
+    "    )"
 )
 RELIGHT_TRACE_WRAPPER = (
     "def _logged_process_relight(*args, **kwargs):\n"
@@ -37,6 +41,9 @@ RELIGHT_TRACE_WRAPPER = (
     "            import traceback\n"
     "            traceback.print_exc()\n"
     "            raise\n"
+    "\n"
+    "    def _logged_process_relight_image(*args, **kwargs):\n"
+    "        return _logged_process_relight(*args, **kwargs)[0]\n"
     "\n"
     "    "
 )

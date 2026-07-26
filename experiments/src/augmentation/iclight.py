@@ -121,8 +121,14 @@ class ICLightClient:
             )
         ]
         result: Any = self._client.predict(*ordered, **api_kwargs)
-        image = result[0]["image"] if isinstance(result, tuple) else result[0]["image"]
-        return Path(image)
+        payload = result[0] if isinstance(result, (tuple, list)) else result
+        if isinstance(payload, dict):
+            image = payload.get("image") or payload.get("name")
+        else:
+            image = payload
+        if not image:
+            raise RuntimeError(f"IC-Light returned no image payload: {payload!r}")
+        return Path(str(image))
 
 
 def _main() -> None:
