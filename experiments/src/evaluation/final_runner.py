@@ -375,9 +375,10 @@ def _package_result(
         },
     )
     _write_metric_csvs(run_root, evaluation)
+    run_kind = "smoke" if config.max_frames is not None else "final"
     archive = (
         config.output_dir
-        / f"final_evaluation_{condition_slug}_{weight_sha256[:8]}_{git_revision[:8]}_{timestamp}.zip"
+        / f"evaluation_{run_kind}_{condition_slug}_{weight_sha256[:8]}_{git_revision[:8]}_{timestamp}.zip"
     )
     with zipfile.ZipFile(
         archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6
