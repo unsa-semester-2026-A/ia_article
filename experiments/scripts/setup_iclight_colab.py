@@ -26,9 +26,19 @@ COMPATIBILITY_PINS = [
 ]
 RELIGHT_CLICK = "relight_button.click(fn=process_relight, inputs=ips, outputs=[result_gallery])"
 RELIGHT_CLICK_WITH_API = (
-    "relight_button.click(fn=process_relight, inputs=ips, outputs=[result_gallery], "
+    "relight_button.click(fn=_logged_process_relight, inputs=ips, outputs=[result_gallery], "
     'api_name="process_relight")'
 )
+RELIGHT_TRACE_WRAPPER = """
+def _logged_process_relight(*args, **kwargs):
+    try:
+        return process_relight(*args, **kwargs)
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        raise
+
+"""
 
 
 def run(command: list[str], cwd: Path | None = None) -> None:
@@ -37,14 +47,15 @@ def run(command: list[str], cwd: Path | None = None) -> None:
 
 
 def expose_relight_api(root: Path) -> None:
-    """Give the upstream Gradio callback a stable programmatic endpoint."""
+    """Expose relighting and retain callback tracebacks in the server log."""
     demo = root / "gradio_demo_bg.py"
     source = demo.read_text()
     if RELIGHT_CLICK_WITH_API in source:
         return
     if RELIGHT_CLICK not in source:
         raise RuntimeError("IC-Light demo layout changed; relight callback was not found")
-    demo.write_text(source.replace(RELIGHT_CLICK, RELIGHT_CLICK_WITH_API, 1))
+    replacement = RELIGHT_TRACE_WRAPPER + RELIGHT_CLICK_WITH_API
+    demo.write_text(source.replace(RELIGHT_CLICK, replacement, 1))
 
 
 def main() -> None:
