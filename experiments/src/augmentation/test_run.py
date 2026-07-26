@@ -78,6 +78,10 @@ def test_render_and_package_delta_without_cloud_sync(tmp_path: Path) -> None:
     )
     assert (output / "images" / "synth_000000.jpg").is_file()
     assert (output / "labels" / "synth_000000.txt").is_file()
+    assert (
+        json.loads((output / "render_progress.json").read_text())["status"]
+        == "complete"
+    )
 
     exports = tmp_path / "exports"
     assert (
@@ -187,6 +191,9 @@ def test_production_creates_train_delta_and_audit_zip(
         )
         (destination / "manifest.csv").write_text(
             'synthetic_id,objects\nsynth_000000,"[{""class_id"": 1}]"\n'
+        )
+        (destination / "render_progress.json").write_text(
+            '{"completed_jobs": 1, "total_jobs": 1, "status": "complete"}'
         )
         return 0
 

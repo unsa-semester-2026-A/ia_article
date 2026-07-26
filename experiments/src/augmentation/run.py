@@ -470,6 +470,7 @@ def _package_audit(
     members = [
         workdir / "augmentation_state.json",
         workdir / "jobs.jsonl",
+        output_root / "rendered" / "render_progress.json",
         dataset_release / "manifest.csv",
         dataset_release / "release_manifest.json",
         release / "production_metrics.json",
@@ -492,11 +493,22 @@ def render(args: argparse.Namespace) -> int:
     jobs_path = Path(args.jobs_jsonl)
     output = Path(args.output_dir)
     rendered_rows: list[dict[str, object]] = []
-    for raw_line in jobs_path.read_text(encoding="utf-8").splitlines():
-        if not raw_line.strip():
-            continue
-        job = json.loads(raw_line)
+    jobs = [
+        json.loads(raw_line)
+        for raw_line in jobs_path.read_text(encoding="utf-8").splitlines()
+        if raw_line.strip()
+    ]
+    checkpoint_interval = int(getattr(args, "checkpoint_interval", 50))
+    if checkpoint_interval < 1:
+        raise ValueError("checkpoint_interval must be positive")
+    progress_path = output / "render_progress.json"
+    for index, job in enumerate(jobs, start=1):
         synthetic_id = str(job["synthetic_id"])
+        image_path = output / "images" / f"{synthetic_id}.jpg"
+        labels_path = output / "labels" / f"{synthetic_id}.txt"
+        if image_path.is_file() and labels_path.is_file():
+            rendered_rows.append(_manifest_row(job, image_path))
+            continue
         background = _read_image(Path(job["lama_background"]))
         composite = background.copy()
         lines = list(job.get("base_label_lines", []))
@@ -523,30 +535,68 @@ def render(args: argparse.Namespace) -> int:
                     "slot_id": object_job["slot_id"],
                 }
             )
-        image_path = output / "images" / f"{synthetic_id}.jpg"
         image_path.parent.mkdir(parents=True, exist_ok=True)
         if not cv2.imwrite(str(image_path), composite, [cv2.IMWRITE_JPEG_QUALITY, 95]):
             raise OSError(f"Could not write synthetic image: {image_path}")
-        labels_path = output / "labels" / f"{synthetic_id}.txt"
         labels_path.parent.mkdir(parents=True, exist_ok=True)
         labels_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        rendered_rows.append(
-            {
-                "synthetic_id": synthetic_id,
-                "image": str(image_path),
-                "objects": json.dumps(object_rows),
-                "included": True,
-                "quality_gate": "semantic_mask_and_background_passthrough",
-                "seed": job["seed"],
-            }
-        )
+        rendered_rows.append(_manifest_row(job, image_path, object_rows))
+        if index % checkpoint_interval == 0:
+            _write_render_progress(progress_path, index, len(jobs), synthetic_id)
     manifest = output / "manifest.csv"
     from src.augmentation.pipeline import write_manifest
 
     write_manifest(rendered_rows, manifest)
+    _write_render_progress(progress_path, len(jobs), len(jobs), "complete")
     _sync_state(manifest, args)
     print(f"Rendered {len(rendered_rows)} semantic copy-paste jobs -> {output}")
     return 0
+
+
+def _manifest_row(
+    job: dict[str, object],
+    image_path: Path,
+    object_rows: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    """Build one stable manifest row, including when a render is resumed."""
+    if object_rows is None:
+        object_rows = [
+            {
+                "class_id": object_job["class_id"],
+                "source_track_id": object_job["source_track_id"],
+                "slot_id": object_job["slot_id"],
+            }
+            for object_job in job["objects"]
+        ]
+    return {
+        "synthetic_id": str(job["synthetic_id"]),
+        "image": str(image_path),
+        "objects": json.dumps(object_rows),
+        "included": True,
+        "quality_gate": "semantic_mask_and_background_passthrough",
+        "seed": job["seed"],
+    }
+
+
+def _write_render_progress(
+    path: Path, completed_jobs: int, total_jobs: int, last_id: str
+) -> None:
+    """Atomically persist render progress so a rerun can skip completed pairs."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(
+            {
+                "completed_jobs": completed_jobs,
+                "total_jobs": total_jobs,
+                "last_synthetic_id": last_id,
+                "status": "complete" if completed_jobs == total_jobs else "running",
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    temporary.replace(path)
 
 
 def _build_grouped_jobs(
