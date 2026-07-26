@@ -154,6 +154,22 @@ def test_ultralytics_result_adapter_handles_obb_and_empty_results() -> None:
     assert adapt_ultralytics_result("clip_0000", _FakeResult(None)) == []
 
 
+def test_yolo_adapter_discards_zero_area_model_outputs() -> None:
+    """Skip zero-area OBBs which cannot contribute to an rIoU metric."""
+    detections = adapt_yolo_obb_arrays(
+        "clip_0000",
+        np.asarray(
+            (
+                (1.0, 2.0, 0.0, 4.0, 0.0),
+                (10.0, 20.0, 8.0, 4.0, math.pi / 2),
+            )
+        ),
+        np.asarray((0.4, 0.8)),
+        np.asarray((0, 0), dtype=np.int64),
+    )
+    assert detections == [Detection(1, 0.8, 10.0, 20.0, 8.0, 4.0, 90.0)]
+
+
 def test_infer_clip_batches_results_and_builds_homographies() -> None:
     """Run batch inference but perform CPU temporal work in frame order."""
     frames = {

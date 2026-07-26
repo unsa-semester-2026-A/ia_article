@@ -150,7 +150,12 @@ def adapt_yolo_obb_arrays(
             raise ValueError("mapped class IDs must be official IDs 1 through 9")
         if not 0.0 <= normalized_score <= 1.0:
             raise ValueError("YOLO confidence must be within [0, 1]")
-        if width <= 0.0 or height <= 0.0:
+        # Ultralytics may occasionally emit a zero-area OBB after its own
+        # geometric clipping/NMS. It cannot overlap a ground-truth OBB and is
+        # therefore a non-detection, rather than malformed evaluation input.
+        if width == 0.0 or height == 0.0:
+            continue
+        if width < 0.0 or height < 0.0:
             raise ValueError("YOLO OBB dimensions must be greater than zero")
         detections.append(
             Detection(
