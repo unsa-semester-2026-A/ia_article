@@ -98,8 +98,9 @@ def prepare_three_frame_comparison(
     lama_images_dir: Path,
     output_dir: Path,
     class_ids: tuple[int, ...] = tuple(SYNTHETIC_CLASS_NAMES),
+    frame_count: int = 10,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Create three LaMa-rendered comparison frames covering all target classes.
+    """Create comparable LaMa-rendered examples covering all target classes.
 
     The target OBBs are smoke-test locations, not accepted production static
     slots. A full production run must instead use the stationary-slot manifest.
@@ -109,13 +110,20 @@ def prepare_three_frame_comparison(
             "The comparison is defined for the five planned synthetic classes"
         )
     source_by_class = _select_sources(labels_dir, raw_images_dir, class_ids)
+    if frame_count < len(class_ids):
+        raise ValueError("frame_count must cover every planned synthetic class")
     target_frames = _select_target_frames(
-        labels_dir, raw_images_dir, lama_images_dir, objects_per_frame=(2, 2, 1)
+        labels_dir,
+        raw_images_dir,
+        lama_images_dir,
+        objects_per_frame=(1,) * frame_count,
     )
     crops_dir = output_dir / "source_crops"
     comparison_dir = output_dir / "comparisons"
     jobs: list[dict[str, Any]] = []
-    assignments = (class_ids[:2], class_ids[2:4], class_ids[4:])
+    assignments = tuple(
+        (class_ids[index % len(class_ids)],) for index in range(frame_count)
+    )
     frames: list[dict[str, Any]] = []
     for frame_index, ((frame_id, raw, lama, target_boxes), assigned) in enumerate(
         zip(target_frames, assignments, strict=True)
@@ -156,6 +164,9 @@ def prepare_three_frame_comparison(
             "raw_original": str(frame_dir / "raw_original.jpg"),
             "lama_background": str(frame_dir / "lama_background.jpg"),
             "inserted_vehicles": str(frame_dir / "inserted_vehicles.png"),
+            "direct_overlay": str(frame_dir / "direct_overlay.jpg"),
+            "iclight_full": str(frame_dir / "iclight_full.jpg"),
+            "iclight_soft_composite": str(frame_dir / "iclight_soft_composite.jpg"),
         }
         frames.append(frame_metadata)
         # The smoke renders only the LaMa condition. The paired unmodified Raw
@@ -173,10 +184,13 @@ def prepare_three_frame_comparison(
                 "class_names": [
                     SYNTHETIC_CLASS_NAMES[class_id] for class_id in assigned
                 ],
+                "direct_overlay_path": str(frame_dir / "direct_overlay.jpg"),
+                "generated_output_path": str(frame_dir / "iclight_full.jpg"),
+                "output_path": str(frame_dir / "iclight_soft_composite.jpg"),
             }
         )
     manifest = {
-        "scope": "three-frame smoke comparison; target OBBs are not production slots",
+        "scope": "ten-example smoke comparison; target OBBs are not production slots",
         "class_coverage": {str(key): SYNTHETIC_CLASS_NAMES[key] for key in class_ids},
         "frames": frames,
     }
@@ -196,12 +210,13 @@ def run_three_frame_comparison(
     working_size: tuple[int, int] = (576, 320),
     steps: int = 20,
 ) -> dict[str, Any]:
-    """Prepare and render the three-frame Raw/LaMa comparison smoke batch."""
+    """Prepare and render the ten-example Raw/LaMa comparison smoke batch."""
     jobs, manifest = prepare_three_frame_comparison(
         labels_dir=labels_dir,
         raw_images_dir=raw_images_dir,
         lama_images_dir=lama_images_dir,
         output_dir=output_dir,
+        frame_count=10,
     )
     report = run_smoke_batch(
         client, jobs, output_dir, working_size=working_size, steps=steps

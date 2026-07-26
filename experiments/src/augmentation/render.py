@@ -82,6 +82,19 @@ def composite_relighted_foreground(
     ).astype(np.uint8)
 
 
+def overlay_foreground(
+    background: np.ndarray, foreground_bgra: np.ndarray
+) -> np.ndarray:
+    """Directly alpha-overlay selected vehicles without IC-Light processing."""
+    if background.shape[:2] != foreground_bgra.shape[:2]:
+        raise ValueError("Background and foreground must share frame dimensions")
+    alpha = foreground_bgra[:, :, 3:4].astype(np.float32) / 255.0
+    return (
+        foreground_bgra[:, :, :3].astype(np.float32) * alpha
+        + background.astype(np.float32) * (1.0 - alpha)
+    ).astype(np.uint8)
+
+
 def warp_crop_to_slot(
     crop_path: Path,
     target_points: list[list[float]],
@@ -129,6 +142,8 @@ def relight_variant(
     *,
     working_size: int | tuple[int, int] = 512,
     steps: int = 20,
+    generated_output_path: Path | None = None,
+    direct_overlay_path: Path | None = None,
 ) -> Path:
     """Relight one composited foreground against one Raw or LaMa background.
 
@@ -154,6 +169,12 @@ def relight_variant(
         raise FileNotFoundError(f"Background not found: {background_path}")
     if foreground_bgra.ndim != 3 or foreground_bgra.shape[2] != 4:
         raise ValueError("foreground_bgra must be a four-channel BGRA image")
+    if direct_overlay_path is not None:
+        direct_overlay_path.parent.mkdir(parents=True, exist_ok=True)
+        if not cv2.imwrite(
+            str(direct_overlay_path), overlay_foreground(background, foreground_bgra)
+        ):
+            raise OSError(f"Could not write direct overlay: {direct_overlay_path}")
     # ``process_relight`` calls IC-Light's upstream RMBG model itself. Supply
     # an ordinary RGB image with a neutral white backing, rather than a black
     # transparent canvas: black pixels are otherwise interpreted as image
@@ -194,6 +215,14 @@ def relight_variant(
     if result is None:
         raise RuntimeError(f"IC-Light returned unreadable output: {generated}")
     restored = cv2.resize(result, (640, 360), interpolation=cv2.INTER_LANCZOS4)
+    if generated_output_path is not None:
+        generated_output_path.parent.mkdir(parents=True, exist_ok=True)
+        if not cv2.imwrite(
+            str(generated_output_path), restored, [cv2.IMWRITE_JPEG_QUALITY, 95]
+        ):
+            raise OSError(
+                f"Could not write full IC-Light output: {generated_output_path}"
+            )
     restored = composite_relighted_foreground(background, restored, foreground_bgra)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if not cv2.imwrite(str(output_path), restored, [cv2.IMWRITE_JPEG_QUALITY, 95]):

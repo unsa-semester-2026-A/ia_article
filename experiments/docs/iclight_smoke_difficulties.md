@@ -60,3 +60,13 @@ road image. The production renderer now composites only the dilated,
 one-pixel-feathered alpha/OBB region of the generated output over the original
 background. This preserves every road pixel outside the intended vehicle and
 keeps the prompt/model responsible only for the local foreground appearance.
+
+## 2026-07-26 — Comparación visual de diez ejemplos
+
+Para evitar que la composición con bordes suaves oculte defectos del modelo,
+cada ejemplo conserva cinco artefactos ordenados: `lama_background.jpg`,
+`inserted_vehicles.png`, `direct_overlay.jpg`, `iclight_full.jpg` e
+`iclight_soft_composite.jpg`. El último es el único que preserva el fondo fuera
+del OBB; `iclight_full.jpg` se guarda deliberadamente para evaluar las
+alucinaciones de fondo. Los diez ejemplos alternan las cinco clases previstas
+(combi, microbús, ómnibus, articulado y mototaxi), dos veces cada una.

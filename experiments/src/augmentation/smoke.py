@@ -61,7 +61,11 @@ def run_smoke_batch(
     try:
         for job in jobs:
             job_id = str(job["id"])
-            destination = output_dir / "images" / f"{job_id}.jpg"
+            destination = (
+                Path(job["output_path"])
+                if job.get("output_path")
+                else output_dir / "images" / f"{job_id}.jpg"
+            )
             image_started = time.perf_counter()
             row: dict[str, Any] = {"id": job_id, "seed": int(job["seed"])}
             try:
@@ -73,6 +77,16 @@ def run_smoke_batch(
                     int(job["seed"]),
                     working_size=working_size,
                     steps=steps,
+                    generated_output_path=(
+                        Path(job["generated_output_path"])
+                        if job.get("generated_output_path")
+                        else None
+                    ),
+                    direct_overlay_path=(
+                        Path(job["direct_overlay_path"])
+                        if job.get("direct_overlay_path")
+                        else None
+                    ),
                 )
                 image = cv2.imread(str(result), cv2.IMREAD_COLOR)
                 if image is None or image.shape != (360, 640, 3):
@@ -88,8 +102,15 @@ def run_smoke_batch(
                         "bytes": result.stat().st_size,
                     }
                 )
+                row["comparison_artifacts"] = {
+                    key: str(job[key])
+                    for key in ("generated_output_path", "direct_overlay_path")
+                    if job.get(key)
+                }
             except Exception as exc:  # report every failed item before stopping
-                row.update({"status": "failed", "error": f"{type(exc).__name__}: {exc}"})
+                row.update(
+                    {"status": "failed", "error": f"{type(exc).__name__}: {exc}"}
+                )
                 rows.append(row)
                 raise
             row["elapsed_seconds"] = round(time.perf_counter() - image_started, 3)
@@ -99,7 +120,9 @@ def run_smoke_batch(
 
     elapsed = time.perf_counter() - started
     report = {
-        "status": "passed" if all(row["status"] == "passed" for row in rows) else "failed",
+        "status": "passed"
+        if all(row["status"] == "passed" for row in rows)
+        else "failed",
         "started_at_unix": started_at,
         "batch_size": len(jobs),
         "working_size": working_size,

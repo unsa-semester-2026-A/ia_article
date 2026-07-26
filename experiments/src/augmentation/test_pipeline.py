@@ -15,7 +15,11 @@ from src.augmentation.pipeline import (
     obb_to_yolo_line,
     quota_by_class,
 )
-from src.augmentation.render import composite_relighted_foreground, relight_variant
+from src.augmentation.render import (
+    composite_relighted_foreground,
+    overlay_foreground,
+    relight_variant,
+)
 
 
 def _write_image(path: Path) -> None:
@@ -143,3 +147,15 @@ def test_composite_relighted_foreground_preserves_background_outside_obb() -> No
 
     assert tuple(merged[0, 0]) == (10, 20, 30)
     assert tuple(merged[16, 16]) == (200, 210, 220)
+
+
+def test_overlay_foreground_only_changes_opaque_vehicle_pixels() -> None:
+    """The direct-composition comparison artifact contains no diffusion output."""
+    background = np.full((8, 8, 3), 20, dtype=np.uint8)
+    foreground = np.zeros((8, 8, 4), dtype=np.uint8)
+    foreground[3, 3] = (100, 110, 120, 255)
+
+    result = overlay_foreground(background, foreground)
+
+    assert tuple(result[0, 0]) == (20, 20, 20)
+    assert tuple(result[3, 3]) == (100, 110, 120)
