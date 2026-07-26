@@ -143,6 +143,21 @@ def test_infer_clip_batches_results_and_builds_homographies() -> None:
     assert np.allclose(homographies["clip_0001"], np.eye(3))
 
 
+def test_infer_clip_reuses_supplied_shared_homographies() -> None:
+    """A condition must not replace the common camera transforms."""
+    frames = {
+        "clip_0000": np.zeros((64, 64, 3), dtype=np.uint8),
+        "clip_0001": np.zeros((64, 64, 3), dtype=np.uint8),
+    }
+    shared = {
+        "clip_0001": np.asarray(((1.0, 0.0, 3.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)))
+    }
+
+    _, returned = infer_clip(_FakeModel(), frames, batch_size=2, homographies=shared)
+
+    assert returned is shared
+
+
 def test_ground_truth_parser_and_csv_loader(tmp_path: Path) -> None:
     """Parse official Id/Target rows, including frames marked none."""
     assert parse_ground_truth_target("none") == []
