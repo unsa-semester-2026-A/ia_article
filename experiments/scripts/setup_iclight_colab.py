@@ -29,16 +29,17 @@ RELIGHT_CLICK_WITH_API = (
     "relight_button.click(fn=_logged_process_relight, inputs=ips, outputs=[result_gallery], "
     'api_name="process_relight")'
 )
-RELIGHT_TRACE_WRAPPER = """
-def _logged_process_relight(*args, **kwargs):
-    try:
-        return process_relight(*args, **kwargs)
-    except Exception:
-        import traceback
-        traceback.print_exc()
-        raise
-
-"""
+RELIGHT_TRACE_WRAPPER = (
+    "def _logged_process_relight(*args, **kwargs):\n"
+    "        try:\n"
+    "            return process_relight(*args, **kwargs)\n"
+    "        except Exception:\n"
+    "            import traceback\n"
+    "            traceback.print_exc()\n"
+    "            raise\n"
+    "\n"
+    "    "
+)
 
 
 def run(command: list[str], cwd: Path | None = None) -> None:
