@@ -7,8 +7,17 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import pandas as pd
+import src.augmentation.run as augmentation_run
+from src.augmentation.metrics import ProductionMonitor
 from src.augmentation.pipeline import AugmentationConfig
-from src.augmentation.run import _production_source_limits, package_delta, render
+from src.augmentation.run import (
+    _production_source_limits,
+    _stage_dataset_release,
+    _validate_release,
+    package_delta,
+    render,
+)
 
 
 def test_production_source_limits_skip_supported_classes() -> None:
@@ -91,3 +100,113 @@ def test_render_and_package_delta_without_cloud_sync(tmp_path: Path) -> None:
             "labels/train/synth_000000.txt",
             "manifest.csv",
         }
+
+
+def test_staged_release_is_train_only_and_validated(tmp_path: Path) -> None:
+    """Production staging has standard train paths and no validation mutation."""
+    rendered = tmp_path / "rendered"
+    for directory in (rendered / "images", rendered / "labels"):
+        directory.mkdir(parents=True)
+    assert cv2.imwrite(
+        str(rendered / "images" / "synth_000000.jpg"),
+        np.zeros((360, 640, 3), dtype=np.uint8),
+    )
+    (rendered / "labels" / "synth_000000.txt").write_text(
+        "1 0.1 0.1 0.2 0.1 0.2 0.2 0.1 0.2\n"
+    )
+    (rendered / "manifest.csv").write_text(
+        'synthetic_id,objects\nsynth_000000,"[{""class_id"": 1}]"\n'
+    )
+    output_root = tmp_path / "output"
+    jobs = output_root / "work" / "jobs.jsonl"
+    jobs.parent.mkdir(parents=True)
+    jobs.write_text('{"background_clip_id": "v_train"}\n')
+    metadata = tmp_path / "metadata.csv"
+    pd.DataFrame({"clip_id": ["v_train", "v_val"], "split": ["train", "val"]}).to_csv(
+        metadata, index=False
+    )
+    release = output_root / "release" / "sam_copy_paste_test"
+    _stage_dataset_release(rendered, release)
+    result = _validate_release(release, {"jobs": 1}, metadata, jobs)
+    assert result["synthetic_images"] == 1
+    assert result["validation_unchanged"] is True
+
+
+def test_production_monitor_writes_resumable_hardware_report(tmp_path: Path) -> None:
+    """Metrics always include process, disk, GPU and completed-stage evidence."""
+    output = tmp_path / "metrics.json"
+    monitor = ProductionMonitor(output, tmp_path, interval_seconds=0.01)
+    monitor.start()
+    monitor.stage("prepare_complete", jobs=1)
+    monitor.stop()
+    report = json.loads(output.read_text())
+    assert report["status"] == "success"
+    assert report["process"]["peak_rss_bytes"] >= 0
+    assert "gpu_usage" in report
+    assert report["stages"][0]["name"] == "prepare_complete"
+
+
+def test_production_creates_train_delta_and_audit_zip(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The orchestrator produces a train-only release without real GPU work."""
+    metadata = tmp_path / "metadata.csv"
+    pd.DataFrame({"clip_id": ["v_train"], "split": ["train"]}).to_csv(
+        metadata, index=False
+    )
+
+    def fake_prepare(args) -> int:
+        work = Path(args.workdir)
+        work.mkdir(parents=True)
+        (work / "jobs.jsonl").write_text('{"background_clip_id": "v_train"}\n')
+        (work / "augmentation_state.json").write_text(
+            json.dumps(
+                {
+                    "status": "prepared",
+                    "jobs": 1,
+                    "crop_tracks": 1,
+                    "policy": {},
+                    "real_counts": {"1": 1},
+                    "track_counts": {"1": 1},
+                    "quotas": {"1": 1},
+                }
+            )
+        )
+        return 0
+
+    def fake_render(args) -> int:
+        destination = Path(args.output_dir)
+        (destination / "images").mkdir(parents=True)
+        (destination / "labels").mkdir(parents=True)
+        assert cv2.imwrite(
+            str(destination / "images" / "synth_000000.jpg"),
+            np.zeros((360, 640, 3), dtype=np.uint8),
+        )
+        (destination / "labels" / "synth_000000.txt").write_text(
+            "1 0.1 0.1 0.2 0.1 0.2 0.2 0.1 0.2\n"
+        )
+        (destination / "manifest.csv").write_text(
+            'synthetic_id,objects\nsynth_000000,"[{""class_id"": 1}]"\n'
+        )
+        return 0
+
+    monkeypatch.setattr(augmentation_run, "prepare", fake_prepare)
+    monkeypatch.setattr(augmentation_run, "render", fake_render)
+    args = argparse.Namespace(
+        output_dir=str(tmp_path / "output"),
+        run_id="test",
+        resume=False,
+        split_metadata=str(metadata),
+        no_drive_sync=True,
+        token_path="",
+        drive_results_folder_id="",
+        drive_checkpoints_folder_id="",
+    )
+    assert augmentation_run.production(args) == 0
+    output = tmp_path / "output" / "sam_copy_paste_test"
+    release = output / "release" / "sam_copy_paste_test"
+    assert (release / "images" / "train" / "synth_000000.jpg").is_file()
+    assert (release / "labels" / "train" / "synth_000000.txt").is_file()
+    assert not (release / "images" / "val").exists()
+    assert (output / "sam_copy_paste_delta_test.zip").is_file()
+    assert (output / "sam_copy_paste_audit_test.zip").is_file()

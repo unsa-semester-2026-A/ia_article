@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import csv
+import hashlib
 import json
 import math
+import os
+import shutil
+import time
+import zipfile
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -16,6 +22,7 @@ from src.augmentation.copy_paste import (
     composite_semantic_foreground,
 )
 from src.augmentation.masking import SamBoxMasker
+from src.augmentation.metrics import ProductionMonitor
 from src.augmentation.pipeline import (
     OBB,
     AugmentationConfig,
@@ -190,9 +197,6 @@ def package(args: argparse.Namespace) -> int:
 
 def package_delta(args: argparse.Namespace) -> int:
     """Package only synthetic files so Kaggle need not duplicate base data."""
-    import hashlib
-    import zipfile
-
     output = Path(args.output_dir)
     images = Path(args.synthetic_images)
     labels = Path(args.synthetic_labels)
@@ -203,12 +207,17 @@ def package_delta(args: argparse.Namespace) -> int:
         raise ValueError("Delta image/label stems do not match")
     output.mkdir(parents=True, exist_ok=True)
     archive_path = output / f"sam_copy_paste_delta_{args.run_id}.zip"
+    archive_root = str(getattr(args, "archive_root", "")).strip("/")
+
+    def archive_member(member: str) -> str:
+        return f"{archive_root}/{member}" if archive_root else member
+
     with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_STORED) as archive:
         for path in image_files:
-            archive.write(path, f"images/train/{path.name}")
+            archive.write(path, archive_member(f"images/train/{path.name}"))
         for path in label_files:
-            archive.write(path, f"labels/train/{path.name}")
-        archive.write(manifest, "manifest.csv")
+            archive.write(path, archive_member(f"labels/train/{path.name}"))
+        archive.write(manifest, archive_member("manifest.csv"))
     digest = hashlib.sha256()
     with archive_path.open("rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
@@ -226,6 +235,256 @@ def package_delta(args: argparse.Namespace) -> int:
     _sync_file(report_path, args)
     print(json.dumps(report, indent=2))
     return 0
+
+
+def production(args: argparse.Namespace) -> int:
+    """Run the complete train-only augmentation release with resumable evidence.
+
+    The resulting release contains one shared synthetic delta.  Mejora B links
+    it to the raw base and Mejora C links the identical delta to the LaMa base;
+    duplicating 3+ GB base images would add no training information and makes
+    validation of the two conditions less reliable.
+    """
+    output_root = Path(args.output_dir) / f"sam_copy_paste_{args.run_id}"
+    output_root.mkdir(parents=True, exist_ok=True)
+    workdir = output_root / "work"
+    release = output_root / "release"
+    dataset_release = release / f"sam_copy_paste_{args.run_id}"
+    rendered = output_root / "rendered"
+    metrics_path = release / "production_metrics.json"
+    monitor = ProductionMonitor(metrics_path, output_root)
+    monitor.start()
+    started = time.monotonic()
+    try:
+        args.workdir = str(workdir)
+        state_path = workdir / "augmentation_state.json"
+        jobs_path = workdir / "jobs.jsonl"
+        if args.resume and state_path.is_file() and jobs_path.is_file():
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            if state.get("status") != "prepared":
+                raise ValueError(
+                    f"Cannot resume state with status={state.get('status')}"
+                )
+            monitor.stage("prepare_resumed", jobs=int(state.get("jobs", 0)))
+        else:
+            prepare(args)
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            monitor.stage(
+                "prepare_complete",
+                jobs=int(state["jobs"]),
+                crop_tracks=int(state["crop_tracks"]),
+                quotas=state["quotas"],
+            )
+        if not int(state.get("jobs", 0)):
+            raise RuntimeError("Preparation produced zero jobs; refusing empty release")
+
+        if args.resume and (rendered / "manifest.csv").is_file():
+            monitor.stage("render_resumed")
+        else:
+            render(
+                argparse.Namespace(
+                    jobs_jsonl=str(jobs_path),
+                    output_dir=str(rendered),
+                    **_sync_args(args),
+                )
+            )
+            monitor.stage("render_complete")
+
+        _stage_dataset_release(rendered, dataset_release)
+        validation = _validate_release(
+            dataset_release, state, Path(args.split_metadata), jobs_path
+        )
+        release_manifest = {
+            "run_id": args.run_id,
+            "created_elapsed_seconds": round(time.monotonic() - started, 2),
+            "policy": state["policy"],
+            "real_counts": state["real_counts"],
+            "track_counts": state["track_counts"],
+            "quotas": state["quotas"],
+            "validation": validation,
+            "training_contract": {
+                "delta_images": "images/train",
+                "delta_labels": "labels/train",
+                "validation_modified": False,
+                "conditions": {
+                    "mejora_b": "raw base + this delta",
+                    "mejora_c": "LaMa base + this exact delta",
+                },
+            },
+        }
+        release_manifest_path = dataset_release / "release_manifest.json"
+        release_manifest_path.write_text(
+            json.dumps(release_manifest, indent=2), encoding="utf-8"
+        )
+        _write_release_readme(dataset_release, args.run_id)
+        monitor.stage("release_validated", **validation)
+
+        package_delta(
+            argparse.Namespace(
+                synthetic_images=str(dataset_release / "images" / "train"),
+                synthetic_labels=str(dataset_release / "labels" / "train"),
+                manifest=str(dataset_release / "manifest.csv"),
+                output_dir=str(output_root),
+                run_id=args.run_id,
+                archive_root=dataset_release.name,
+                **_sync_args(args),
+            )
+        )
+        monitor.stage("training_delta_packaged")
+        monitor.stop()
+        audit_archive = output_root / f"sam_copy_paste_audit_{args.run_id}.zip"
+        summary = {
+            "run_id": args.run_id,
+            "release_dir": str(dataset_release),
+            "training_delta_zip": str(
+                output_root / f"sam_copy_paste_delta_{args.run_id}.zip"
+            ),
+            "audit_zip": str(audit_archive),
+            "metrics": str(metrics_path),
+            "validation": validation,
+        }
+        (output_root / "production_summary.json").write_text(
+            json.dumps(summary, indent=2), encoding="utf-8"
+        )
+        _package_audit(output_root, workdir, release, dataset_release, args.run_id)
+        print(json.dumps(summary, indent=2))
+        return 0
+    except Exception as exc:
+        monitor.stop(error=f"{type(exc).__name__}: {exc}")
+        raise
+
+
+def _sync_args(args: argparse.Namespace) -> dict[str, object]:
+    """Return cloud-sync options required by nested command handlers."""
+    return {
+        "no_drive_sync": args.no_drive_sync,
+        "token_path": args.token_path,
+        "drive_results_folder_id": args.drive_results_folder_id,
+        "drive_checkpoints_folder_id": args.drive_checkpoints_folder_id,
+    }
+
+
+def _stage_dataset_release(rendered: Path, dataset_release: Path) -> None:
+    """Stage rendered files in the train-only directory shape consumed by YOLO."""
+    source_pairs = (
+        (rendered / "images", dataset_release / "images" / "train"),
+        (rendered / "labels", dataset_release / "labels" / "train"),
+    )
+    for source, destination in source_pairs:
+        destination.mkdir(parents=True, exist_ok=True)
+        for path in sorted(source.iterdir()):
+            if not path.is_file():
+                continue
+            target = destination / path.name
+            if target.exists():
+                continue
+            try:
+                os.link(path, target)
+            except OSError:
+                shutil.copy2(path, target)
+    for name in ("manifest.csv",):
+        source = rendered / name
+        target = dataset_release / name
+        if not target.exists():
+            shutil.copy2(source, target)
+
+
+def _validate_release(
+    release: Path,
+    state: dict[str, object],
+    metadata_path: Path,
+    jobs_path: Path,
+) -> dict[str, object]:
+    """Verify image-label pairing and guarantee that output contains train only."""
+    images = sorted((release / "images" / "train").glob("*.jpg"))
+    labels = sorted((release / "labels" / "train").glob("*.txt"))
+    image_stems = {path.stem for path in images}
+    label_stems = {path.stem for path in labels}
+    if not image_stems or image_stems != label_stems:
+        raise ValueError(
+            "Production release has missing or unmatched image/label pairs"
+        )
+    if (release / "images" / "val").exists() or (release / "labels" / "val").exists():
+        raise ValueError("Synthetic release must not create a validation directory")
+    train_clips = SyntheticDatasetBuilder(AugmentationConfig()).train_clip_ids(
+        metadata_path
+    )
+    job_clips: set[str] = set()
+    for line in jobs_path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            job_clips.add(str(json.loads(line)["background_clip_id"]))
+    if not job_clips.issubset(train_clips):
+        raise ValueError("A synthetic background is outside the train split")
+    manifest_rows = {
+        row["synthetic_id"]: row
+        for row in csv.DictReader((release / "manifest.csv").open(encoding="utf-8"))
+    }
+    inserted_instances = 0
+    for label in labels:
+        for line in label.read_text(encoding="utf-8").splitlines():
+            fields = line.split()
+            if len(fields) != 9:
+                raise ValueError(f"Invalid YOLO-OBB line in generated label: {label}")
+            values = [float(value) for value in fields[1:]]
+            if not all(0.0 <= value <= 1.0 for value in values):
+                raise ValueError(f"Out-of-range generated OBB coordinate in {label}")
+        if label.stem not in manifest_rows:
+            raise ValueError(f"Generated label has no manifest row: {label.stem}")
+        inserted_instances += len(json.loads(manifest_rows[label.stem]["objects"]))
+    return {
+        "synthetic_images": len(images),
+        "synthetic_labels": len(labels),
+        "inserted_instances": inserted_instances,
+        "background_train_clips": len(job_clips),
+        "validation_unchanged": True,
+        "prepared_jobs": int(state["jobs"]),
+    }
+
+
+def _write_release_readme(release: Path, run_id: str) -> None:
+    """Write trainer-facing instructions beside the uploaded release."""
+    (release / "README.txt").write_text(
+        "\n".join(
+            [
+                f"SAM copy-paste train-only release: {run_id}",
+                "Use images/ and labels/ as augmentation_delta_* directories.",
+                "Do not add these files to validation.",
+                "Mejora B = raw base + this delta.",
+                "Mejora C = LaMa base + this exact delta.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _package_audit(
+    output_root: Path,
+    workdir: Path,
+    release: Path,
+    dataset_release: Path,
+    run_id: str,
+) -> Path:
+    """Bundle state, jobs, manifest and metrics separately from training data."""
+    archive_path = output_root / f"sam_copy_paste_audit_{run_id}.zip"
+    members = [
+        workdir / "augmentation_state.json",
+        workdir / "jobs.jsonl",
+        dataset_release / "manifest.csv",
+        dataset_release / "release_manifest.json",
+        release / "production_metrics.json",
+        dataset_release / "README.txt",
+        output_root / f"sam_copy_paste_delta_{run_id}.quality_report.json",
+        output_root / "production_summary.json",
+    ]
+    with zipfile.ZipFile(
+        archive_path, "w", compression=zipfile.ZIP_DEFLATED
+    ) as archive:
+        for member in members:
+            if not member.is_file():
+                raise FileNotFoundError(f"Missing audit artifact: {member}")
+            archive.write(member, member.relative_to(output_root))
+    return archive_path
 
 
 def render(args: argparse.Namespace) -> int:
@@ -359,6 +618,8 @@ def _build_grouped_jobs(
                 {
                     "synthetic_id": f"synth_{len(jobs):06d}",
                     "objects": objects,
+                    "background_frame_id": frame_id,
+                    "background_clip_id": slots_by_frame[frame_id][0].clip_id,
                     "lama_background": str(lama_images / f"{frame_id}.jpg"),
                     "base_label_lines": label_path.read_text(
                         encoding="utf-8"
@@ -495,6 +756,29 @@ def _parser() -> argparse.ArgumentParser:
     render_parser.add_argument("--jobs-jsonl", required=True)
     render_parser.add_argument("--output-dir", required=True)
     render_parser.set_defaults(handler=render)
+    production_parser = subparsers.add_parser("production", parents=[common])
+    production_parser.add_argument("--split-metadata", required=True)
+    production_parser.add_argument("--static-vehicles", required=True)
+    production_parser.add_argument("--labels-train", required=True)
+    production_parser.add_argument("--raw-images", required=True)
+    production_parser.add_argument("--lama-images", required=True)
+    production_parser.add_argument("--output-dir", required=True)
+    production_parser.add_argument("--run-id", required=True)
+    production_parser.add_argument("--sam-model", default="sam_b.pt")
+    production_parser.add_argument("--static-width", type=int, default=1920)
+    production_parser.add_argument("--static-height", type=int, default=1080)
+    production_parser.add_argument(
+        "--static-angles-in-radians", action="store_true", default=True
+    )
+    production_parser.add_argument("--max-source-tracks-per-class", type=int)
+    production_parser.add_argument("--max-objects-per-class", type=int)
+    production_parser.add_argument("--max-jobs", type=int)
+    production_parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Reuse a prepared jobs manifest from the same run ID.",
+    )
+    production_parser.set_defaults(handler=production)
     return parser
 
 
