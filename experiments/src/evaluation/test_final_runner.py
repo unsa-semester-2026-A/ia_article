@@ -107,3 +107,15 @@ def test_validation_manifest_rejects_empty_directory(tmp_path: Path) -> None:
         assert "no validation labels" in str(exc)
     else:
         raise AssertionError("an empty validation manifest must fail")
+
+
+def test_validation_manifest_limit_is_deterministic(tmp_path: Path) -> None:
+    labels = tmp_path / "val"
+    labels.mkdir()
+    for frame_id in ("clip_b_0000", "clip_a_0001", "clip_a_0000"):
+        (labels / f"{frame_id}.txt").touch()
+
+    assert validation_frame_ids(labels, max_frames=2) == {
+        "clip_a_0000",
+        "clip_a_0001",
+    }

@@ -79,6 +79,7 @@ class EvaluationConfig:
     token_path: Path | None = None
     batch_size: int = 16
     gpu_sample_interval_seconds: float = 2.0
+    max_frames: int | None = None
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, object]) -> "EvaluationConfig":
@@ -103,6 +104,7 @@ class EvaluationConfig:
             gpu_sample_interval_seconds=float(
                 raw.get("gpu_sample_interval_seconds", 2.0)
             ),
+            max_frames=(int(raw["max_frames"]) if raw.get("max_frames") else None),
         )
 
 
@@ -146,7 +148,7 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def validation_frame_ids(labels_dir: Path) -> set[str]:
+def validation_frame_ids(labels_dir: Path, max_frames: int | None = None) -> set[str]:
     """Use the immutable validation-label split as the anti-leakage manifest."""
     if not labels_dir.is_dir():
         raise FileNotFoundError(
@@ -157,7 +159,11 @@ def validation_frame_ids(labels_dir: Path) -> set[str]:
         raise ValueError(f"no validation labels found in {labels_dir}")
     for frame_id in frame_ids:
         split_frame_id(frame_id)
-    return frame_ids
+    if max_frames is None:
+        return frame_ids
+    if max_frames <= 0:
+        raise ValueError("max_frames must be positive when configured")
+    return set(sorted(frame_ids, key=split_frame_id)[:max_frames])
 
 
 def collect_validation_frame_paths(
@@ -334,6 +340,7 @@ def _package_result(
             "validation_labels_dir": str(config.validation_labels_dir),
             "ground_truth_csv": str(config.ground_truth_csv),
             "frame_count": len(raw_predictions),
+            "is_smoke_run": config.max_frames is not None,
         },
         "inference": {
             "confidence": INFERENCE_CONFIDENCE,
@@ -426,7 +433,7 @@ def run_final_evaluation(
     if config.batch_size <= 0:
         raise ValueError("batch_size must be positive")
     config.output_dir.mkdir(parents=True, exist_ok=True)
-    frame_ids = validation_frame_ids(config.validation_labels_dir)
+    frame_ids = validation_frame_ids(config.validation_labels_dir, config.max_frames)
     frame_paths_by_clip = collect_validation_frame_paths(config.images_dir, frame_ids)
     ground_truths = load_ground_truth_csv(config.ground_truth_csv, frame_ids)
     homographies_by_clip = {
