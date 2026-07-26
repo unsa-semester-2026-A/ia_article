@@ -18,6 +18,7 @@ class ICLightRequest:
     negative_prompt: str = "lowres, cropped, worst quality, artifacts"
     steps: int = 20
     cfg: float = 2.0
+    image_size: int = 512
 
 
 class ICLightClient:
@@ -90,8 +91,8 @@ class ICLightClient:
             "input_fg": str(request.foreground),
             "input_bg": str(request.background),
             "prompt": request.prompt,
-            "image_width": 512,
-            "image_height": 512,
+            "image_width": request.image_size,
+            "image_height": request.image_size,
             "num_samples": 1,
             "seed": request.seed,
             "steps": request.steps,

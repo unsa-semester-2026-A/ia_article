@@ -16,6 +16,7 @@ visual de iluminación, sombras y realismo sigue siendo una revisión humana.
 | `ValueError` vacío tras completar difusión | La cola/WebSocket de Gradio y la serialización de `Gallery` fallaban en el entorno Kaggle | Se desactiva la cola para la API local y el endpoint devuelve una sola `Image`. |
 | Error al enviar un crop RGBA | `run_rmbg` upstream exige exactamente tres canales | El alpha se usa solo para la geometría y se convierte BGRA→BGR antes de IC-Light. |
 | Métricas de GPU insuficientes | Las asignaciones de otros procesos no aparecen en métricas de PyTorch del proceso | Se muestrea `nvidia-smi` durante todo el lote y se conservan pico, media y muestras por GPU. |
+| Salida ampliada y borrosa en smoke a 256 px | La petición pedía a IC-Light 512 px, pero `undo_letterbox` recortaba usando la geometría de 256 px | `image_width` e `image_height` ahora usan el mismo `working_size` que el pre/postprocesado. |
 
 ## Evidencia que debe guardarse en cada prueba
 

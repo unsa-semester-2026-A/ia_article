@@ -105,6 +105,7 @@ def test_relight_variant_sends_three_channel_foreground_to_iclight(tmp_path: Pat
         def relight(self, request):
             received = cv2.imread(str(request.foreground), cv2.IMREAD_UNCHANGED)
             assert received is not None and received.shape[2] == 3
+            assert request.image_size == 256
             return generated
 
     foreground = np.zeros((360, 640, 4), dtype=np.uint8)

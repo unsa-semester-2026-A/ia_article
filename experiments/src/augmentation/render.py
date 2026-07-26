@@ -112,7 +112,13 @@ def relight_variant(
     cv2.imwrite(str(foreground_path), foreground_working)
     cv2.imwrite(str(background_input_path), background_working)
     generated = client.relight(
-        ICLightRequest(foreground_path, background_input_path, seed, steps=steps)
+        ICLightRequest(
+            foreground_path,
+            background_input_path,
+            seed,
+            steps=steps,
+            image_size=working_size,
+        )
     )
     result = cv2.imread(str(generated), cv2.IMREAD_COLOR)
     if result is None:
