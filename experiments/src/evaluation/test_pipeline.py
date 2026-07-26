@@ -93,6 +93,31 @@ class _FakeModel:
         ]
 
 
+class _ClassFilteringFakeModel(_FakeModel):
+    """Fake model that exposes the class restriction passed to Ultralytics."""
+
+    received_classes: list[int] | None = None
+
+    def predict(
+        self, source: list[NDArray[np.uint8]], **kwargs: object
+    ) -> list[_FakeResult]:
+        classes = kwargs.get("classes")
+        self.received_classes = list(classes) if isinstance(classes, list) else None
+        assert kwargs["conf"] == INFERENCE_CONFIDENCE
+        assert kwargs["batch"] == 2
+        assert kwargs["verbose"] is False
+        return [
+            _FakeResult(
+                _FakeOBB(
+                    np.asarray(((10.0, 20.0, 8.0, 4.0, math.pi / 2),)),
+                    np.asarray((0.75,)),
+                    np.asarray((10,), dtype=np.int64),
+                )
+            )
+            for _ in source
+        ]
+
+
 def test_split_and_group_frame_predictions() -> None:
     """Recover clip IDs and preserve every source detection."""
     assert split_frame_id("v_demo_0042") == ("v_demo", 42)
@@ -156,6 +181,23 @@ def test_infer_clip_reuses_supplied_shared_homographies() -> None:
     _, returned = infer_clip(_FakeModel(), frames, batch_size=2, homographies=shared)
 
     assert returned is shared
+
+
+def test_infer_clip_can_restrict_model_classes_before_adaptation() -> None:
+    """Zero-shot DOTA runs must exclude non-vehicle classes at inference time."""
+    model = _ClassFilteringFakeModel()
+    frames = {"clip_0000": np.zeros((64, 64, 3), dtype=np.uint8)}
+
+    predictions, _ = infer_clip(
+        model,
+        frames,
+        batch_size=2,
+        class_id_map={10: 1, 9: 7},
+        allowed_model_class_ids=(10, 9),
+    )
+
+    assert model.received_classes == [9, 10]
+    assert predictions["clip_0000"][0].class_id == 1
 
 
 def test_ground_truth_parser_and_csv_loader(tmp_path: Path) -> None:

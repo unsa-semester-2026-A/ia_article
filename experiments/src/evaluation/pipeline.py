@@ -74,6 +74,7 @@ class YoloModelLike(Protocol):
         conf: float,
         batch: int,
         verbose: bool,
+        classes: Sequence[int] | None = None,
     ) -> Sequence[YoloResultLike]:
         """Run OBB inference over an ordered image batch."""
         ...
@@ -185,6 +186,7 @@ def infer_clip(
     batch_size: int = 16,
     confidence: float = INFERENCE_CONFIDENCE,
     class_id_map: Mapping[int, int] = INTERNAL_TO_OFFICIAL_CLASS_IDS,
+    allowed_model_class_ids: Sequence[int] | None = None,
     homographies: HomographiesByFrame | None = None,
 ) -> tuple[PredictionsByFrame, HomographiesByFrame]:
     """Run batch OBB inference and return model-independent homographies.
@@ -207,14 +209,17 @@ def infer_clip(
     if not images:
         return {}, {}
 
-    results = list(
-        model.predict(
-            images,
-            conf=confidence,
-            batch=batch_size,
-            verbose=False,
-        )
-    )
+    prediction_kwargs: dict[str, object] = {
+        "conf": confidence,
+        "batch": batch_size,
+        "verbose": False,
+    }
+    if allowed_model_class_ids is not None:
+        allowed = sorted({int(class_id) for class_id in allowed_model_class_ids})
+        if not allowed:
+            raise ValueError("allowed_model_class_ids must not be empty")
+        prediction_kwargs["classes"] = allowed
+    results = list(model.predict(images, **prediction_kwargs))
     if len(results) != len(images):
         raise ValueError("YOLO must return exactly one result per input frame")
 

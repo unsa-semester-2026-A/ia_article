@@ -47,7 +47,21 @@ def test_default_conditions_include_known_f1_weights() -> None:
     conditions = {item.name: item for item in default_conditions()}
     assert conditions["Base 1"].checkpoint_name == "f1_c1_best.pt"
     assert conditions["Mejora A"].checkpoint_name == "f1_c3_best.pt"
-    assert conditions["Base 0"].enabled is False
+    assert conditions["Base 0"].class_id_map == {10: 1, 9: 7}
+    assert conditions["Base 0"].allow_model_download is True
+
+
+def test_condition_spec_normalizes_json_dota_mapping() -> None:
+    spec = ConditionSpec.from_mapping(
+        {
+            "name": "Base 0",
+            "result_folder_id": "result-folder",
+            "local_weights": "yolo26s-obb.pt",
+            "allow_model_download": True,
+            "class_id_map": {"10": 1, "9": 7},
+        }
+    )
+    assert spec.class_id_map == {10: 1, 9: 7}
 
 
 def test_final_runner_packages_complete_local_condition(tmp_path: Path) -> None:

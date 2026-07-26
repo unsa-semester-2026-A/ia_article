@@ -31,6 +31,7 @@ from src.evaluation.metric import CLASS_IDS, RIOU_THRESHOLDS
 from src.evaluation.motion_filter import Detection
 from src.evaluation.pipeline import (
     INFERENCE_CONFIDENCE,
+    INTERNAL_TO_OFFICIAL_CLASS_IDS,
     PipelineEvaluation,
     estimate_clip_homographies,
     evaluate_dataset,
@@ -52,6 +53,8 @@ class ConditionSpec:
     checkpoint_folder_id: str | None = None
     checkpoint_name: str | None = None
     local_weights: str | None = None
+    allow_model_download: bool = False
+    class_id_map: dict[int, int] | None = None
     enabled: bool = True
 
     @classmethod
@@ -63,6 +66,8 @@ class ConditionSpec:
             checkpoint_folder_id=_optional_str(raw.get("checkpoint_folder_id")),
             checkpoint_name=_optional_str(raw.get("checkpoint_name")),
             local_weights=_optional_str(raw.get("local_weights")),
+            allow_model_download=bool(raw.get("allow_model_download", False)),
+            class_id_map=_class_id_map(raw.get("class_id_map")),
             enabled=bool(raw.get("enabled", True)),
         )
 
@@ -112,10 +117,30 @@ def _optional_str(value: object) -> str | None:
     return str(value) if value not in (None, "") else None
 
 
+def _class_id_map(value: object) -> dict[int, int] | None:
+    """Normalize an optional JSON class map into official SMART class IDs."""
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError("class_id_map must be a JSON object")
+    normalized = {int(key): int(item) for key, item in value.items()}
+    if not normalized or any(
+        class_id not in CLASS_IDS for class_id in normalized.values()
+    ):
+        raise ValueError("class_id_map values must be official IDs from 1 through 9")
+    return normalized
+
+
 def default_conditions() -> tuple[ConditionSpec, ...]:
     """Return the known F1 destinations; unavailable weights are skipped safely."""
     return (
-        ConditionSpec("Base 0", "1qgkdNe8_3IbeNlf7u-8NNvh9whLIR-WB", enabled=False),
+        ConditionSpec(
+            "Base 0",
+            "1qgkdNe8_3IbeNlf7u-8NNvh9whLIR-WB",
+            local_weights="yolo26s-obb.pt",
+            allow_model_download=True,
+            class_id_map={10: 1, 9: 7},
+        ),
         ConditionSpec(
             "Base 1",
             "1Roazcv3c72jGmGy2M0nrlx5kL75-BY3m",
@@ -237,6 +262,39 @@ def _latency_summary(
             "std_ms": float(np.std(values)) if len(values) else 0.0,
         }
     return summary
+
+
+def _reset_torch_cuda_peak() -> None:
+    """Reset PyTorch's per-process peak after one model is loaded."""
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats()
+    except (ImportError, RuntimeError):
+        pass
+
+
+def _torch_cuda_memory_metrics() -> dict[str, float | bool]:
+    """Record the process-local CUDA peak missed by sparse nvidia-smi polling."""
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            return {
+                "available": True,
+                "allocated_mib": round(torch.cuda.memory_allocated() / (1024**2), 1),
+                "reserved_mib": round(torch.cuda.memory_reserved() / (1024**2), 1),
+                "peak_allocated_mib": round(
+                    torch.cuda.max_memory_allocated() / (1024**2), 1
+                ),
+                "peak_reserved_mib": round(
+                    torch.cuda.max_memory_reserved() / (1024**2), 1
+                ),
+            }
+    except (ImportError, RuntimeError):
+        pass
+    return {"available": False}
 
 
 def _serialize_predictions(
@@ -410,7 +468,7 @@ def _resolve_weight(
         return None
     if condition.local_weights:
         path = Path(condition.local_weights)
-        if not path.is_file():
+        if not path.is_file() and not condition.allow_model_download:
             raise FileNotFoundError(f"local checkpoint does not exist: {path}")
         return path
     if (
@@ -443,7 +501,11 @@ def run_final_evaluation(
     }
     io_manager = (
         IOManager(config.token_path)
-        if any(item.checkpoint_folder_id for item in config.conditions if item.enabled)
+        if config.token_path
+        and any(
+            item.enabled and (item.checkpoint_folder_id or item.result_folder_id)
+            for item in config.conditions
+        )
         else None
     )
     if model_loader is None:
@@ -463,6 +525,11 @@ def run_final_evaluation(
             skipped[condition.name] = "disabled or checkpoint not configured/available"
             continue
         timing_model = _TimingModel(model_loader(weight_path))
+        if not weight_path.is_file():
+            raise FileNotFoundError(
+                f"model loader did not materialize expected weight file: {weight_path}"
+            )
+        _reset_torch_cuda_peak()
         sampler = GpuSampler(config.gpu_sample_interval_seconds)
         sampler.start()
         started = time.perf_counter()
@@ -476,6 +543,14 @@ def run_final_evaluation(
                     timing_model,
                     clip_frames,
                     config.batch_size,
+                    class_id_map=(
+                        condition.class_id_map or INTERNAL_TO_OFFICIAL_CLASS_IDS
+                    ),
+                    allowed_model_class_ids=(
+                        tuple(condition.class_id_map)
+                        if condition.class_id_map is not None
+                        else None
+                    ),
                     homographies=homographies_by_clip[clip_id],
                 )
         finally:
@@ -495,6 +570,7 @@ def run_final_evaluation(
             "peak_cpu_ram_gb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
             / (1024 * 1024),
             "gpu_sampling": gpu_sampling,
+            "torch_cuda_memory": _torch_cuda_memory_metrics(),
             "latency": _latency_summary(timing_model.speed_samples),
         }
         checksum = sha256_file(weight_path)
