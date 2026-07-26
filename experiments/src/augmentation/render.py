@@ -80,8 +80,20 @@ def relight_variant(
     background_path: Path,
     output_path: Path,
     seed: int,
+    *,
+    working_size: int = 512,
+    steps: int = 20,
 ) -> Path:
-    """Relight one composited foreground against one Raw or LaMa background."""
+    """Relight one composited foreground against one Raw or LaMa background.
+
+    ``working_size`` and ``steps`` make the inexpensive integration smoke path
+    explicit without weakening the 512-pixel, 20-step production defaults.
+    IC-Light requires dimensions divisible by 64.
+    """
+    if working_size < 64 or working_size % 64:
+        raise ValueError("working_size must be a positive multiple of 64")
+    if steps < 1:
+        raise ValueError("steps must be at least 1")
     background = cv2.imread(str(background_path), cv2.IMREAD_COLOR)
     if background is None:
         raise FileNotFoundError(f"Background not found: {background_path}")
@@ -91,16 +103,16 @@ def relight_variant(
     # alpha layer has already served its purpose in the geometric warp above;
     # transparent pixels become the black canvas expected by the demo.
     foreground_bgr = cv2.cvtColor(foreground_bgra, cv2.COLOR_BGRA2BGR)
-    background_512, geometry = letterbox(background)
-    foreground_512, _ = letterbox(foreground_bgr)
+    background_working, geometry = letterbox(background, size=working_size)
+    foreground_working, _ = letterbox(foreground_bgr, size=working_size)
     temp_dir = output_path.parent / ".iclight_inputs"
     temp_dir.mkdir(parents=True, exist_ok=True)
     foreground_path = temp_dir / f"{output_path.stem}_fg.png"
     background_input_path = temp_dir / f"{output_path.stem}_bg.png"
-    cv2.imwrite(str(foreground_path), foreground_512)
-    cv2.imwrite(str(background_input_path), background_512)
+    cv2.imwrite(str(foreground_path), foreground_working)
+    cv2.imwrite(str(background_input_path), background_working)
     generated = client.relight(
-        ICLightRequest(foreground_path, background_input_path, seed)
+        ICLightRequest(foreground_path, background_input_path, seed, steps=steps)
     )
     result = cv2.imread(str(generated), cv2.IMREAD_COLOR)
     if result is None:

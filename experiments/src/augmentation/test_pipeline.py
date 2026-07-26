@@ -109,4 +109,15 @@ def test_relight_variant_sends_three_channel_foreground_to_iclight(tmp_path: Pat
 
     foreground = np.zeros((360, 640, 4), dtype=np.uint8)
     foreground[100:200, 200:300] = (20, 40, 60, 255)
-    assert relight_variant(RecordingClient(), foreground, background, output, seed=7) == output
+    assert (
+        relight_variant(
+            RecordingClient(),
+            foreground,
+            background,
+            output,
+            seed=7,
+            working_size=256,
+            steps=2,
+        )
+        == output
+    )
