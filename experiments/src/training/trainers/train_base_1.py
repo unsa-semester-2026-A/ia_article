@@ -838,12 +838,16 @@ names:
         hyperparams["data"] = str(data_yaml)
         hyperparams["project"] = str(output_dir)
         hyperparams["name"] = self.run_name
-        # A recipe that sets its own checkpoint cadence wins over the config: a
-        # smoke run needs to save every epoch to exercise the sync callback.
-        save_period: int = int(
+        # ``save_period`` has two distinct meanings here.  Drive synchronization
+        # should happen every N completed epochs, while Ultralytics must invoke
+        # ``on_model_save`` every epoch so the callback can observe an exact
+        # one-based epoch number.  Ultralytics' internal counter is zero-based;
+        # using the same N for both otherwise shifts saves to 1, N+1, 2N+1 ...
+        # and the callback rejects every intermediate checkpoint.
+        drive_sync_period: int = int(
             hyperparams.get("save_period") or self.config.get("save_period", 5)
         )
-        hyperparams["save_period"] = save_period
+        hyperparams["save_period"] = 1 if checkpoints_folder_id else drive_sync_period
 
         # 3. Resume only from a checkpoint that belongs to this run.
         #
@@ -912,7 +916,7 @@ names:
             )  # 0-indexed -> 1-indexed
             is_final = current_epoch >= total_epochs
 
-            if current_epoch % save_period != 0 and not is_final:
+            if current_epoch % drive_sync_period != 0 and not is_final:
                 return
 
             try:

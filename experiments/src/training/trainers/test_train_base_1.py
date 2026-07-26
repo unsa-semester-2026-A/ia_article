@@ -408,7 +408,7 @@ def test_smoke_run_keeps_the_production_recipe(
 @patch.object(Base1Trainer, "prepare_dataset")
 @patch.object(Base1Trainer, "parse_results_csv")
 @patch("src.training.trainers.train_base_1.IOManager")
-def test_smoke_save_period_survives_the_config(
+def test_checkpoint_callback_is_invoked_each_epoch_for_drive_sync(
     mock_io_manager: MagicMock,
     mock_parse: MagicMock,
     mock_prepare: MagicMock,
@@ -417,12 +417,12 @@ def test_smoke_save_period_survives_the_config(
     config: dict[str, Any],
     tmp_path: Path,
 ) -> None:
-    """White Box: The smoke cadence of 1 epoch must not be overridden by config."""
+    """Drive sync cadence must not suppress Ultralytics model-save callbacks."""
     mock_prepare.return_value = tmp_path / "data.yaml"
     mock_detect_device.return_value = "0,1"
     mock_parse.return_value = {"total_epochs_completed": 3}
 
-    trainer = Base1Trainer({**config, "smoke_test": True, "save_period": 5})
+    trainer = Base1Trainer({**config, "smoke_test": False, "save_period": 5})
     trainer.execute()
 
     assert mock_yolo.return_value.train.call_args.kwargs["save_period"] == 1
