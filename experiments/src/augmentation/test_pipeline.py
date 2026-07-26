@@ -65,8 +65,43 @@ def test_collect_slots_excludes_validation_and_real_overlap(tmp_path: Path) -> N
     static_json = tmp_path / "static.json"
     static_json.write_text(json.dumps(slots))
     builder = SyntheticDatasetBuilder(AugmentationConfig())
-    found = builder.collect_slots(static_json, builder.train_clip_ids(metadata), labels)
+    found = builder.collect_slots(
+        static_json,
+        builder.train_clip_ids(metadata),
+        labels,
+        source_width=640,
+        source_height=360,
+    )
     assert [slot.slot_id for slot in found] == ["v_train_0000:0"]
+
+
+def test_collect_slots_converts_smart_static_coordinates_and_radians(
+    tmp_path: Path,
+) -> None:
+    """1920x1080/radian pseudo slots align with the 640x360 train frame."""
+    metadata = tmp_path / "metadata.csv"
+    pd.DataFrame({"clip_id": ["v_train"], "split": ["train"]}).to_csv(
+        metadata, index=False
+    )
+    labels = tmp_path / "labels"
+    labels.mkdir()
+    labels.joinpath("v_train_0000.txt").write_text("")
+    static_json = tmp_path / "static.json"
+    static_json.write_text(
+        json.dumps(
+            {"v_train_0000": [{"cx": 960, "cy": 540, "w": 300, "h": 150, "angle": 0.0}]}
+        )
+    )
+    found = SyntheticDatasetBuilder(AugmentationConfig()).collect_slots(
+        static_json,
+        {"v_train"},
+        labels,
+        source_width=1920,
+        source_height=1080,
+        angles_in_radians=True,
+    )
+    assert len(found) == 1
+    assert OBB(-1, found[0].points).centroid == (320.0, 180.0)
 
 
 def test_package_full_dataset_is_self_contained_and_reports_checksum(

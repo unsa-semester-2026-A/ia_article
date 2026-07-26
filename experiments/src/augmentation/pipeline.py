@@ -227,9 +227,24 @@ class SyntheticDatasetBuilder:
         return set(metadata.loc[metadata["split"] == "train", "clip_id"])
 
     def collect_slots(
-        self, static_json_path: Path, train_clips: set[str], labels_dir: Path
+        self,
+        static_json_path: Path,
+        train_clips: set[str],
+        labels_dir: Path,
+        *,
+        source_width: int = FRAME_WIDTH,
+        source_height: int = FRAME_HEIGHT,
+        angles_in_radians: bool = False,
     ) -> list[StaticSlot]:
-        """Load safe stationary slots with no overlap against real train boxes."""
+        """Load safe stationary slots with no overlap against real train boxes.
+
+        The static-vehicle file is produced before resized SMART frames and is
+        therefore expressed at its source resolution (1920x1080 in production)
+        with YOLO OBB angles in radians.  Converting here aligns the slots with
+        the 640x360 train labels before any geometric rejection occurs.
+        """
+        if source_width <= 0 or source_height <= 0:
+            raise ValueError("Static-slot source dimensions must be positive")
         static_map = json.loads(static_json_path.read_text(encoding="utf-8"))
         slots: list[StaticSlot] = []
         for frame_id, raw_slots in static_map.items():
@@ -239,7 +254,12 @@ class SyntheticDatasetBuilder:
             labels_path = labels_dir / f"{frame_id}.txt"
             real_boxes = load_yolo_obb(labels_path) if labels_path.exists() else []
             for index, raw_slot in enumerate(raw_slots):
-                points = self._points_from_parametric_slot(raw_slot)
+                points = self._points_from_parametric_slot(
+                    raw_slot,
+                    scale_x=FRAME_WIDTH / source_width,
+                    scale_y=FRAME_HEIGHT / source_height,
+                    angles_in_radians=angles_in_radians,
+                )
                 slot_box = OBB(class_id=-1, points=points)
                 if is_inside_frame(slot_box) and not any(
                     polygon_overlap(slot_box, box) > 0 for box in real_boxes
@@ -379,12 +399,16 @@ class SyntheticDatasetBuilder:
     @staticmethod
     def _points_from_parametric_slot(
         raw_slot: dict[str, float],
+        *,
+        scale_x: float = 1.0,
+        scale_y: float = 1.0,
+        angles_in_radians: bool = False,
     ) -> tuple[tuple[float, float], ...]:
         """Convert pseudo-label xywhr fields to a four-corner polygon."""
         cx, cy, width, height, angle = (
             raw_slot[key] for key in ("cx", "cy", "w", "h", "angle")
         )
-        radians = math.radians(float(angle))
+        radians = float(angle) if angles_in_radians else math.radians(float(angle))
         rotation = np.array(
             [
                 [math.cos(radians), -math.sin(radians)],
@@ -401,6 +425,7 @@ class SyntheticDatasetBuilder:
             dtype=np.float32,
         )
         points = local @ rotation.T + np.array([cx, cy])
+        points *= np.array([scale_x, scale_y])
         return tuple((float(x), float(y)) for x, y in points)
 
     def package_full_dataset(

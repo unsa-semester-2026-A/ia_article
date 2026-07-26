@@ -48,6 +48,20 @@ def prepare(args: argparse.Namespace) -> int:
     workdir = Path(args.workdir)
     workdir.mkdir(parents=True, exist_ok=True)
     train_clips = builder.train_clip_ids(Path(args.split_metadata))
+    slots = builder.collect_slots(
+        Path(args.static_vehicles),
+        train_clips,
+        Path(args.labels_train),
+        source_width=args.static_width,
+        source_height=args.static_height,
+        angles_in_radians=args.static_angles_in_radians,
+    )
+    if not slots:
+        raise ValueError(
+            "No safe static slots after coordinate conversion and overlap checks. "
+            "Inspect static-slot resolution, angle unit, split, and labels before running SAM."
+        )
+    print(f"Collected {len(slots)} safe static slots before SAM extraction")
     source_limits = args.max_source_tracks_per_class
     if source_limits is None:
         source_limits = _production_source_limits(
@@ -61,9 +75,6 @@ def prepare(args: argparse.Namespace) -> int:
         workdir / "crops",
         masker=SamBoxMasker(args.sam_model),
         max_tracks_per_class=source_limits,
-    )
-    slots = builder.collect_slots(
-        Path(args.static_vehicles), train_clips, Path(args.labels_train)
     )
     track_counts: dict[int, int] = {}
     for crop in crops:
@@ -441,6 +452,14 @@ def _parser() -> argparse.ArgumentParser:
     prepare_parser.add_argument("--lama-images", required=True)
     prepare_parser.add_argument("--workdir", required=True)
     prepare_parser.add_argument("--sam-model", default="sam_b.pt")
+    prepare_parser.add_argument("--static-width", type=int, default=1920)
+    prepare_parser.add_argument("--static-height", type=int, default=1080)
+    prepare_parser.add_argument(
+        "--static-angles-in-radians",
+        action="store_true",
+        default=True,
+        help="Interpret static_vehicles.json OBB angles as radians (SMART default).",
+    )
     prepare_parser.add_argument(
         "--max-source-tracks-per-class",
         type=int,
