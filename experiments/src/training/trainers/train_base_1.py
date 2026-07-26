@@ -398,6 +398,12 @@ class Base1Trainer(BaseTrainingPipeline):
             "raw_images_dir": raw_images_dir,
             "lama_images_dir": lama_images_dir,
             "resized_zip_path": self.config.get("resized_zip_path", ""),
+            "augmentation_delta_images_dir": self.config.get(
+                "augmentation_delta_images_dir", ""
+            ),
+            "augmentation_delta_labels_dir": self.config.get(
+                "augmentation_delta_labels_dir", ""
+            ),
         }
 
     IMAGE_EXTENSIONS = (".jpg", ".png", ".jpeg", ".JPG", ".PNG")
@@ -716,6 +722,13 @@ class Base1Trainer(BaseTrainingPipeline):
                     )
                     print(f"[{self.run_name}]   {split}: {linked} images", flush=True)
 
+        self._link_augmentation_delta(
+            images_dest=images_dest,
+            labels_dest=labels_dest,
+            images_source=Path(dataset_config["augmentation_delta_images_dir"]),
+            labels_source=Path(dataset_config["augmentation_delta_labels_dir"]),
+        )
+
         # Generate smart_dataset.yaml if not already present
         if not data_yaml.exists():
             data_yaml.parent.mkdir(parents=True, exist_ok=True)
@@ -739,6 +752,59 @@ names:
             print(f"[Base1Trainer] ✅ Generated smart_dataset.yaml at {data_yaml}")
 
         return data_yaml
+
+    @classmethod
+    def _link_augmentation_delta(
+        cls,
+        *,
+        images_dest: Path,
+        labels_dest: Path,
+        images_source: Path,
+        labels_source: Path,
+    ) -> int:
+        """Link a compact synthetic train delta without duplicating base data.
+
+        The delta must have matching image/label stems and must not shadow a
+        real training frame.  Validation deliberately remains untouched.
+        """
+        if not images_source.name and not labels_source.name:
+            return 0
+        if not images_source.is_dir() or not labels_source.is_dir():
+            raise FileNotFoundError(
+                "Augmentation delta image and label directories are required"
+            )
+        image_stems = cls._image_stems(images_source)
+        label_stems = {path.stem for path in labels_source.glob("*.txt")}
+        if image_stems != label_stems:
+            raise ValueError("Augmentation delta image/label stems do not match")
+        image_destination = images_dest / "train"
+        label_destination = labels_dest / "train"
+        image_destination.mkdir(parents=True, exist_ok=True)
+        label_destination.mkdir(parents=True, exist_ok=True)
+        collisions = image_stems & {
+            path.stem for path in label_destination.glob("*.txt")
+        }
+        if collisions:
+            raise ValueError(
+                f"Augmentation delta collides with real stems: {sorted(collisions)[:3]}"
+            )
+        for stem in sorted(image_stems):
+            image = next(
+                images_source / f"{stem}{extension}"
+                for extension in cls.IMAGE_EXTENSIONS
+                if (images_source / f"{stem}{extension}").exists()
+            )
+            for source, destination in (
+                (image, image_destination / image.name),
+                (labels_source / f"{stem}.txt", label_destination / f"{stem}.txt"),
+            ):
+                try:
+                    destination.symlink_to(source)
+                except OSError:
+                    shutil.copy2(source, destination)
+        if image_stems:
+            print(f"[Base1Trainer] Linked {len(image_stems)} augmentation-delta images")
+        return len(image_stems)
 
     # ===================================================================
     # Health Check (Extended)

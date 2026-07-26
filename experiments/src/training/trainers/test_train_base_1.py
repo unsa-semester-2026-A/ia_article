@@ -660,6 +660,30 @@ def test_image_stems_accepts_case_insensitive_extensions(tmp_path: Path) -> None
     assert Base1Trainer._image_stems(tmp_path) == {"a", "b"}
 
 
+def test_link_augmentation_delta_adds_train_only_pairs(tmp_path: Path) -> None:
+    """A compact delta extends training without modifying validation files."""
+    image_source = tmp_path / "delta" / "images"
+    label_source = tmp_path / "delta" / "labels"
+    image_source.mkdir(parents=True)
+    label_source.mkdir(parents=True)
+    (image_source / "synth_000.jpg").write_bytes(b"image")
+    (label_source / "synth_000.txt").write_text("1 0 0 1 0 1 1 0 1\n")
+    images_destination = tmp_path / "workspace" / "images"
+    labels_destination = tmp_path / "workspace" / "labels"
+
+    linked = Base1Trainer._link_augmentation_delta(
+        images_dest=images_destination,
+        labels_dest=labels_destination,
+        images_source=image_source,
+        labels_source=label_source,
+    )
+
+    assert linked == 1
+    assert (images_destination / "train" / "synth_000.jpg").exists()
+    assert (labels_destination / "train" / "synth_000.txt").exists()
+    assert not (images_destination / "val").exists()
+
+
 def test_report_gpu_usage_flags_single_gpu_fallback(trainer: Base1Trainer) -> None:
     """Black Box: Requesting two GPUs but engaging one must not pass silently."""
     trainer.config["expected_gpus"] = 2

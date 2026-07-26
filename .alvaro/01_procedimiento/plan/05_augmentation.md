@@ -1,12 +1,17 @@
-# Fase 2: Aumentación Generativa de Clases Minoritarias (05_augmentation.md)
+# Fase 2: Aumentación Semántica de Clases Minoritarias (05_augmentation.md)
 
-Este documento define una política reproducible para inyectar vehículos sintéticos armonizados con **IC-Light**. La síntesis complementa datos reales: no reemplaza el conjunto real ni modifica la validación.
+Este documento define una política reproducible para inyectar vehículos reales
+recortados con máscara semántica (SAM) y compuestos directamente sobre fondos
+LaMa. Se descartó IC-Light como parte del lote de producción: las pruebas de
+humo mostraron que su difusión de cuadro completo podía introducir parches grises
+y deformar el vehículo. La síntesis complementa datos reales: no reemplaza el
+conjunto real ni modifica la validación.
 
 ---
 
 ## 1. Objetivo
 
-Mitigar el desbalance extremo del dataset SMART sin convertir la distribución de entrenamiento en una colección de copias sintéticas. Cada vehículo se compone sobre un fondo de entrenamiento limpiado con LaMa, en una posición previamente ocupada por un vehículo estacionado, y se re-ilumina con IC-Light.
+Mitigar el desbalance extremo del dataset SMART sin convertir la distribución de entrenamiento en una colección de copias sintéticas. Cada vehículo se compone sobre un fondo de entrenamiento limpiado con LaMa, en una posición previamente ocupada por un vehículo estacionado. Los píxeles fuera de la máscara del vehículo son idénticos a los del fondo LaMa.
 
 El resultado se usa en dos condiciones: **Mejora B** añade sintéticos a datos crudos y **Mejora C** los añade a datos LaMa. Ambas usan exactamente el mismo manifiesto de instancias sintéticas aceptadas; solo cambia el contenido de píxeles del conjunto base.
 
@@ -31,9 +36,20 @@ Los fondos también provienen solo de **train**. Un candidato debe tener una pos
 
 Cada composición contiene de uno a tres objetos sintéticos, como máximo uno por clase y nunca dos veces el mismo track_id. El número de imágenes sintéticas se deriva de la asignación final; no se fija de forma arbitraria en 400.
 
-### 2.3 Armonización y control geométrico
+### 2.3 Máscara semántica, composición y control geométrico
 
-IC-Light (iclight_sd15_fbc.safetensors) recibe la composición y máscara a 512×512 con el prompt "outdoor urban road, daylight, traffic, aerial view"; la salida vuelve a 640×360 mediante Lanczos. La etiqueta YOLO-OBB se transforma con la misma escala, rotación y flip del crop.
+SAM recibe la OBB solo como *prompt* de caja; la OBB no se reutiliza como alfa.
+Se aceptan únicamente máscaras de un componente que no invadan otra OBB
+anotada. El crop RGBA se transforma con la homografía de la plaza y se mezcla
+con un feather de 1 px, sin alterar el resto del fondo. La etiqueta YOLO-OBB se
+transforma con la misma homografía.
+
+Para reducir una diferencia de iluminación o textura excesiva sin generar
+píxeles nuevos, se prefieren pares crop–plaza con distancia baja entre los
+anillos locales CIELAB. Esa distancia ordena candidatos; no es una prueba de
+realismo. Un detector Base 1 congelado puede usarse después como filtro
+contrafactual: la detección del objeto debe aumentar frente al mismo fondo LaMa
+sin insertar. No valida la máscara ni demuestra por sí solo la validez visual.
 
 Antes de aceptar una composición se verifica que no haya borde alfa visible, que la OBB quede dentro de la imagen y que no invada una instancia real. La geometría y el fondo real son esenciales: trabajos de composición controlada muestran que el alineamiento objeto-región y la coherencia visual son condiciones necesarias para que datos generativos sean útiles, no solo imágenes plausibles.
 
@@ -104,12 +120,17 @@ Las composiciones que fallen se descartan. Entre las restantes se ordenan por p�
 
 El presupuesto final se selecciona mediante un piloto reproducible de 25%, 50% y 100% de \(S_c^{\mathrm{sol}}\). Para no optimizar contra el val oficial, se reserva antes un **calibration split** fijo: 10% de los clips de train, con seed 42, sin fuga de clips hacia el train del piloto. Los crops, fondos y el score de presupuesto del piloto usan únicamente ese train/calibration interno. Solo el presupuesto con mejor Macro AP-rIoU promedio de las cinco clases elegibles pasa a Mejora B y Mejora C; recién entonces el entrenamiento final vuelve a usar todo train y se evalúa una sola vez sobre el val real oficial.
 
+La ejecución empieza con una demo acotada (hasta 10 tracks fuente por clase,
+dos inserciones por clase y 10 fondos). Si la inspección visual y los chequeos
+automáticos pasan, producción usa los mismos manifiestos y política, sin
+reprocesar los archivos base.
+
 ---
 
 ## 4. Estructura del dataset
 
 ~~~
-synthetic_augmented/
+sam_copy_paste_delta_<run_id>/
 ├── images/
 │   ├── v_synth_0000.jpg
 │   └── ... (cantidad derivada de §3)
@@ -118,10 +139,13 @@ synthetic_augmented/
 │   └── ...
 └── manifest.csv
     # synthetic_id, class, source_track_id, source_clip, background_id,
-    # slot_id, transform_seed, detector_score, obb_iou, accepted
+    # slot_id, transform_seed, mask_score, lab_ring_distance, accepted
 ~~~
 
-Las condiciones B y C consumen el mismo manifest.csv. Así se aísla el efecto de LaMa respecto de la síntesis.
+Se empaqueta solo este delta (images/train, labels/train y manifest), no dos
+copias de 3 GB del conjunto base. B enlaza el delta a su base cruda y C enlaza
+el mismo delta a su base LaMa; así se aísla el efecto de LaMa respecto de la
+síntesis.
 
 ---
 
@@ -131,10 +155,13 @@ Las condiciones B y C consumen el mismo manifest.csv. Así se aísla el efecto d
 - [ ] Ninguna clase supera 50% de instancias sintéticas finales ni diez usos por track_id.
 - [ ] Solo clases con \(p_c<2\%\) reciben síntesis; las demás quedan reales.
 - [ ] Los casos con \(U_c<5\) se etiquetan como insuficientes, no se rellenan repitiendo vehículos.
-- [ ] Todo sintético aceptado pasa clase, confianza e IoU OBB de §3.4.
+- [ ] Toda máscara aceptada es de un componente, no invade otra OBB y el fondo
+      queda bit a bit igual fuera de su soporte alfa.
 - [ ] La selección mantiene estratos de escala, ángulo y fondo; no hay fuga desde validación.
 - [ ] El presupuesto 25/50/100% y el AP por clase quedan registrados junto a la semilla, el manifiesto y el calibration split por clip; el val oficial no decide el presupuesto.
-- [ ] IC-Light completa el lote sin OOM; una auditoría visual verifica máscara, sombras y ausencia de daño a vehículos reales.
+- [ ] Una auditoría visual revisa máscara, escala, bordes y ausencia de daño a
+      vehículos reales; IC-Light queda documentado como trabajo futuro, no como
+      requisito del lote.
 
 ---
 
