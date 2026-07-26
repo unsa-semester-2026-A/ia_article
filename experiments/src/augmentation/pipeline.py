@@ -14,7 +14,7 @@ import math
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Mapping, Protocol
 
 import cv2
 import numpy as np
@@ -93,6 +93,15 @@ class AugmentationConfig:
             raise ValueError("reuse_cap must be one of 1, 2, 5 or 10")
         if self.budget_fraction not in {0.25, 0.5, 1.0}:
             raise ValueError("budget_fraction must be 0.25, 0.5 or 1.0")
+
+
+class SemanticMasker(Protocol):
+    """Minimal segmentation interface used by crop extraction."""
+
+    def predict(
+        self, image: np.ndarray, box_xyxy: tuple[int, int, int, int]
+    ) -> list[object]:
+        """Return semantic-mask candidates for one source image."""
 
 
 def split_frame_id(frame_id: str) -> tuple[str, int]:
@@ -241,9 +250,20 @@ class SyntheticDatasetBuilder:
         return slots
 
     def extract_track_crops(
-        self, images_dir: Path, labels_dir: Path, train_clips: set[str], crops_dir: Path
-    ) -> tuple[list[CropCandidate], dict[int, int]]:
-        """Link same-class observations by clip and keep one high-quality crop/track."""
+        self,
+        images_dir: Path,
+        labels_dir: Path,
+        train_clips: set[str],
+        crops_dir: Path,
+        *,
+        masker: SemanticMasker | None = None,
+        max_tracks_per_class: int | Mapping[int, int] | None = None,
+    ) -> tuple[list[CropCandidate], dict[int, int], dict[str, int]]:
+        """Link same-class observations and persist only semantic RGBA crops.
+
+        Passing ``masker`` is mandatory for production callers.  The legacy OBB
+        crop remains available only for backward-compatible CPU tests.
+        """
         observations: dict[str, list[tuple[str, OBB]]] = {}
         real_counts: dict[int, int] = {}
         active: dict[tuple[str, int], list[tuple[str, int, tuple[float, float]]]] = {}
@@ -281,8 +301,23 @@ class SyntheticDatasetBuilder:
                 ] + [(track_id, frame_index, centre)]
                 observations.setdefault(track_id, []).append((frame_id, box))
         selected: list[CropCandidate] = []
+        rejections: dict[str, int] = {}
+        attempted_by_class: dict[int, int] = {}
         for track_id, items in sorted(observations.items()):
             frame_id, box = max(items, key=lambda item: item[1].area)
+            class_limit = (
+                max_tracks_per_class.get(box.class_id, 0)
+                if isinstance(max_tracks_per_class, Mapping)
+                else max_tracks_per_class
+            )
+            if (
+                class_limit is not None
+                and attempted_by_class.get(box.class_id, 0) >= class_limit
+            ):
+                continue
+            attempted_by_class[box.class_id] = (
+                attempted_by_class.get(box.class_id, 0) + 1
+            )
             image_path = next(
                 (
                     images_dir / f"{frame_id}{ext}"
@@ -300,13 +335,46 @@ class SyntheticDatasetBuilder:
                 continue
             clip_id, _ = split_frame_id(frame_id)
             crop_path = crops_dir / f"{track_id.replace(':', '_')}.png"
-            crop_rgba(image_path, box, crop_path)
+            if masker is None:
+                crop_rgba(image_path, box, crop_path)
+            else:
+                from src.augmentation.masking import (
+                    choose_clean_mask,
+                    obb_bounds,
+                    write_rgba_crop,
+                )
+
+                image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+                if image is None:
+                    rejections["source_image_unreadable"] = (
+                        rejections.get("source_image_unreadable", 0) + 1
+                    )
+                    continue
+                prompt = obb_bounds(box, image.shape[1], image.shape[0])
+                excluded = np.zeros(image.shape[:2], dtype=np.uint8)
+                for other in all_boxes:
+                    if other == box:
+                        continue
+                    cv2.fillConvexPoly(
+                        excluded,
+                        np.asarray(other.points, dtype=np.int32),
+                        255,
+                    )
+                decision = choose_clean_mask(
+                    masker.predict(image, prompt), prompt, excluded_mask=excluded
+                )
+                if not decision.accepted:
+                    reason = str(decision.reason)
+                    rejections[reason] = rejections.get(reason, 0) + 1
+                    continue
+                assert decision.mask is not None
+                write_rgba_crop(image, decision.mask, crop_path)
             selected.append(
                 CropCandidate(
                     track_id, frame_id, clip_id, box.class_id, box, str(crop_path)
                 )
             )
-        return selected, real_counts
+        return selected, real_counts, rejections
 
     @staticmethod
     def _points_from_parametric_slot(
