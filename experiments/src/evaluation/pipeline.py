@@ -17,7 +17,6 @@ from src.evaluation.metric import (
     GroundTruthsByClassFrame,
     PredictionsByClass,
     compute_macro_ap_riou,
-    obb_to_polygon,
 )
 from src.evaluation.motion_filter import (
     Detection,
@@ -75,6 +74,7 @@ class YoloModelLike(Protocol):
         conf: float,
         batch: int,
         verbose: bool,
+        classes: Sequence[int] | None = None,
     ) -> Sequence[YoloResultLike]:
         """Run OBB inference over an ordered image batch."""
         ...
@@ -88,6 +88,19 @@ class PipelineEvaluation:
     filtered_predictions: PredictionsByFrame
     motion_by_clip: dict[str, MotionFilterDiagnostics]
     metric_details: DetailedResults
+
+
+@dataclass(slots=True)
+class PredictionSanitizationDiagnostics:
+    """Counts model candidates normalized or excluded before metric evaluation."""
+
+    candidates_seen: int = 0
+    accepted: int = 0
+    canonicalized_negative_dimensions: int = 0
+    discarded_zero_area: int = 0
+    discarded_nonfinite: int = 0
+    discarded_invalid_score: int = 0
+    discarded_unmapped_class: int = 0
 
 
 def split_frame_id(frame_id: str) -> tuple[str, int]:
@@ -106,6 +119,7 @@ def adapt_yolo_obb_arrays(
     scores: NDArray[np.float64],
     class_ids: NDArray[np.int64],
     class_id_map: Mapping[int, int] = INTERNAL_TO_OFFICIAL_CLASS_IDS,
+    diagnostics: PredictionSanitizationDiagnostics | None = None,
 ) -> list[Detection]:
     """Convert pixel-space Ultralytics OBB arrays into filter detections.
 
@@ -118,12 +132,15 @@ def adapt_yolo_obb_arrays(
         scores: Confidence array shaped ``(N,)``.
         class_ids: Internal class array shaped ``(N,)``.
         class_id_map: Explicit internal-to-official class mapping.
+        diagnostics: Optional mutable counters for model-output sanitization.
 
     Returns:
         Raw detections suitable for ``motion_filter.py``.
 
     Raises:
-        ValueError: If shapes, classes, scores, or OBB values are invalid.
+        ValueError: If array shapes are inconsistent or the configured class
+            mapping is invalid. Individual invalid model candidates are recorded
+            and excluded rather than aborting a complete evaluation.
     """
     split_frame_id(frame_id)
     boxes = np.asarray(xywhr, dtype=np.float64)
@@ -133,25 +150,42 @@ def adapt_yolo_obb_arrays(
         raise ValueError("xywhr must have shape (N, 5)")
     if len(boxes) != len(confidences) or len(boxes) != len(internal_classes):
         raise ValueError("xywhr, scores, and class_ids must have equal lengths")
-    if not np.all(np.isfinite(boxes)) or not np.all(np.isfinite(confidences)):
-        raise ValueError("YOLO OBB arrays must contain finite values")
+    if any(class_id not in range(1, 10) for class_id in class_id_map.values()):
+        raise ValueError("mapped class IDs must be official IDs 1 through 9")
 
     detections: list[Detection] = []
     for box, score, internal_class in zip(
         boxes, confidences, internal_classes, strict=True
     ):
+        if diagnostics is not None:
+            diagnostics.candidates_seen += 1
         normalized_internal_id = int(internal_class)
         if normalized_internal_id not in class_id_map:
-            raise ValueError(f"unmapped internal class ID: {normalized_internal_id}")
+            if diagnostics is not None:
+                diagnostics.discarded_unmapped_class += 1
+            continue
         official_class_id = int(class_id_map[normalized_internal_id])
         normalized_score = float(score)
         cx, cy, width, height, angle_rad = (float(value) for value in box)
-        if official_class_id not in range(1, 10):
-            raise ValueError("mapped class IDs must be official IDs 1 through 9")
+        if not all(
+            math.isfinite(value)
+            for value in (cx, cy, width, height, angle_rad, normalized_score)
+        ):
+            if diagnostics is not None:
+                diagnostics.discarded_nonfinite += 1
+            continue
         if not 0.0 <= normalized_score <= 1.0:
-            raise ValueError("YOLO confidence must be within [0, 1]")
-        if width <= 0.0 or height <= 0.0:
-            raise ValueError("YOLO OBB dimensions must be greater than zero")
+            if diagnostics is not None:
+                diagnostics.discarded_invalid_score += 1
+            continue
+        if width < 0.0 or height < 0.0:
+            if diagnostics is not None:
+                diagnostics.canonicalized_negative_dimensions += 1
+            width, height = abs(width), abs(height)
+        if width == 0.0 or height == 0.0:
+            if diagnostics is not None:
+                diagnostics.discarded_zero_area += 1
+            continue
         detections.append(
             Detection(
                 official_class_id,
@@ -163,6 +197,8 @@ def adapt_yolo_obb_arrays(
                 math.degrees(angle_rad),
             )
         )
+        if diagnostics is not None:
+            diagnostics.accepted += 1
     return detections
 
 
@@ -170,6 +206,7 @@ def adapt_ultralytics_result(
     frame_id: str,
     result: YoloResultLike,
     class_id_map: Mapping[int, int] = INTERNAL_TO_OFFICIAL_CLASS_IDS,
+    diagnostics: PredictionSanitizationDiagnostics | None = None,
 ) -> list[Detection]:
     """Convert one Ultralytics ``Results.obb`` object without Torch coupling."""
     if result.obb is None:
@@ -177,7 +214,9 @@ def adapt_ultralytics_result(
     boxes = np.asarray(result.obb.xywhr.cpu().numpy(), dtype=np.float64)
     scores = np.asarray(result.obb.conf.cpu().numpy(), dtype=np.float64)
     classes = np.asarray(result.obb.cls.cpu().numpy(), dtype=np.int64)
-    return adapt_yolo_obb_arrays(frame_id, boxes, scores, classes, class_id_map)
+    return adapt_yolo_obb_arrays(
+        frame_id, boxes, scores, classes, class_id_map, diagnostics
+    )
 
 
 def infer_clip(
@@ -186,8 +225,16 @@ def infer_clip(
     batch_size: int = 16,
     confidence: float = INFERENCE_CONFIDENCE,
     class_id_map: Mapping[int, int] = INTERNAL_TO_OFFICIAL_CLASS_IDS,
+    allowed_model_class_ids: Sequence[int] | None = None,
+    homographies: HomographiesByFrame | None = None,
+    diagnostics: PredictionSanitizationDiagnostics | None = None,
 ) -> tuple[PredictionsByFrame, HomographiesByFrame]:
-    """Run batch OBB inference and sequential homography estimation for one clip."""
+    """Run batch OBB inference and return model-independent homographies.
+
+    The camera transform must be identical for every experimental condition.
+    It is therefore estimated from the input frames only, rather than from a
+    condition-specific detection mask.
+    """
     if batch_size <= 0:
         raise ValueError("batch_size must be positive")
     if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
@@ -202,46 +249,56 @@ def infer_clip(
     if not images:
         return {}, {}
 
-    results = list(
-        model.predict(
-            images,
-            conf=confidence,
-            batch=batch_size,
-            verbose=False,
-        )
-    )
+    prediction_kwargs: dict[str, object] = {
+        "conf": confidence,
+        "batch": batch_size,
+        "verbose": False,
+    }
+    if allowed_model_class_ids is not None:
+        allowed = sorted({int(class_id) for class_id in allowed_model_class_ids})
+        if not allowed:
+            raise ValueError("allowed_model_class_ids must not be empty")
+        prediction_kwargs["classes"] = allowed
+    results = list(model.predict(images, **prediction_kwargs))
     if len(results) != len(images):
         raise ValueError("YOLO must return exactly one result per input frame")
 
     predictions: PredictionsByFrame = {}
+    for frame_id, image, result in zip(ordered_frame_ids, images, results, strict=True):
+        detections = adapt_ultralytics_result(
+            frame_id, result, class_id_map, diagnostics
+        )
+        predictions[frame_id] = detections
+    return (
+        predictions,
+        homographies
+        if homographies is not None
+        else estimate_clip_homographies(frames_by_id),
+    )
+
+
+def estimate_clip_homographies(
+    frames_by_id: Mapping[str, Image],
+) -> HomographiesByFrame:
+    """Estimate one shared sequence of camera transforms for a clip.
+
+    No model predictions enter this calculation. This deliberately trades a
+    detector-specific vehicle mask for a fair and reproducible transform that
+    can be reused across Base and Improvement conditions.
+    """
+    ordered_frame_ids = sorted(frames_by_id, key=lambda item: split_frame_id(item)[1])
     homographies: HomographiesByFrame = {}
     previous_gray: Image | None = None
-    previous_polygons: list[NDArray[np.float32]] = []
-    for frame_id, image, result in zip(ordered_frame_ids, images, results, strict=True):
-        detections = adapt_ultralytics_result(frame_id, result, class_id_map)
-        predictions[frame_id] = detections
+    for frame_id in ordered_frame_ids:
+        image = np.asarray(frames_by_id[frame_id], dtype=np.uint8)
+        if image.ndim != 3 or image.shape[2] != 3:
+            raise ValueError("inference frames must be BGR images shaped (H, W, 3)")
         current_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         if previous_gray is not None:
-            homography, _ = estimate_homography(
-                previous_gray,
-                current_gray,
-                previous_polygons,
-            )
+            homography, _ = estimate_homography(previous_gray, current_gray, [])
             homographies[frame_id] = homography
         previous_gray = current_gray
-        previous_polygons = [
-            obb_to_polygon(
-                (
-                    detection.cx,
-                    detection.cy,
-                    detection.width,
-                    detection.height,
-                    detection.angle_deg,
-                )
-            )
-            for detection in detections
-        ]
-    return predictions, homographies
+    return homographies
 
 
 def group_predictions_by_clip(

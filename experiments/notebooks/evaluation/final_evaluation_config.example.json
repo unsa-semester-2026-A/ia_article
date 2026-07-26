@@ -1,0 +1,32 @@
+{
+  "images_dir": "/kaggle/input/datasets/alvaroquispeunsa/mtc-challenge/train_resized/train",
+  "validation_labels_dir": "/kaggle/input/datasets/alvaroquispeunsa/mtc-challenge/yolo_obb_labels/val",
+  "ground_truth_csv": "/kaggle/input/datasets/alvaroquispeunsa/mtc-challenge/train.csv",
+  "output_dir": "/kaggle/working/final_evaluation",
+  "token_path": "/tmp/ia_article_drive_token.json",
+  "batch_size": 16,
+  "gpu_sample_interval_seconds": 2.0,
+  "conditions": [
+    {
+      "name": "Base 1",
+      "checkpoint_folder_id": "1pn8OzJX_kctgluEZkSC6WEfbSCaPyKMa",
+      "checkpoint_name": "f1_c1_best.pt",
+      "result_folder_id": "1Roazcv3c72jGmGy2M0nrlx5kL75-BY3m",
+      "enabled": true
+    },
+    {
+      "name": "Base 2",
+      "checkpoint_folder_id": "1navKsrapRDxJzbLVrDIHpmDbkU4zHtVN",
+      "checkpoint_name": "f1_c2_best.pt",
+      "result_folder_id": "1ZX8FbFNx9wELzK41AEp2xiMJzkIrsns4",
+      "enabled": true
+    },
+    {
+      "name": "Mejora A",
+      "checkpoint_folder_id": "1Hi8OmTIMNzLfadjFbk79OL8yiIZewhpz",
+      "checkpoint_name": "f1_c3_best.pt",
+      "result_folder_id": "1Sf2SEMHhl3jQoqnGbXiuVXd_BpT6yBgf",
+      "enabled": true
+    }
+  ]
+}
