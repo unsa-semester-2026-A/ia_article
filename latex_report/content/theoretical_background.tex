@@ -93,7 +93,7 @@ examples so that training attention concentrates on the challenging minority
 classes.
 
 \textbf{Motion State Inference from Temporal Context.}
-A defining characteristic of the SMART Challenge dataset is that only
+A defining characteristic of the dataset is that only
 moving vehicles are annotated: stationary vehicles visible in the
 frame receive no ground-truth box (Section~\ref{sec:annotation_bias}). A
 standard detector trained on appearance features cannot distinguish a parked
@@ -111,7 +111,7 @@ without requiring a full tracking graph (Section~\ref{sec:motion_filter}).
 
 \textbf{Edge Computing and Evaluation Metrics.}
 Practical traffic monitoring systems for municipalities in developing countries
-must operate on edge-computing hardware (devices with limited GPU
+must operate on edge-computing hardware (devices with limited GPU T4
 resources deployed directly at intersection cameras) rather than transmitting
 raw video streams to distant servers. This architectural constraint shapes
 model selection: lighter single-stage detectors with low latency are

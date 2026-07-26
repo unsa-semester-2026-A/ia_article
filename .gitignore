@@ -14,7 +14,7 @@ __pycache__/
 venv/
 env/
 ENV/
-
+.commandcode/
 # Testing and Coverage caches
 .pytest_cache/
 .coverage
@@ -38,3 +38,4 @@ token_drive
 token_kaggle
 kaggle.json
 *token*.json
+
