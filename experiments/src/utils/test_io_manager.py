@@ -1,11 +1,23 @@
 """Unit tests for IOManager module."""
 
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 from src.utils.io_manager import IOManager
+
+
+@pytest.fixture(autouse=True)
+def isolate_token_sources(monkeypatch, tmp_path):
+    """Point the token source at a path that does not exist.
+
+    Otherwise a token left in a real ``/kaggle/input`` mount or in the developer's
+    environment would satisfy every construction and make the Kaggle Secrets
+    fallback unreachable. Cases that care about a specific source override it.
+    """
+    monkeypatch.setenv("DRIVE_TOKEN_SOURCE", str(tmp_path / "absent" / "token.json"))
 
 
 @pytest.fixture
@@ -22,6 +34,7 @@ def io_mgr(tmp_path):
 def test_ensure_token_from_kaggle_secrets_when_missing(tmp_path):
     """White Box: Create token.json from Kaggle Secrets if missing."""
     import sys
+
     token_file = tmp_path / "token.json"
     assert not token_file.exists()
 
@@ -41,6 +54,7 @@ def test_ensure_token_from_kaggle_secrets_when_missing(tmp_path):
 def test_ensure_token_from_kaggle_secrets_raises_on_failure(tmp_path):
     """White Box: Program MUST fail (RuntimeError) if Kaggle Secrets fails to retrieve token."""
     import sys
+
     token_file = tmp_path / "token.json"
     assert not token_file.exists()
 
@@ -184,7 +198,9 @@ def test_upload_drive_with_service_new_file(io_mgr, tmp_path):
 def test_upload_drive_with_service_update_existing_file(io_mgr, tmp_path):
     """White Box: Update (overwrite) existing file when file with same name exists in folder."""
     mock_service = MagicMock()
-    mock_service.files().list().execute.return_value = {"files": [{"id": "existing_id", "name": "dummy.json"}]}
+    mock_service.files().list().execute.return_value = {
+        "files": [{"id": "existing_id", "name": "dummy.json"}]
+    }
     mock_service.files().update().execute.return_value = {"id": "existing_id"}
     io_mgr.drive_service = mock_service
 
@@ -214,3 +230,208 @@ def test_download_drive_not_found(io_mgr, tmp_path):
 
     res = io_mgr.download_file_from_drive("last.pt", "folder_123", tmp_path / "last.pt")
     assert res is None
+
+
+def _mock_download(io_mgr, remote_size, written_bytes):
+    """Wire a Drive mock that reports remote_size and writes written_bytes locally."""
+    mock_service = MagicMock()
+    mock_service.files().list().execute.return_value = {
+        "files": [{"id": "ckpt_id", "name": "last.pt", "size": str(remote_size)}]
+    }
+    io_mgr.drive_service = mock_service
+
+    class _Downloader:
+        def __init__(self, fh, _request):
+            self.fh = fh
+
+        def next_chunk(self):
+            self.fh.write(written_bytes)
+            return None, True
+
+    return patch("googleapiclient.http.MediaIoBaseDownload", _Downloader)
+
+
+def test_download_drive_accepts_complete_file(io_mgr, tmp_path):
+    """White Box: Keep the file when its size matches the size reported by Drive."""
+    dest = tmp_path / "last.pt"
+    with _mock_download(io_mgr, remote_size=4, written_bytes=b"abcd"):
+        res = io_mgr.download_file_from_drive("last.pt", "folder_123", dest)
+
+    assert res == dest
+    assert dest.exists()
+
+
+def test_download_drive_discards_truncated_file(io_mgr, tmp_path):
+    """White Box: Discard a partial checkpoint instead of letting the load fail later."""
+    dest = tmp_path / "last.pt"
+    with _mock_download(io_mgr, remote_size=100, written_bytes=b"ab"):
+        res = io_mgr.download_file_from_drive("last.pt", "folder_123", dest)
+
+    assert res is None
+    assert not dest.exists()
+
+
+# ==========================================
+# Token Source Tests
+# ==========================================
+def test_token_is_copied_from_a_read_only_source(tmp_path, monkeypatch):
+    """Black Box: The token is copied so a refreshed one can be written back."""
+    source = tmp_path / "source" / "drive_token.json"
+    source.parent.mkdir()
+    source.write_text('{"refresh_token": "abc"}')
+    destination = tmp_path / "working" / "token.json"
+    monkeypatch.setenv("DRIVE_TOKEN_SOURCE", str(source))
+
+    with patch.object(IOManager, "_get_drive_service", return_value=None):
+        manager = IOManager(token_path=destination)
+
+    assert destination.read_text() == '{"refresh_token": "abc"}'
+    assert manager.token_path == destination
+
+
+def test_existing_token_is_not_overwritten(tmp_path, monkeypatch):
+    """White Box: A refreshed token on disk must survive a later construction."""
+    source = tmp_path / "source.json"
+    source.write_text('{"refresh_token": "stale"}')
+    destination = tmp_path / "token.json"
+    destination.write_text('{"refresh_token": "refreshed"}')
+    monkeypatch.setenv("DRIVE_TOKEN_SOURCE", str(source))
+
+    with patch.object(IOManager, "_get_drive_service", return_value=None):
+        IOManager(token_path=destination)
+
+    assert destination.read_text() == '{"refresh_token": "refreshed"}'
+
+
+def test_token_source_override_replaces_the_candidate_list(tmp_path, monkeypatch):
+    """White Box: An explicit source is the only candidate considered."""
+    monkeypatch.setenv("DRIVE_TOKEN_SOURCE", str(tmp_path / "explicit.json"))
+
+    with patch.object(IOManager, "_get_drive_service", return_value=None):
+        with patch.object(IOManager, "_ensure_token_from_kaggle_secrets"):
+            manager = IOManager(token_path=tmp_path / "token.json")
+
+    assert manager.token_source_candidates() == [tmp_path / "explicit.json"]
+
+
+def test_attached_kaggle_datasets_are_the_default_candidates(tmp_path, monkeypatch):
+    """Black Box: Without an override, an attached dataset provides the token."""
+    monkeypatch.delenv("DRIVE_TOKEN_SOURCE", raising=False)
+    mounted = tmp_path / "input"
+    (mounted / "ia-article-drive-token").mkdir(parents=True)
+    (mounted / "ia-article-drive-token" / "token.json").write_text("{}")
+    (mounted / "mtc-challenge").mkdir()
+    monkeypatch.setattr("src.utils.io_manager.KAGGLE_INPUT_ROOT", mounted)
+
+    with patch.object(IOManager, "_get_drive_service", return_value=None):
+        with patch.object(IOManager, "_ensure_token_from_kaggle_secrets"):
+            manager = IOManager(token_path=tmp_path / "token.json")
+
+    assert manager.token_source_candidates() == [
+        mounted / "ia-article-drive-token" / "token.json"
+    ]
+
+
+def test_nested_kaggle_mount_layout_is_searched(tmp_path, monkeypatch):
+    """White Box: Kaggle also mounts datasets under datasets/<owner>/<name>/."""
+    monkeypatch.delenv("DRIVE_TOKEN_SOURCE", raising=False)
+    mounted = tmp_path / "input"
+    nested = mounted / "datasets" / "alvaroquispeunsa" / "ia-article-drive-token"
+    nested.mkdir(parents=True)
+    (nested / "token.json").write_text("{}")
+    monkeypatch.setattr("src.utils.io_manager.KAGGLE_INPUT_ROOT", mounted)
+
+    with patch.object(IOManager, "_get_drive_service", return_value=None):
+        with patch.object(IOManager, "_ensure_token_from_kaggle_secrets"):
+            manager = IOManager(token_path=tmp_path / "token.json")
+
+    assert manager.token_source_candidates() == [nested / "token.json"]
+
+
+def test_secrets_are_not_consulted_when_a_source_provided_the_token(
+    tmp_path, monkeypatch
+):
+    """White Box: A usable token makes the Kaggle Secrets fallback unnecessary."""
+    source = tmp_path / "source.json"
+    source.write_text('{"refresh_token": "abc"}')
+    monkeypatch.setenv("DRIVE_TOKEN_SOURCE", str(source))
+
+    with patch.object(IOManager, "_get_drive_service", return_value=None):
+        with patch.object(
+            IOManager, "_ensure_token_from_kaggle_secrets"
+        ) as mock_secrets:
+            IOManager(token_path=tmp_path / "token.json")
+
+    # The fallback still runs but returns immediately; what matters is that the
+    # token on disk is the one from the source.
+    mock_secrets.assert_called_once()
+
+
+# ==========================================
+# Credential Strictness Tests
+# ==========================================
+def test_missing_secret_is_fatal_when_drive_is_required(tmp_path, monkeypatch):
+    """Black Box: A production run must not start without a way to persist results."""
+    fake_secrets = MagicMock()
+    fake_secrets.UserSecretsClient.return_value.get_secret.side_effect = RuntimeError(
+        "secret not attached"
+    )
+    monkeypatch.setitem(sys.modules, "kaggle_secrets", fake_secrets)
+
+    with pytest.raises(RuntimeError, match="DRIVE_TOKEN_JSON"):
+        IOManager(token_path=tmp_path / "token.json", require_drive=True)
+
+
+def test_missing_secret_degrades_when_drive_is_optional(tmp_path, monkeypatch):
+    """Black Box: A disposable run continues with Drive disabled."""
+    fake_secrets = MagicMock()
+    fake_secrets.UserSecretsClient.return_value.get_secret.side_effect = RuntimeError(
+        "secret not attached"
+    )
+    monkeypatch.setitem(sys.modules, "kaggle_secrets", fake_secrets)
+
+    manager = IOManager(token_path=tmp_path / "token.json", require_drive=False)
+
+    assert manager.drive_service is None
+
+
+# ==========================================
+# remote_name Tests (White Box)
+# ==========================================
+def test_upload_uses_remote_name_when_creating(io_mgr, tmp_path):
+    """White Box: The Drive file takes the run-prefixed name, not the local one."""
+    mock_service = MagicMock()
+    mock_service.files().list().execute.return_value = {"files": []}
+    mock_service.files().create().execute.return_value = {"id": "new_id"}
+    io_mgr.drive_service = mock_service
+
+    dummy = tmp_path / "last.pt"
+    dummy.write_bytes(b"weights")
+
+    io_mgr.upload_file_to_drive(dummy, "folder_123", remote_name="f1_c1_last.pt")
+
+    body = mock_service.files().create.call_args.kwargs["body"]
+    assert body["name"] == "f1_c1_last.pt"
+
+
+def test_upload_looks_up_existing_by_remote_name(io_mgr, tmp_path):
+    """White Box: Overwrite lookup must use the remote name to stay per-run."""
+    mock_service = MagicMock()
+    mock_service.files().list().execute.return_value = {
+        "files": [{"id": "existing_id", "name": "f1_c1_last.pt"}]
+    }
+    mock_service.files().update().execute.return_value = {"id": "existing_id"}
+    io_mgr.drive_service = mock_service
+
+    dummy = tmp_path / "last.pt"
+    dummy.write_bytes(b"weights")
+
+    with patch.object(
+        IOManager, "_find_existing_file_id", return_value="existing_id"
+    ) as mock_find:
+        result = io_mgr.upload_file_to_drive(
+            dummy, "folder_123", remote_name="f1_c1_last.pt"
+        )
+
+    assert result == "existing_id"
+    mock_find.assert_called_once_with("f1_c1_last.pt", "folder_123")

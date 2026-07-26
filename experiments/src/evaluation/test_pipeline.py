@@ -93,6 +93,31 @@ class _FakeModel:
         ]
 
 
+class _ClassFilteringFakeModel(_FakeModel):
+    """Fake model that exposes the class restriction passed to Ultralytics."""
+
+    received_classes: list[int] | None = None
+
+    def predict(
+        self, source: list[NDArray[np.uint8]], **kwargs: object
+    ) -> list[_FakeResult]:
+        classes = kwargs.get("classes")
+        self.received_classes = list(classes) if isinstance(classes, list) else None
+        assert kwargs["conf"] == INFERENCE_CONFIDENCE
+        assert kwargs["batch"] == 2
+        assert kwargs["verbose"] is False
+        return [
+            _FakeResult(
+                _FakeOBB(
+                    np.asarray(((10.0, 20.0, 8.0, 4.0, math.pi / 2),)),
+                    np.asarray((0.75,)),
+                    np.asarray((10,), dtype=np.int64),
+                )
+            )
+            for _ in source
+        ]
+
+
 def test_split_and_group_frame_predictions() -> None:
     """Recover clip IDs and preserve every source detection."""
     assert split_frame_id("v_demo_0042") == ("v_demo", 42)
@@ -129,6 +154,22 @@ def test_ultralytics_result_adapter_handles_obb_and_empty_results() -> None:
     assert adapt_ultralytics_result("clip_0000", _FakeResult(None)) == []
 
 
+def test_yolo_adapter_discards_zero_area_model_outputs() -> None:
+    """Skip zero-area OBBs which cannot contribute to an rIoU metric."""
+    detections = adapt_yolo_obb_arrays(
+        "clip_0000",
+        np.asarray(
+            (
+                (1.0, 2.0, 0.0, 4.0, 0.0),
+                (10.0, 20.0, 8.0, 4.0, math.pi / 2),
+            )
+        ),
+        np.asarray((0.4, 0.8)),
+        np.asarray((0, 0), dtype=np.int64),
+    )
+    assert detections == [Detection(1, 0.8, 10.0, 20.0, 8.0, 4.0, 90.0)]
+
+
 def test_infer_clip_batches_results_and_builds_homographies() -> None:
     """Run batch inference but perform CPU temporal work in frame order."""
     frames = {
@@ -141,6 +182,38 @@ def test_infer_clip_batches_results_and_builds_homographies() -> None:
     assert predictions["clip_0000"][0].angle_deg == pytest.approx(90.0)
     assert set(homographies) == {"clip_0001"}
     assert np.allclose(homographies["clip_0001"], np.eye(3))
+
+
+def test_infer_clip_reuses_supplied_shared_homographies() -> None:
+    """A condition must not replace the common camera transforms."""
+    frames = {
+        "clip_0000": np.zeros((64, 64, 3), dtype=np.uint8),
+        "clip_0001": np.zeros((64, 64, 3), dtype=np.uint8),
+    }
+    shared = {
+        "clip_0001": np.asarray(((1.0, 0.0, 3.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)))
+    }
+
+    _, returned = infer_clip(_FakeModel(), frames, batch_size=2, homographies=shared)
+
+    assert returned is shared
+
+
+def test_infer_clip_can_restrict_model_classes_before_adaptation() -> None:
+    """Zero-shot DOTA runs must exclude non-vehicle classes at inference time."""
+    model = _ClassFilteringFakeModel()
+    frames = {"clip_0000": np.zeros((64, 64, 3), dtype=np.uint8)}
+
+    predictions, _ = infer_clip(
+        model,
+        frames,
+        batch_size=2,
+        class_id_map={10: 1, 9: 7},
+        allowed_model_class_ids=(10, 9),
+    )
+
+    assert model.received_classes == [9, 10]
+    assert predictions["clip_0000"][0].class_id == 1
 
 
 def test_ground_truth_parser_and_csv_loader(tmp_path: Path) -> None:

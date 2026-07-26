@@ -32,15 +32,18 @@ Todos los entrenamientos (Base 1, Base 2, Mejoras A, B, C) compartirán exactame
 # smart_training_hyperparameters.yaml
 model: yolo26s-obb.pt        # Modelo base con pesos de COCO/DOTA
 imgsz: 640                   # Resolución controlada para VRAM
-epochs: 100                  # 100 épocas de entrenamiento completo
-patience: 20                 # Detener si mAP50-95 no mejora en 20 épocas
-batch: 16                    # Batch size para P100 en Kaggle
+epochs: 40                   # Tope duro; el early stopping decide la duración real
+patience: 5                  # Calibrada con la corrida piloto real
+batch: 96                    # 48 por GPU en DDP sobre 2× Tesla T4
+cache: false                 # No cabe en RAM; el piloto midió throughput sin caché
+workers: 4
+amp: true
 optimizer: AdamW
 lr0: 0.001
 lrf: 0.01                    # Cosine learning rate decay
 weight_decay: 0.0005
 seed: 42                     # Semilla determinista fija
-device: 0                    # Index de GPU
+device: 0,1                  # DDP en las 2× T4 cuando Kaggle las asigne
 
 # Pérdidas por defecto de Ultralytics YOLO OBB
 box: 7.5                     # Peso de la pérdida de caja delimitadora
@@ -88,15 +91,21 @@ Se activan los parámetros estándar e intermedios del framework de Ultralytics 
 
 Los entrenamientos se paralelizan en las 5 cuentas de Kaggle de los integrantes del equipo para finalizar dentro del cronograma. Cada entrenamiento requiere aproximadamente entre $10$ y $14$ horas en una GPU Tesla P100 (16 GB).
 
-### 5.1 Distribución de Entrenamientos por Cuenta
+### 5.1 Receta medida y distribución de entrenamientos
+
+Los valores `epochs=40`, `patience=5` y `batch=96` sustituyen los valores
+históricos de esta primera versión del plan. Se mantienen porque una corrida
+real de Base 1 en 2×T4 mostró convergencia cerca de la época 6, VRAM de 13.6 GB
+por GPU y un throughput de 51 imágenes/s. C1, C2, Mejora A, Mejora B y Mejora C
+deben conservar esta misma receta para que la comparación siga siendo válida.
 
 | Cuenta Kaggle | Tarea Asignada | Dataset Requerido | Épocas |
 |---|---|---|---|
-| **Cuenta #1** | Entrenamiento: **Base 1** | `smart-original` (Original YOLO format) | 100 |
-| **Cuenta #2** | Entrenamiento: **Base 2** | `smart-original` | 100 |
-| **Cuenta #3** | Entrenamiento: **Mejora A** | `smart-lama-cleaned` (Cleaned images) | 100 |
-| **Cuenta #4** | Entrenamiento: **Mejora B** | `smart-original` + `smart-synthetic` | 100 |
-| **Cuenta #5** | Entrenamiento: **Mejora C** | `smart-lama-cleaned` + `smart-synthetic` | 100 |
+| **Cuenta #1** | Entrenamiento: **Base 1** | `smart-original` (Original YOLO format) | máx. 40 |
+| **Cuenta #2** | Entrenamiento: **Base 2** | `smart-original` | máx. 40 |
+| **Cuenta #3** | Entrenamiento: **Mejora A** | `smart-lama-cleaned` (Cleaned images) | máx. 40 |
+| **Cuenta #4** | Entrenamiento: **Mejora B** | `smart-original` + `smart-synthetic` | máx. 40 |
+| **Cuenta #5** | Entrenamiento: **Mejora C** | `smart-lama-cleaned` + `smart-synthetic` | máx. 40 |
 
 ### 5.2 Gestión de Checkpoints y Almacenamiento
 * El entrenamiento de Ultralytics genera los checkpoints en la ruta `/kaggle/working/runs/obb/`.

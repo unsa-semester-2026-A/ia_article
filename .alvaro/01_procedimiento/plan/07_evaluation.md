@@ -11,7 +11,7 @@ Evaluar rigurosamente el desempeño de cada modelo en un conjunto de validación
 
 ## 2. El Pipeline de Inferencia y Post-Procesamiento
 
-Los detectores entrenados identifican visualmente todos los vehículos en la imagen (parados y en movimiento). Dado que las anotaciones de validación (Ground Truth) solo contienen vehículos en movimiento, la evaluación directa de la inferencia sin procesar reportaría una alta tasa de falsos positivos en los autos estacionados. 
+Los detectores entrenados identifican visualmente todos los vehículos en la imagen (parados y en movimiento). Dado que las anotaciones de validación (Ground Truth) solo contienen vehículos en movimiento, la evaluación directa de la inferencia sin procesar reportaría una alta tasa de falsos positivos en los autos estacionados.
 
 Para resolver esto, se especifica el siguiente pipeline secuencial de evaluación:
 

@@ -17,7 +17,6 @@ from src.evaluation.metric import (
     GroundTruthsByClassFrame,
     PredictionsByClass,
     compute_macro_ap_riou,
-    obb_to_polygon,
 )
 from src.evaluation.motion_filter import (
     Detection,
@@ -75,6 +74,7 @@ class YoloModelLike(Protocol):
         conf: float,
         batch: int,
         verbose: bool,
+        classes: Sequence[int] | None = None,
     ) -> Sequence[YoloResultLike]:
         """Run OBB inference over an ordered image batch."""
         ...
@@ -150,7 +150,12 @@ def adapt_yolo_obb_arrays(
             raise ValueError("mapped class IDs must be official IDs 1 through 9")
         if not 0.0 <= normalized_score <= 1.0:
             raise ValueError("YOLO confidence must be within [0, 1]")
-        if width <= 0.0 or height <= 0.0:
+        # Ultralytics may occasionally emit a zero-area OBB after its own
+        # geometric clipping/NMS. It cannot overlap a ground-truth OBB and is
+        # therefore a non-detection, rather than malformed evaluation input.
+        if width == 0.0 or height == 0.0:
+            continue
+        if width < 0.0 or height < 0.0:
             raise ValueError("YOLO OBB dimensions must be greater than zero")
         detections.append(
             Detection(
@@ -186,8 +191,15 @@ def infer_clip(
     batch_size: int = 16,
     confidence: float = INFERENCE_CONFIDENCE,
     class_id_map: Mapping[int, int] = INTERNAL_TO_OFFICIAL_CLASS_IDS,
+    allowed_model_class_ids: Sequence[int] | None = None,
+    homographies: HomographiesByFrame | None = None,
 ) -> tuple[PredictionsByFrame, HomographiesByFrame]:
-    """Run batch OBB inference and sequential homography estimation for one clip."""
+    """Run batch OBB inference and return model-independent homographies.
+
+    The camera transform must be identical for every experimental condition.
+    It is therefore estimated from the input frames only, rather than from a
+    condition-specific detection mask.
+    """
     if batch_size <= 0:
         raise ValueError("batch_size must be positive")
     if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
@@ -202,46 +214,54 @@ def infer_clip(
     if not images:
         return {}, {}
 
-    results = list(
-        model.predict(
-            images,
-            conf=confidence,
-            batch=batch_size,
-            verbose=False,
-        )
-    )
+    prediction_kwargs: dict[str, object] = {
+        "conf": confidence,
+        "batch": batch_size,
+        "verbose": False,
+    }
+    if allowed_model_class_ids is not None:
+        allowed = sorted({int(class_id) for class_id in allowed_model_class_ids})
+        if not allowed:
+            raise ValueError("allowed_model_class_ids must not be empty")
+        prediction_kwargs["classes"] = allowed
+    results = list(model.predict(images, **prediction_kwargs))
     if len(results) != len(images):
         raise ValueError("YOLO must return exactly one result per input frame")
 
     predictions: PredictionsByFrame = {}
-    homographies: HomographiesByFrame = {}
-    previous_gray: Image | None = None
-    previous_polygons: list[NDArray[np.float32]] = []
     for frame_id, image, result in zip(ordered_frame_ids, images, results, strict=True):
         detections = adapt_ultralytics_result(frame_id, result, class_id_map)
         predictions[frame_id] = detections
+    return (
+        predictions,
+        homographies
+        if homographies is not None
+        else estimate_clip_homographies(frames_by_id),
+    )
+
+
+def estimate_clip_homographies(
+    frames_by_id: Mapping[str, Image],
+) -> HomographiesByFrame:
+    """Estimate one shared sequence of camera transforms for a clip.
+
+    No model predictions enter this calculation. This deliberately trades a
+    detector-specific vehicle mask for a fair and reproducible transform that
+    can be reused across Base and Improvement conditions.
+    """
+    ordered_frame_ids = sorted(frames_by_id, key=lambda item: split_frame_id(item)[1])
+    homographies: HomographiesByFrame = {}
+    previous_gray: Image | None = None
+    for frame_id in ordered_frame_ids:
+        image = np.asarray(frames_by_id[frame_id], dtype=np.uint8)
+        if image.ndim != 3 or image.shape[2] != 3:
+            raise ValueError("inference frames must be BGR images shaped (H, W, 3)")
         current_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         if previous_gray is not None:
-            homography, _ = estimate_homography(
-                previous_gray,
-                current_gray,
-                previous_polygons,
-            )
+            homography, _ = estimate_homography(previous_gray, current_gray, [])
             homographies[frame_id] = homography
         previous_gray = current_gray
-        previous_polygons = [
-            obb_to_polygon(
-                (
-                    detection.cx,
-                    detection.cy,
-                    detection.width,
-                    detection.height,
-                    detection.angle_deg,
-                )
-            )
-            for detection in detections
-        ]
-    return predictions, homographies
+    return homographies
 
 
 def group_predictions_by_clip(

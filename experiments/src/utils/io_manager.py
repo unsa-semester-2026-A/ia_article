@@ -3,6 +3,7 @@
 import csv
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,20 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
+#: Globs matching the OAuth token inside any attached Kaggle dataset. A private
+#: dataset is the only credential channel that can be wired up entirely through
+#: the API: Kaggle Secrets require the web interface, and committing the token to
+#: the repository is rejected by GitHub push protection.
+#:
+#: Two patterns because Kaggle mounts user datasets under two layouts, the flat
+#: ``<dataset>/`` and the nested ``datasets/<owner>/<dataset>/``. They are spelled
+#: out rather than discovered with ``rglob`` so the search never walks into the
+#: attached image datasets, which hold tens of thousands of files.
+KAGGLE_TOKEN_GLOBS = ("*/token.json", "datasets/*/*/token.json")
+
+#: Root under which Kaggle mounts attached datasets.
+KAGGLE_INPUT_ROOT = Path("/kaggle/input")
+
 
 class IOManager:
     """Generic I/O data manager and autonomous Google Drive API integration."""
@@ -20,6 +35,7 @@ class IOManager:
     def __init__(
         self,
         token_path: str | Path | None = None,
+        require_drive: bool = True,
     ) -> None:
         """Initialize I/O manager and resolve Google Drive authentication.
 
@@ -32,8 +48,15 @@ class IOManager:
         Args:
             token_path: Local path to token.json file. If None, reads from
                 ``os.environ["DRIVE_TOKEN_PATH"]`` or falls back to default
-                environment paths (/kaggle/working/token.json or token.json).
+                environment paths (/tmp/ia_article_drive_token.json or token.json).
+            require_drive: Whether an unreachable Drive is fatal. True protects a
+                long run from producing results it cannot persist. False lets
+                callers whose output is disposable, or who report the failure
+                themselves, degrade to local-only I/O.
         """
+        self.require_drive = require_drive
+        self.drive_error: str | None = None
+
         # 1. Resolve token path
         if token_path:
             self.token_path: Path | None = Path(token_path)
@@ -42,21 +65,67 @@ class IOManager:
             if env_path:
                 self.token_path = Path(env_path)
             elif os.path.exists("/kaggle/working"):
-                self.token_path = Path("/kaggle/working/token.json")
+                # /kaggle/working is exported as the notebook's output. OAuth
+                # credentials must never land there because they would be
+                # included in the downloadable kernel artifacts.
+                self.token_path = Path("/tmp/ia_article_drive_token.json")
             else:
                 self.token_path = Path("token.json")
 
-        # 2. Automatically generate token.json from Kaggle Secrets if missing
+        # 2. Obtain the token: read-only sources first, Kaggle Secrets as fallback
+        self._ensure_token_from_source()
         self._ensure_token_from_kaggle_secrets()
 
         # 3. Initialize Google Drive API service (with auto-refresh)
         self.drive_service: Any | None = self._get_drive_service()
 
+    def token_source_candidates(self) -> list[Path]:
+        """Return the read-only locations that may hold the OAuth token.
+
+        Returns:
+            Candidate paths in priority order. ``DRIVE_TOKEN_SOURCE`` overrides the
+            list entirely so a caller can point at any location.
+        """
+        override = os.environ.get("DRIVE_TOKEN_SOURCE")
+        if override:
+            return [Path(override)]
+
+        found: list[Path] = []
+        for pattern in KAGGLE_TOKEN_GLOBS:
+            found.extend(sorted(KAGGLE_INPUT_ROOT.glob(pattern)))
+        return found
+
+    def _ensure_token_from_source(self) -> None:
+        """Copy the OAuth token from the first available read-only source.
+
+        The file is copied instead of being read in place because refreshing an
+        expired token has to be written back, and ``/kaggle/input`` is read-only.
+        """
+        if not self.token_path or self.token_path.exists():
+            return
+
+        for candidate in self.token_source_candidates():
+            if not candidate.is_file():
+                continue
+            try:
+                self.token_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(candidate, self.token_path)
+                print(
+                    f"[IOManager] ✅ Drive token copied from {candidate} "
+                    f"-> {self.token_path}"
+                )
+                return
+            except OSError as e:
+                print(f"[IOManager] ⚠️ Could not copy token from {candidate}: {e}")
+
     def _ensure_token_from_kaggle_secrets(self) -> None:
         """Retrieve token.json from Kaggle Secrets if not present on disk.
 
         Raises:
-            RuntimeError: If Kaggle Secrets client fails or DRIVE_TOKEN_JSON is missing/unreadable.
+            RuntimeError: If the secret cannot be read and ``require_drive`` is set.
+                A production run that cannot persist its results would waste hours
+                of GPU quota, so it must not start. Callers whose artifacts are
+                disposable pass ``require_drive=False`` and continue without Drive.
         """
         if not self.token_path or self.token_path.exists():
             return
@@ -72,11 +141,19 @@ class IOManager:
             self.token_path.parent.mkdir(parents=True, exist_ok=True)
             with self.token_path.open("w", encoding="utf-8") as f:
                 f.write(token_data)
-            print(f"[IOManager] ✅ token.json created from Kaggle Secrets -> {self.token_path}")
+            print(
+                f"[IOManager] ✅ token.json created from Kaggle Secrets -> {self.token_path}"
+            )
         except Exception as e:
             err_msg = f"[IOManager] ❌ Failed to retrieve Kaggle secret 'DRIVE_TOKEN_JSON': {e}"
             print(err_msg)
-            raise RuntimeError(err_msg) from e
+            if self.require_drive:
+                raise RuntimeError(err_msg) from e
+            print(
+                "[IOManager] ⚠️ Continuing without Google Drive: "
+                "artifacts will only be written locally.",
+                flush=True,
+            )
 
     def list_files_in_dir(
         self,
@@ -182,7 +259,8 @@ class IOManager:
             service = build("drive", "v3", credentials=creds)
             return service
         except Exception as e:
-            print(f"[IOManager] Credentials or OAuth error: {e}")
+            self.drive_error = str(e)
+            print(f"[IOManager] Credentials or OAuth error: {self.drive_error}")
             return None
 
     def _find_existing_file_id(
@@ -222,6 +300,7 @@ class IOManager:
         local_path: str | Path,
         drive_folder_id: str,
         mime_type: str = "application/json",
+        remote_name: str | None = None,
     ) -> str | None:
         """Upload a local file to a specific Google Drive folder.
 
@@ -233,6 +312,10 @@ class IOManager:
             local_path: Path to the local file.
             drive_folder_id: Target Google Drive folder ID.
             mime_type: MIME content type.
+            remote_name: Name to store the file under. Defaults to the local file
+                name. Callers that share a destination folder across runs must pass
+                a run-specific name, since every framework writes generic names such
+                as ``last.pt`` and one run would otherwise overwrite another.
 
         Returns:
             Google Drive file ID (created or updated), or None on failure.
@@ -242,9 +325,10 @@ class IOManager:
             return None
 
         path = Path(local_path)
+        target_name = remote_name or path.name
         try:
             media = MediaFileUpload(str(path), mimetype=mime_type, resumable=True)
-            existing_id = self._find_existing_file_id(path.name, drive_folder_id)
+            existing_id = self._find_existing_file_id(target_name, drive_folder_id)
 
             if existing_id:
                 # Update (overwrite) the existing file
@@ -261,7 +345,7 @@ class IOManager:
                 return updated_file.get("id")
             else:
                 # Create a new file
-                file_metadata = {"name": path.name, "parents": [drive_folder_id]}
+                file_metadata = {"name": target_name, "parents": [drive_folder_id]}
                 uploaded_file = (
                     self.drive_service.files()
                     .create(
@@ -285,13 +369,18 @@ class IOManager:
     ) -> Path | None:
         """Search for a file by name in a Google Drive folder and download it locally.
 
+        A truncated checkpoint fails to load only after the session has already
+        spent its setup minutes, so the downloaded size is compared against the
+        size reported by Drive and a mismatch discards the file.
+
         Args:
             file_name: Name of the file to search for (e.g. 'last.pt').
             drive_folder_id: Google Drive parent folder ID.
             local_destination_path: Local destination path for the downloaded file.
 
         Returns:
-            Path object of the downloaded file, or None if not found or failed.
+            Path object of the downloaded file, or None if not found, incomplete,
+            or failed.
         """
         if not self.drive_service:
             print("[IOManager] Drive service not initialized. Skipping download.")
@@ -309,7 +398,7 @@ class IOManager:
                 self.drive_service.files()
                 .list(
                     q=query,
-                    fields="files(id, name)",
+                    fields="files(id, name, size)",
                     supportsAllDrives=True,
                     includeItemsFromAllDrives=True,
                 )
@@ -323,6 +412,7 @@ class IOManager:
                 return None
 
             file_id = files[0]["id"]
+            expected_size = int(files[0].get("size") or 0)
             dest_path.parent.mkdir(parents=True, exist_ok=True)
 
             request = self.drive_service.files().get_media(
@@ -334,8 +424,19 @@ class IOManager:
                 while not done:
                     _, done = downloader.next_chunk()
 
+            actual_size = dest_path.stat().st_size
+            if expected_size and actual_size != expected_size:
+                print(
+                    f"[IOManager] ❌ {file_name} is incomplete "
+                    f"({actual_size} of {expected_size} bytes). Discarding.",
+                    flush=True,
+                )
+                dest_path.unlink(missing_ok=True)
+                return None
+
             print(
-                f"[IOManager] ✅ Downloaded {file_name} from Drive -> {dest_path}",
+                f"[IOManager] ✅ Downloaded {file_name} from Drive -> {dest_path} "
+                f"({actual_size} bytes)",
                 flush=True,
             )
             return dest_path
