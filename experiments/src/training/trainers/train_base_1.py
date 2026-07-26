@@ -1,5 +1,6 @@
-"""YOLO26s-OBB trainer for the F1 conditions of the ablation study (C1, C2, C3)."""
+"""YOLO26s-OBB trainer for all ablation-study F1 conditions."""
 
+import json
 import os
 import resource
 import shutil
@@ -40,19 +41,29 @@ DRIVE_DESTINATIONS: dict[str, dict[str, str]] = {
         "results": "1maJ2IelUfaV4DPMSzmd8gK-eaFOhOchs",
         "checkpoints": "1Hi8OmTIMNzLfadjFbk79OL8yiIZewhpz",
     },
+    "mb": {
+        "results": "15FfYezjs7wFRlaXF4LTFRfruTzG6opLs",
+        "checkpoints": "1ag0EPL1f-7T93HjusTBUNXmUWNnZwrBy",
+    },
+    "mc": {
+        "results": "1XJs4VVQXZ-cruuvwyOtG3rBvuCBO76-l",
+        "checkpoints": "1_kAXLZNnG3m76gdbdLd3nJ5QtJ-MOt96",
+    },
 }
 
 
 class Base1Trainer(BaseTrainingPipeline):
     """Training pipeline for the F1 family (YOLO26s-OBB) of the ablation study.
 
-    Handles the three F1 conditions of ``06_training.md`` §4, selected with the
+    Handles the F1 conditions of ``06_training.md`` §4, selected with the
     ``condition`` config key:
 
     - ``c1``: raw data, minimal augmentation. Baseline, denominator of the
       intra-family gain.
     - ``c2``: raw data, classic YOLO augmentation (mosaic, mixup, copy-paste).
     - ``c3``: LaMa-cleaned data, minimal augmentation. Numerator of the gain.
+    - ``mb``: raw data plus a frozen, train-only synthetic delta (Mejora B).
+    - ``mc``: LaMa data plus the same synthetic delta (Mejora C).
 
     C1 and C3 must differ **only** in the pixel content of the training images,
     so their hyperparameters are shared by construction and only the augmentation
@@ -133,6 +144,26 @@ class Base1Trainer(BaseTrainingPipeline):
             "hsv_s": 0.3,
             "hsv_v": 0.2,
         },
+        # Synthetic images are the experimental variable in MB/MC. Do not add
+        # online object-combining transforms on top of them.
+        "mb": {
+            "mosaic": 0.0,
+            "mixup": 0.0,
+            "copy_paste": 0.0,
+            "erasing": 0.0,
+            "hsv_h": 0.015,
+            "hsv_s": 0.3,
+            "hsv_v": 0.2,
+        },
+        "mc": {
+            "mosaic": 0.0,
+            "mixup": 0.0,
+            "copy_paste": 0.0,
+            "erasing": 0.0,
+            "hsv_h": 0.015,
+            "hsv_s": 0.3,
+            "hsv_v": 0.2,
+        },
     }
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -195,7 +226,10 @@ class Base1Trainer(BaseTrainingPipeline):
         if self.calibration_mode:
             self.run_name = f"f1_c2_batchcal_b{self.c2_calibration_batch}"
         else:
-            self.run_name = f"f1_{condition}" + ("_smoke" if self.smoke_test else "")
+            run_names = {"mb": "f1_mejora_b", "mc": "f1_mejora_c"}
+            self.run_name = run_names.get(condition, f"f1_{condition}") + (
+                "_smoke" if self.smoke_test else ""
+            )
         config.setdefault("experiment_condition", f"F1_{condition.upper()}")
         # A production run must not start if it cannot persist its weights: a
         # Kaggle session dies after 12 hours and the quota would be spent for
@@ -373,8 +407,8 @@ class Base1Trainer(BaseTrainingPipeline):
     def get_dataset_config(self) -> dict[str, Any]:
         """Return dataset paths for the active condition.
 
-        C3 reads the LaMa-cleaned images while C1 and C2 read the raw ones. The
-        labels are shared: LaMa alters pixels, never annotations.
+        C3/MC read LaMa-cleaned images while C1/C2/MB read raw ones. MB and MC
+        link the same train-only synthetic delta; validation remains raw.
 
         Returns:
             Dictionary with paths to dataset YAML, model weights, labels,
@@ -385,7 +419,10 @@ class Base1Trainer(BaseTrainingPipeline):
         )
         raw_images_dir = self.config.get("images_dir", "")
         lama_images_dir = self.config.get("lama_images_dir", "")
-        train_images_dir = lama_images_dir if self.condition == "c3" else raw_images_dir
+        train_images_dir = (
+            lama_images_dir if self.condition in {"c3", "mc"} else raw_images_dir
+        )
+        use_synthetic_delta = self.condition in {"mb", "mc"}
         return {
             "data_yaml_path": self.config.get("data_yaml_path", ""),
             "model_weights": self.config.get("model_weights", "yolo26s-obb.pt"),
@@ -398,11 +435,13 @@ class Base1Trainer(BaseTrainingPipeline):
             "raw_images_dir": raw_images_dir,
             "lama_images_dir": lama_images_dir,
             "resized_zip_path": self.config.get("resized_zip_path", ""),
-            "augmentation_delta_images_dir": self.config.get(
-                "augmentation_delta_images_dir", ""
+            "augmentation_delta_images_dir": (
+                self.config.get("augmentation_delta_images_dir", "")
+                if use_synthetic_delta else ""
             ),
-            "augmentation_delta_labels_dir": self.config.get(
-                "augmentation_delta_labels_dir", ""
+            "augmentation_delta_labels_dir": (
+                self.config.get("augmentation_delta_labels_dir", "")
+                if use_synthetic_delta else ""
             ),
         }
 
@@ -727,6 +766,7 @@ class Base1Trainer(BaseTrainingPipeline):
             labels_dest=labels_dest,
             images_source=Path(dataset_config["augmentation_delta_images_dir"]),
             labels_source=Path(dataset_config["augmentation_delta_labels_dir"]),
+            manifest_path=workspace / "augmentation_delta_manifest.json",
         )
 
         # Generate smart_dataset.yaml if not already present
@@ -761,6 +801,7 @@ names:
         labels_dest: Path,
         images_source: Path,
         labels_source: Path,
+        manifest_path: Path | None = None,
     ) -> int:
         """Link a compact synthetic train delta without duplicating base data.
 
@@ -775,6 +816,8 @@ names:
             )
         image_stems = cls._image_stems(images_source)
         label_stems = {path.stem for path in labels_source.glob("*.txt")}
+        if not image_stems:
+            raise ValueError("Augmentation delta is empty")
         if image_stems != label_stems:
             raise ValueError("Augmentation delta image/label stems do not match")
         image_destination = images_dest / "train"
@@ -789,6 +832,8 @@ names:
                 f"Augmentation delta collides with real stems: {sorted(collisions)[:3]}"
             )
         for stem in sorted(image_stems):
+            label = labels_source / f"{stem}.txt"
+            cls._validate_obb_label(label)
             image = next(
                 images_source / f"{stem}{extension}"
                 for extension in cls.IMAGE_EXTENSIONS
@@ -796,7 +841,7 @@ names:
             )
             for source, destination in (
                 (image, image_destination / image.name),
-                (labels_source / f"{stem}.txt", label_destination / f"{stem}.txt"),
+                (label, label_destination / f"{stem}.txt"),
             ):
                 try:
                     destination.symlink_to(source)
@@ -804,7 +849,51 @@ names:
                     shutil.copy2(source, destination)
         if image_stems:
             print(f"[Base1Trainer] Linked {len(image_stems)} augmentation-delta images")
+        if manifest_path is not None:
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "image_count": len(image_stems),
+                        "label_count": len(label_stems),
+                        "images_source": str(images_source),
+                        "labels_source": str(labels_source),
+                        "validation_modified": False,
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
         return len(image_stems)
+
+    @staticmethod
+    def _validate_obb_label(label_path: Path) -> None:
+        """Reject malformed synthetic YOLO-OBB labels before a GPU run starts."""
+        lines = [
+            line.split()
+            for line in label_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        if not lines:
+            raise ValueError(f"Synthetic label is empty: {label_path.name}")
+        for line_number, fields in enumerate(lines, start=1):
+            if len(fields) != 9:
+                raise ValueError(
+                    f"Invalid OBB field count in {label_path.name}:{line_number}"
+                )
+            try:
+                class_id = int(fields[0])
+                coordinates = [float(value) for value in fields[1:]]
+            except ValueError as exc:
+                raise ValueError(
+                    f"Non-numeric OBB value in {label_path.name}:{line_number}"
+                ) from exc
+            if not 0 <= class_id <= 8 or any(
+                not 0.0 <= value <= 1.0 for value in coordinates
+            ):
+                raise ValueError(
+                    f"Out-of-range OBB value in {label_path.name}:{line_number}"
+                )
 
     # ===================================================================
     # Health Check (Extended)
@@ -1337,7 +1426,7 @@ if __name__ == "__main__":
         "--condition",
         choices=sorted(Base1Trainer.CONDITION_PROFILES),
         default="c1",
-        help="Ablation condition: c1 raw data, c2 classic augmentation, c3 LaMa data",
+        help="c1 raw, c2 classic, c3 LaMa, mb raw+synthetic, mc LaMa+synthetic",
     )
     parser.add_argument(
         "--smoke-test",
@@ -1424,6 +1513,12 @@ if __name__ == "__main__":
         resized_zip = Path("")
 
     lama_images_dir = dataset_dir / "smart_lama_corrected" / "train"
+    augmentation_images_dir = (
+        dataset_dir / "augmentation_images" / "images" / "train"
+    )
+    augmentation_labels_dir = (
+        dataset_dir / "augmentation_labels" / "labels" / "train"
+    )
 
     # Use /tmp for the dataset workspace on Kaggle to avoid the 20GB output limit.
     # One workspace per condition: C1 and C3 link different images under the same
@@ -1446,6 +1541,8 @@ if __name__ == "__main__":
         "data_yaml_path": str(data_yaml_path),
         "images_dir": str(raw_images_dir),
         "lama_images_dir": str(lama_images_dir),
+        "augmentation_delta_images_dir": str(augmentation_images_dir),
+        "augmentation_delta_labels_dir": str(augmentation_labels_dir),
         "resized_zip_path": str(resized_zip),
         "dataset_workspace": str(dataset_workspace),
         "save_period": 5,

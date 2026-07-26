@@ -62,9 +62,9 @@ def test_condition_defaults_to_c1(trainer: Base1Trainer) -> None:
 
 def test_every_condition_has_isolated_drive_destinations() -> None:
     """Production conditions never write checkpoints into each other's folders."""
-    assert set(DRIVE_DESTINATIONS) == {"c1", "c2", "c3"}
-    assert len({entry["results"] for entry in DRIVE_DESTINATIONS.values()}) == 3
-    assert len({entry["checkpoints"] for entry in DRIVE_DESTINATIONS.values()}) == 3
+    assert set(DRIVE_DESTINATIONS) == {"c1", "c2", "c3", "mb", "mc"}
+    assert len({entry["results"] for entry in DRIVE_DESTINATIONS.values()}) == 5
+    assert len({entry["checkpoints"] for entry in DRIVE_DESTINATIONS.values()}) == 5
 
 
 def test_unknown_condition_is_rejected(config: dict[str, Any]) -> None:
@@ -76,7 +76,7 @@ def test_unknown_condition_is_rejected(config: dict[str, Any]) -> None:
 
 @pytest.mark.parametrize(
     ("condition", "expect_mosaic"),
-    [("c1", 0.0), ("c2", 1.0), ("c3", 0.0)],
+    [("c1", 0.0), ("c2", 1.0), ("c3", 0.0), ("mb", 0.0), ("mc", 0.0)],
 )
 @patch("src.training.trainers.train_base_1.IOManager")
 def test_augmentation_profile_per_condition(
@@ -112,6 +112,27 @@ def test_c3_reads_the_lama_images(
     assert c1["images_dir"] == config["images_dir"]
     assert c3["images_dir"] == "/data/smart_lama_corrected/train"
     assert c1["labels_path"] == c3["labels_path"]
+
+
+@patch("src.training.trainers.train_base_1.IOManager")
+def test_mb_and_mc_use_the_same_delta_but_different_real_pixels(
+    mock_io_manager: MagicMock, config: dict[str, Any]
+) -> None:
+    """MB is raw+synthetic and MC is LaMa+the identical synthetic delta."""
+    config.update(
+        {
+            "lama_images_dir": "/data/lama/train",
+            "augmentation_delta_images_dir": "/data/augmentation/images/train",
+            "augmentation_delta_labels_dir": "/data/augmentation/labels/train",
+        }
+    )
+    mb = Base1Trainer({**config, "condition": "mb"})
+    mc = Base1Trainer({**config, "condition": "mc"})
+    assert mb.run_name == "f1_mejora_b"
+    assert mc.run_name == "f1_mejora_c"
+    assert mb.get_dataset_config()["images_dir"] == config["images_dir"]
+    assert mc.get_dataset_config()["images_dir"] == config["lama_images_dir"]
+    assert mb.get_dataset_config()["augmentation_delta_images_dir"] == mc.get_dataset_config()["augmentation_delta_images_dir"]
 
 
 def test_get_hyperparameters_overrides(trainer: Base1Trainer) -> None:
