@@ -16,7 +16,13 @@ variables are the training pixels and augmentation profile.
 2. Run the smoke test and require every preflight check, Drive upload and
    dual-GPU report to pass.
 3. Run production only after that condition reports `CLEARED FOR PRODUCTION`.
-4. Run one condition at a time; do not overlap training runs on the shared
+4. Before C2 production, run `python -m src.training.trainers.run_c2_batch_calibration`.
+   It probes the DDP batch ladder `96 → 48 → 32 → 24` with the real C2
+   augmentation and stores its local decision in
+   `/kaggle/working/c2_batch_calibration/c2_batch_selection.json`. Launch C2
+   only with its selected `--c2-batch` value; the probe is operational and is
+   not included in the article comparison.
+5. Run one condition at a time; do not overlap training runs on the shared
    Drive folders.
 
 ## Storage layout

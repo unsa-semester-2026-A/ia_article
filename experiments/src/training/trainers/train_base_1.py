@@ -92,6 +92,16 @@ class Base1Trainer(BaseTrainingPipeline):
         "verbose": True,
     }
 
+    #: C2 uses Mosaic and MixUp, which can make its per-image instance count much
+    #: higher than C1/C3.  These are *global* DDP batch sizes; Ultralytics divides
+    #: them between the two T4s.  Every lower candidate divides the target 96
+    #: exactly, so it can retain the same effective optimizer update through
+    #: gradient accumulation.
+    C2_CALIBRATION_CANDIDATES: tuple[int, ...] = (96, 48, 32, 24)
+    C2_TARGET_GLOBAL_BATCH = 96
+    C2_BASELINE_NBS = 64
+    C2_BASELINE_WEIGHT_DECAY = 0.0005
+
     #: Augmentation profile per condition. Everything that combines or pastes
     #: objects stays off in C1/C3 so the only variable between them is the dataset.
     CONDITION_PROFILES: dict[str, dict[str, Any]] = {
@@ -156,11 +166,36 @@ class Base1Trainer(BaseTrainingPipeline):
         self.condition = condition
         self.smoke_test = bool(config.get("smoke_test", False))
         self.smoke_images = int(config.get("smoke_images", 10))
+        self.calibration_mode = bool(config.get("c2_calibration_mode", False))
+        self.c2_calibration_batch = config.get("c2_calibration_batch")
+        self.c2_selected_batch = config.get("c2_selected_batch")
+        self.calibration_images = int(config.get("calibration_images", 384))
+        if self.calibration_mode:
+            if self.condition != "c2":
+                raise ValueError(
+                    "C2 batch calibration is only valid for condition 'c2'."
+                )
+            if self.c2_calibration_batch not in self.C2_CALIBRATION_CANDIDATES:
+                raise ValueError(
+                    "c2_calibration_batch must be one of "
+                    f"{self.C2_CALIBRATION_CANDIDATES}."
+                )
+            if self.calibration_images < int(self.c2_calibration_batch):
+                raise ValueError(
+                    "calibration_images must be at least the selected global batch."
+                )
+        if self.c2_selected_batch is not None:
+            if self.condition != "c2":
+                raise ValueError("c2_selected_batch is only valid for condition 'c2'.")
+            self.c2_batch_plan(int(self.c2_selected_batch))
         #: Run identifier used for the output directory and as the prefix of every
         #: artifact uploaded to Drive, so concurrent runs never overwrite each
         #: other. Smoke runs carry their own suffix and stay separate from the real
         #: results.
-        self.run_name = f"f1_{condition}" + ("_smoke" if self.smoke_test else "")
+        if self.calibration_mode:
+            self.run_name = f"f1_c2_batchcal_b{self.c2_calibration_batch}"
+        else:
+            self.run_name = f"f1_{condition}" + ("_smoke" if self.smoke_test else "")
         config.setdefault("experiment_condition", f"F1_{condition.upper()}")
         # A production run must not start if it cannot persist its weights: a
         # Kaggle session dies after 12 hours and the quota would be spent for
@@ -168,8 +203,52 @@ class Base1Trainer(BaseTrainingPipeline):
         # still validates the GPU and dataset path when Drive is unavailable.
         self.io_manager = IOManager(
             token_path=config.get("token_path"),
-            require_drive=not self.smoke_test,
+            require_drive=not (self.smoke_test or self.calibration_mode),
         )
+
+    @classmethod
+    def c2_batch_plan(cls, global_batch: int) -> dict[str, Any]:
+        """Build a reproducible C2 memory-calibration candidate.
+
+        ``batch`` is the global DDP batch.  For a candidate below 96 we set
+        ``nbs=96`` so Ultralytics accumulates enough batches to retain a global
+        optimizer update of 96 samples.  Weight decay is adjusted to preserve the
+        effective decay of the original ``batch=96, nbs=64`` recipe.
+
+        Args:
+            global_batch: Candidate global DDP batch size.
+
+        Returns:
+            Training overrides plus auditable derived quantities.
+        """
+        if global_batch not in cls.C2_CALIBRATION_CANDIDATES:
+            raise ValueError(
+                f"Unsupported C2 batch {global_batch}; expected one of "
+                f"{cls.C2_CALIBRATION_CANDIDATES}."
+            )
+
+        if global_batch == cls.C2_TARGET_GLOBAL_BATCH:
+            nbs = cls.C2_BASELINE_NBS
+            accumulation = 1
+            weight_decay = cls.C2_BASELINE_WEIGHT_DECAY
+        else:
+            nbs = cls.C2_TARGET_GLOBAL_BATCH
+            accumulation = cls.C2_TARGET_GLOBAL_BATCH // global_batch
+            # Ultralytics scales decay by batch * accumulation / nbs.
+            # Preserve the original 96 / 64 multiplier exactly.
+            weight_decay = (
+                cls.C2_BASELINE_WEIGHT_DECAY
+                * cls.C2_TARGET_GLOBAL_BATCH
+                / cls.C2_BASELINE_NBS
+            )
+
+        return {
+            "batch": global_batch,
+            "nbs": nbs,
+            "weight_decay": weight_decay,
+            "expected_accumulate": accumulation,
+            "effective_global_batch": global_batch * accumulation,
+        }
 
     # ===================================================================
     # Drive Destinations
@@ -178,14 +257,14 @@ class Base1Trainer(BaseTrainingPipeline):
     @property
     def drive_results_folder_id(self) -> str | None:
         """Drive folder for logs, plots and metrics, or None if Drive is off."""
-        if not self.io_manager.drive_service:
+        if self.calibration_mode or not self.io_manager.drive_service:
             return None
         return self.config.get("drive_folder_id") or None
 
     @property
     def drive_checkpoints_folder_id(self) -> str | None:
         """Drive folder for model weights, falling back to the results folder."""
-        if not self.io_manager.drive_service:
+        if self.calibration_mode or not self.io_manager.drive_service:
             return None
         return (
             self.config.get("drive_checkpoints_folder_id")
@@ -227,6 +306,7 @@ class Base1Trainer(BaseTrainingPipeline):
             "epochs",
             "patience",
             "batch",
+            "nbs",
             "imgsz",
             "workers",
             "seed",
@@ -238,6 +318,34 @@ class Base1Trainer(BaseTrainingPipeline):
 
         if self.smoke_test:
             params.update(self.smoke_overrides())
+
+        if self.c2_selected_batch is not None:
+            batch_plan = self.c2_batch_plan(int(self.c2_selected_batch))
+            params.update(
+                {key: batch_plan[key] for key in ("batch", "nbs", "weight_decay")}
+            )
+
+        if self.calibration_mode:
+            # The calibration is an operational probe, not an article result. It
+            # deliberately keeps the full C2 augmentation profile but only runs
+            # one epoch over a deterministic dense subset and produces no weights.
+            batch_plan = self.c2_batch_plan(int(self.c2_calibration_batch))
+            params.update(
+                {key: batch_plan[key] for key in ("batch", "nbs", "weight_decay")}
+            )
+            params.update(
+                {
+                    "epochs": 1,
+                    "patience": 0,
+                    "val": False,
+                    "save": False,
+                    "plots": False,
+                    # With one epoch, close_mosaic=10 would disable Mosaic at the
+                    # first iteration. Keep it enabled so the probe is worst-case.
+                    "close_mosaic": 0,
+                    "save_period": -1,
+                }
+            )
 
         return params
 
@@ -448,6 +556,7 @@ class Base1Trainer(BaseTrainingPipeline):
         raw_images_dir = Path(dataset_config.get("raw_images_dir", ""))
         lama_images_dir = Path(dataset_config.get("lama_images_dir", ""))
         common_train_stems: set[str] | None = None
+        calibration_val_stems: set[str] | None = None
         if (
             labels_source.is_dir()
             and raw_images_dir.is_dir()
@@ -463,14 +572,51 @@ class Base1Trainer(BaseTrainingPipeline):
             )
             if not common_train_stems:
                 raise RuntimeError("No common raw/LaMa training images were found.")
+            if self.calibration_mode:
+                # Pick the densest labels deterministically. Mosaic combines four
+                # inputs, so this stresses the exact TaskAlignedAssigner pressure
+                # that triggered the C2 CPU fallback without changing the article
+                # dataset or producing scientific metrics.
+                ranked_stems = sorted(
+                    common_train_stems,
+                    key=lambda stem: (
+                        -sum(
+                            1
+                            for line in (labels_source / "train" / f"{stem}.txt")
+                            .read_text(encoding="utf-8")
+                            .splitlines()
+                            if line.strip()
+                        ),
+                        stem,
+                    ),
+                )
+                common_train_stems = set(ranked_stems[: self.calibration_images])
+                nonempty_val = sorted(
+                    path.stem
+                    for path in (labels_source / "val").glob("*.txt")
+                    if path.stat().st_size > 0
+                )
+                calibration_val_stems = set(nonempty_val[:1])
+                if not calibration_val_stems:
+                    raise RuntimeError(
+                        "No non-empty validation label is available for calibration."
+                    )
             manifest = workspace / "common_train_stems.txt"
             manifest.write_text("\n".join(sorted(common_train_stems)) + "\n")
             excluded = len(label_stems) - len(common_train_stems)
-            print(
-                f"[{self.run_name}] Common F1 train manifest: "
-                f"{len(common_train_stems)} frames ({excluded} excluded)",
-                flush=True,
-            )
+            if self.calibration_mode:
+                print(
+                    f"[{self.run_name}] Dense calibration manifest: "
+                    f"{len(common_train_stems)} frames selected from "
+                    f"{len(label_stems)} labelled frames",
+                    flush=True,
+                )
+            else:
+                print(
+                    f"[{self.run_name}] Common F1 train manifest: "
+                    f"{len(common_train_stems)} frames ({excluded} excluded)",
+                    flush=True,
+                )
 
         # Handle labels source (directory vs zip file)
         if labels_source.name and labels_source.exists():
@@ -483,7 +629,11 @@ class Base1Trainer(BaseTrainingPipeline):
                         self._link_label_files(
                             src,
                             dst,
-                            common_train_stems if split == "train" else None,
+                            (
+                                common_train_stems
+                                if split == "train"
+                                else calibration_val_stems
+                            ),
                         )
                     elif src.exists() and not dst.exists():
                         try:
@@ -561,7 +711,7 @@ class Base1Trainer(BaseTrainingPipeline):
                             split_images_dir / split if has_split_subdirs else None
                         ),
                         destination=images_dest / split,
-                        limit=limit,
+                        limit=1 if self.calibration_mode and split == "val" else limit,
                         skip_empty_labels=self.smoke_test and split == "val",
                     )
                     print(f"[{self.run_name}]   {split}: {linked} images", flush=True)
@@ -682,9 +832,9 @@ names:
             # Only a real run depends on Drive to survive a Kaggle session timeout.
             # Blocking the smoke run here would withhold the GPU and dataset
             # evidence it exists to produce.
-            if self.smoke_test:
+            if self.smoke_test or self.calibration_mode:
                 checks["details"]["drive_service"]["warning"] = (
-                    f"{message} Tolerated: smoke artifacts are disposable."
+                    f"{message} Tolerated: this operational probe has disposable artifacts."
                 )
             else:
                 checks["details"]["drive_service"]["error"] = message
@@ -1145,6 +1295,32 @@ if __name__ == "__main__":
     )
     parser.add_argument("--batch", type=int, default=None, help="Override batch size")
     parser.add_argument(
+        "--c2-calibration-batch",
+        type=int,
+        choices=Base1Trainer.C2_CALIBRATION_CANDIDATES,
+        default=None,
+        help=(
+            "Run one disposable dense C2 calibration candidate. Use "
+            "run_c2_batch_calibration.py to evaluate the full ladder."
+        ),
+    )
+    parser.add_argument(
+        "--c2-batch",
+        type=int,
+        choices=Base1Trainer.C2_CALIBRATION_CANDIDATES,
+        default=None,
+        help=(
+            "Apply a batch selected by the C2 calibration to the production C2 run, "
+            "preserving its effective global optimizer batch."
+        ),
+    )
+    parser.add_argument(
+        "--calibration-images",
+        type=int,
+        default=384,
+        help="Dense train images used by a disposable C2 calibration candidate",
+    )
+    parser.add_argument(
         "--fraction", type=float, default=None, help="Dataset fraction (0.0 to 1.0)"
     )
     parser.add_argument(
@@ -1156,6 +1332,8 @@ if __name__ == "__main__":
         help="Override checkpoints Drive folder ID",
     )
     args = parser.parse_args()
+    if args.c2_batch is not None and args.c2_calibration_batch is not None:
+        parser.error("--c2-batch and --c2-calibration-batch cannot be used together.")
 
     IS_KAGGLE = os.path.exists("/kaggle/working")
 
@@ -1186,6 +1364,8 @@ if __name__ == "__main__":
     # file names, so a shared workspace would silently mix both variants.
     workspace_root = Path("/tmp") if IS_KAGGLE else Path("/content")
     workspace_suffix = f"{args.condition}{'_smoke' if args.smoke_test else ''}"
+    if args.c2_calibration_batch is not None:
+        workspace_suffix = f"c2_batchcal_b{args.c2_calibration_batch}"
     dataset_workspace = workspace_root / f"dataset_{workspace_suffix}"
     data_yaml_path = dataset_workspace / "smart_dataset.yaml"
 
@@ -1217,6 +1397,10 @@ if __name__ == "__main__":
         "smoke_test": args.smoke_test,
         "smoke_images": args.smoke_images,
         "smoke_epochs": args.smoke_epochs,
+        "c2_calibration_mode": args.c2_calibration_batch is not None,
+        "c2_calibration_batch": args.c2_calibration_batch,
+        "c2_selected_batch": args.c2_batch,
+        "calibration_images": args.calibration_images,
     }
 
     if args.epochs is not None:

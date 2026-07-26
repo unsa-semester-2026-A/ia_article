@@ -123,6 +123,63 @@ def test_get_hyperparameters_overrides(trainer: Base1Trainer) -> None:
     assert params["batch"] == 16
 
 
+@pytest.mark.parametrize(
+    ("batch", "nbs", "accumulate"),
+    [(96, 64, 1), (48, 96, 2), (32, 96, 3), (24, 96, 4)],
+)
+def test_c2_batch_plan_preserves_the_global_optimizer_update(
+    batch: int, nbs: int, accumulate: int
+) -> None:
+    """Every approved lower C2 batch must still update on 96 global images."""
+    plan = Base1Trainer.c2_batch_plan(batch)
+    assert plan["batch"] == batch
+    assert plan["nbs"] == nbs
+    assert plan["expected_accumulate"] == accumulate
+    assert plan["effective_global_batch"] == 96
+    if batch < 96:
+        assert plan["weight_decay"] == pytest.approx(0.00075)
+
+
+@patch("src.training.trainers.train_base_1.IOManager")
+def test_selected_c2_batch_applies_the_calibrated_optimizer_settings(
+    mock_io_manager: MagicMock, config: dict[str, Any]
+) -> None:
+    """A selected C2 candidate must not leak its changed batch into C1/C3."""
+    c2 = Base1Trainer(
+        {**config, "condition": "c2", "c2_selected_batch": 48}
+    ).get_hyperparameters()
+    assert c2["batch"] == 48
+    assert c2["nbs"] == 96
+    assert c2["weight_decay"] == pytest.approx(0.00075)
+    assert c2["mosaic"] == 1.0
+
+
+@patch("src.training.trainers.train_base_1.IOManager")
+def test_c2_calibration_preserves_augmentation_but_disables_article_artifacts(
+    mock_io_manager: MagicMock, config: dict[str, Any]
+) -> None:
+    """The memory probe is disposable and must keep Mosaic enabled for stress."""
+    trainer = Base1Trainer(
+        {
+            **config,
+            "condition": "c2",
+            "c2_calibration_mode": True,
+            "c2_calibration_batch": 48,
+            "calibration_images": 384,
+        }
+    )
+    trainer.io_manager.drive_service = MagicMock()
+    params = trainer.get_hyperparameters()
+    assert params["epochs"] == 1
+    assert params["batch"] == 48
+    assert params["mosaic"] == 1.0
+    assert params["close_mosaic"] == 0
+    assert params["save"] is False
+    assert params["val"] is False
+    assert trainer.drive_results_folder_id is None
+    assert trainer.drive_checkpoints_folder_id is None
+
+
 def test_get_dataset_config(trainer: Base1Trainer, config: dict[str, Any]) -> None:
     """Test get_dataset_config returns correct paths."""
     dataset_config = trainer.get_dataset_config()
