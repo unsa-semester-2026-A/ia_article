@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import random
 import shutil
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,18 @@ SYNTHETIC_CLASS_NAMES = {
     5: "articulado",
     7: "mototaxi",
 }
+
+
+def _sampled_labels(labels_dir: Path, *, limit: int, seed: int) -> list[Path]:
+    """Return a deterministic, bounded random sample of label paths.
+
+    Listing directory entries is inexpensive; reading every label is not. The
+    random order prevents rare classes from being delayed by clip-based file
+    ordering while making the smoke selection reproducible.
+    """
+    paths = sorted(labels_dir.glob("*.txt"))
+    random.Random(seed).shuffle(paths)
+    return paths[:limit]
 
 
 def _image_path(directory: Path, stem: str) -> Path | None:
@@ -41,7 +54,7 @@ def _select_sources(
     is found and never scans remaining label files.
     """
     selected: dict[int, tuple[Path, OBB]] = {}
-    for label_path in sorted(labels_dir.glob("*.txt")):
+    for label_path in _sampled_labels(labels_dir, limit=2_000, seed=20260726):
         image_path = _image_path(raw_images_dir, label_path.stem)
         if image_path is None:
             continue
@@ -65,7 +78,8 @@ def _select_target_frames(
 ) -> list[tuple[str, Path, Path, list[OBB]]]:
     """Choose distinct paired Raw/LaMa frames with enough target OBBs."""
     selected = []
-    for label_path in sorted(labels_dir.glob("*.txt")):
+    max_candidates = max(200, len(objects_per_frame) * 20)
+    for label_path in _sampled_labels(labels_dir, limit=max_candidates, seed=20260727):
         if len(selected) == len(objects_per_frame):
             break
         required = objects_per_frame[len(selected)]
