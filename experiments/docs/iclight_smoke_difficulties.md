@@ -34,3 +34,19 @@ visual de iluminación, sombras y realismo sigue siendo una revisión humana.
 - La prueba no certifica que el slot sea semánticamente realista ni que esté
   libre de objetos. Esas reglas pertenecen a la selección de slots y al control
   visual posterior.
+## 2026-07-26 — Quality parameters and foreground backing
+
+The first real-data smoke run used `256 px`, two diffusion steps, `CFG=2`, and
+disabled the high-resolution refinement. Those were execution-only settings,
+not settings that can assess image quality. The official background-conditioned
+demo defaults to 20 steps, `CFG=7`, high-resolution scale `1.5`, and high-res
+denoise `0.5`; the quality smoke therefore uses those values and a simple
+scene-specific prompt: `aerial view of a parked car on an asphalt road,
+daylight, realistic photograph`.
+
+The official callback first applies RMBG to the foreground RGB image. Passing
+a full-frame transparent layer flattened against black made that black canvas
+part of the image and led to dark, distorted output. The renderer now flattens
+transparent pixels against white before uploading, allowing RMBG to identify
+the vehicle as a conventional foreground. This still requires manual review:
+IC-Light was not trained specifically for tiny aerial vehicles.

@@ -14,11 +14,14 @@ class ICLightRequest:
     foreground: Path
     background: Path
     seed: int
-    prompt: str = "outdoor urban road, daylight, traffic, aerial view"
-    negative_prompt: str = "lowres, cropped, worst quality, artifacts"
+    prompt: str = "aerial view of a parked car on an asphalt road, daylight, realistic photograph"
+    negative_prompt: str = "lowres, bad anatomy, bad hands, cropped, worst quality, artifacts"
     steps: int = 20
-    cfg: float = 2.0
+    cfg: float = 7.0
     image_size: int = 512
+    image_height: int | None = None
+    highres_scale: float = 1.5
+    highres_denoise: float = 0.5
 
 
 class ICLightClient:
@@ -92,15 +95,15 @@ class ICLightClient:
             "input_bg": str(request.background),
             "prompt": request.prompt,
             "image_width": request.image_size,
-            "image_height": request.image_size,
+            "image_height": request.image_height or request.image_size,
             "num_samples": 1,
             "seed": request.seed,
             "steps": request.steps,
             "a_prompt": "best quality",
             "n_prompt": request.negative_prompt,
             "cfg": request.cfg,
-            "highres_scale": 1.0,
-            "highres_denoise": 0.5,
+            "highres_scale": request.highres_scale,
+            "highres_denoise": request.highres_denoise,
             "lowres_denoise": 0.5,
             "bg_source": "Use Background Image",
         }

@@ -81,17 +81,28 @@ def relight_variant(
     output_path: Path,
     seed: int,
     *,
-    working_size: int = 512,
+    working_size: int | tuple[int, int] = 512,
     steps: int = 20,
 ) -> Path:
     """Relight one composited foreground against one Raw or LaMa background.
 
-    ``working_size`` and ``steps`` make the inexpensive integration smoke path
-    explicit without weakening the 512-pixel, 20-step production defaults.
-    IC-Light requires dimensions divisible by 64.
+    ``working_size`` is either a square edge or an explicit ``(width, height)``
+    pair. The latter permits an input close to the camera aspect ratio without
+    introducing black letterbox bands into the diffusion conditioning. IC-Light
+    requires both dimensions to be divisible by 64.
     """
-    if working_size < 64 or working_size % 64:
-        raise ValueError("working_size must be a positive multiple of 64")
+    working_width, working_height = (
+        (working_size, working_size)
+        if isinstance(working_size, int)
+        else working_size
+    )
+    if (
+        working_width < 64
+        or working_height < 64
+        or working_width % 64
+        or working_height % 64
+    ):
+        raise ValueError("working dimensions must be positive multiples of 64")
     if steps < 1:
         raise ValueError("steps must be at least 1")
     background = cv2.imread(str(background_path), cv2.IMREAD_COLOR)
@@ -99,12 +110,26 @@ def relight_variant(
         raise FileNotFoundError(f"Background not found: {background_path}")
     if foreground_bgra.ndim != 3 or foreground_bgra.shape[2] != 4:
         raise ValueError("foreground_bgra must be a four-channel BGRA image")
-    # IC-Light's upstream ``run_rmbg`` explicitly requires RGB input. The
-    # alpha layer has already served its purpose in the geometric warp above;
-    # transparent pixels become the black canvas expected by the demo.
-    foreground_bgr = cv2.cvtColor(foreground_bgra, cv2.COLOR_BGRA2BGR)
-    background_working, geometry = letterbox(background, size=working_size)
-    foreground_working, _ = letterbox(foreground_bgr, size=working_size)
+    # ``process_relight`` calls IC-Light's upstream RMBG model itself. Supply
+    # an ordinary RGB image with a neutral white backing, rather than a black
+    # transparent canvas: black pixels are otherwise interpreted as image
+    # content and can dominate the generated scene when the vehicle is small.
+    alpha = foreground_bgra[:, :, 3:4].astype(np.float32) / 255.0
+    vehicle = foreground_bgra[:, :, :3].astype(np.float32)
+    foreground_bgr = (vehicle * alpha + 255.0 * (1.0 - alpha)).astype(np.uint8)
+    # The official callback centre-crops its inputs to the requested size.
+    # Supplying both inputs at that size avoids accidental black padding. The
+    # 576x320 quality-smoke size differs from 16:9 by only 1.25%.
+    background_working = cv2.resize(
+        background,
+        (working_width, working_height),
+        interpolation=cv2.INTER_LANCZOS4,
+    )
+    foreground_working = cv2.resize(
+        foreground_bgr,
+        (working_width, working_height),
+        interpolation=cv2.INTER_LANCZOS4,
+    )
     temp_dir = output_path.parent / ".iclight_inputs"
     temp_dir.mkdir(parents=True, exist_ok=True)
     foreground_path = temp_dir / f"{output_path.stem}_fg.png"
@@ -117,13 +142,14 @@ def relight_variant(
             background_input_path,
             seed,
             steps=steps,
-            image_size=working_size,
+            image_size=working_width,
+            image_height=working_height,
         )
     )
     result = cv2.imread(str(generated), cv2.IMREAD_COLOR)
     if result is None:
         raise RuntimeError(f"IC-Light returned unreadable output: {generated}")
-    restored = undo_letterbox(result, geometry)
+    restored = cv2.resize(result, (640, 360), interpolation=cv2.INTER_LANCZOS4)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if not cv2.imwrite(str(output_path), restored, [cv2.IMWRITE_JPEG_QUALITY, 95]):
         raise OSError(f"Could not write IC-Light output: {output_path}")

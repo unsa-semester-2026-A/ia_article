@@ -29,7 +29,7 @@ def run_smoke_batch(
     jobs: list[dict[str, Any]],
     output_dir: Path,
     *,
-    working_size: int = 256,
+    working_size: int | tuple[int, int] = 256,
     steps: int = 2,
     sample_interval_seconds: float = 0.25,
     render: Callable[..., Path] = relight_variant,
@@ -41,7 +41,8 @@ def run_smoke_batch(
         jobs: Records with ``id``, ``foreground_bgra``, ``background_path`` and
             ``seed``.  Foregrounds must already be full-frame BGRA layers.
         output_dir: Directory where JPEG outputs and the JSON report are saved.
-        working_size: IC-Light square input size, divisible by 64.
+        working_size: IC-Light input edge or ``(width, height)`` pair; every
+            dimension must be divisible by 64.
         steps: Diffusion steps per image.
         sample_interval_seconds: ``nvidia-smi`` polling interval.
         render: Injectable render function for CPU tests.

@@ -93,8 +93,8 @@ def test_package_full_dataset_is_self_contained_and_reports_checksum(
         }
 
 
-def test_relight_variant_sends_three_channel_foreground_to_iclight(tmp_path: Path) -> None:
-    """IC-Light receives BGR, while alpha remains only a geometry intermediate."""
+def test_relight_variant_sends_white_backed_foreground_to_iclight(tmp_path: Path) -> None:
+    """IC-Light receives a three-channel white-backed image for upstream RMBG."""
     background = tmp_path / "background.jpg"
     output = tmp_path / "result.jpg"
     generated = tmp_path / "generated.png"
@@ -106,6 +106,10 @@ def test_relight_variant_sends_three_channel_foreground_to_iclight(tmp_path: Pat
             received = cv2.imread(str(request.foreground), cv2.IMREAD_UNCHANGED)
             assert received is not None and received.shape[2] == 3
             assert request.image_size == 256
+            assert request.image_height == 256
+            assert request.cfg == 7.0
+            assert request.highres_scale == 1.5
+            assert tuple(received[0, 0]) == (255, 255, 255)
             return generated
 
     foreground = np.zeros((360, 640, 4), dtype=np.uint8)
