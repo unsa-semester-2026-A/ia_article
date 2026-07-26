@@ -154,13 +154,13 @@ def test_ultralytics_result_adapter_handles_obb_and_empty_results() -> None:
     assert adapt_ultralytics_result("clip_0000", _FakeResult(None)) == []
 
 
-def test_yolo_adapter_discards_zero_area_model_outputs() -> None:
-    """Skip zero-area OBBs which cannot contribute to an rIoU metric."""
+def test_yolo_adapter_discards_nonpositive_model_outputs() -> None:
+    """Skip non-positive OBBs which cannot contribute to an rIoU metric."""
     detections = adapt_yolo_obb_arrays(
         "clip_0000",
         np.asarray(
             (
-                (1.0, 2.0, 0.0, 4.0, 0.0),
+                (1.0, 2.0, -1.0, 4.0, 0.0),
                 (10.0, 20.0, 8.0, 4.0, math.pi / 2),
             )
         ),
