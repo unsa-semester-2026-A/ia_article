@@ -71,3 +71,27 @@ been regenerated with valid OAuth client credentials and has passed preflight.
    folders are reachable and that artifacts upload successfully.
 3. Only run production after a session with two GPUs reports successful NCCL,
    two engaged devices and `CLEARED FOR PRODUCTION`.
+
+## 2026-07-25 — Base 2 (Classic Augmentation), Fabiana account, version 1
+
+- Notebook: [f1-base2-production](https://www.kaggle.com/code/fabianapachecopalo/f1-base2-production)
+- Kaggle version: 1
+- Branch and commit: `13-f1-kaggle-runner` at `01ee0cf`
+- Scientific condition: **Base 2 (Classic Augmentation)**. The `c2` label is an
+  internal runner identifier only.
+- Initial remote status: `KernelWorkerStatus.RUNNING`
+
+The notebook first validates the trainer with 45 unit tests, then executes a
+disposable DDP memory calibration before production. Global batch 96 was
+rejected because `TaskAlignedAssigner` fell back to CPU; global batch 48 was
+selected cleanly. The production command is therefore equivalent to:
+
+```bash
+python -m src.training.trainers.train_base_1 --condition c2 --c2-batch 48
+```
+
+The calibration uses `nbs=96` and expected accumulation 2, retaining an
+effective global update batch of 96. It does not upload to Drive or contribute
+metrics to the article. Remote logs also confirmed two Tesla T4 devices,
+`OVERALL: PASS` in preflight, and a successful OAuth token refresh. The next
+required evidence is the first periodic Drive checkpoint upload.
