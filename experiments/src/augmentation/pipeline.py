@@ -18,7 +18,6 @@ from typing import Iterable
 
 import cv2
 import numpy as np
-import pandas as pd
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ".PNG")
 FRAME_WIDTH = 640
@@ -208,6 +207,8 @@ class SyntheticDatasetBuilder:
 
     def train_clip_ids(self, metadata_path: Path) -> set[str]:
         """Load the clip-level train split and reject malformed metadata."""
+        import pandas as pd
+
         metadata = pd.read_csv(metadata_path)
         required = {"clip_id", "split"}
         if not required.issubset(metadata.columns):
