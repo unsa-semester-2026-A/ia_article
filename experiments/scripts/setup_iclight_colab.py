@@ -25,6 +25,10 @@ COMPATIBILITY_PINS = [
     "gradio_client",
 ]
 RELIGHT_CLICK = "relight_button.click(fn=process_relight, inputs=ips, outputs=[result_gallery])"
+BLOCK_WITH_QUEUE = "block = gr.Blocks().queue()"
+BLOCK_WITHOUT_QUEUE = "block = gr.Blocks()"
+BLOCK_LAUNCH = "block.launch(server_name='0.0.0.0')"
+BLOCK_LAUNCH_WITH_ERRORS = "block.launch(server_name='0.0.0.0', show_error=True)"
 RELIGHT_CLICK_WITH_API = (
     "relight_button.click(fn=_logged_process_relight, inputs=ips, outputs=[result_gallery])\n"
     "    _api_relight_button = gr.Button(visible=False)\n"
@@ -36,14 +40,25 @@ RELIGHT_CLICK_WITH_API = (
 RELIGHT_TRACE_WRAPPER = (
     "def _logged_process_relight(*args, **kwargs):\n"
     "        try:\n"
-    "            return process_relight(*args, **kwargs)\n"
+    "            print('[ICLight] callback entered:', [\n"
+    "                (type(item).__name__, getattr(item, 'shape', None), getattr(item, 'dtype', None))\n"
+    "                for item in args\n"
+    "            ], flush=True)\n"
+    "            output = process_relight(*args, **kwargs)\n"
+    "            print('[ICLight] callback completed:', [\n"
+    "                (type(item).__name__, getattr(item, 'shape', None), getattr(item, 'dtype', None))\n"
+    "                for item in output\n"
+    "            ], flush=True)\n"
+    "            return output\n"
     "        except Exception:\n"
     "            import traceback\n"
     "            traceback.print_exc()\n"
     "            raise\n"
     "\n"
     "    def _logged_process_relight_image(*args, **kwargs):\n"
-    "        return _logged_process_relight(*args, **kwargs)[0]\n"
+    "        image = _logged_process_relight(*args, **kwargs)[0]\n"
+    "        print('[ICLight] API image selected:', image.shape, image.dtype, flush=True)\n"
+    "        return image\n"
     "\n"
     "    "
 )
@@ -58,7 +73,15 @@ def expose_relight_api(root: Path) -> None:
     """Expose relighting and retain callback tracebacks in the server log."""
     demo = root / "gradio_demo_bg.py"
     source = demo.read_text()
+    if BLOCK_WITH_QUEUE in source:
+        # Kaggle's forced share tunnel can drop Gradio 3.41 queue WebSockets
+        # after a successful callback. This pipeline is intentionally
+        # sequential, so the synchronous HTTP endpoint is more reliable.
+        source = source.replace(BLOCK_WITH_QUEUE, BLOCK_WITHOUT_QUEUE, 1)
+    if BLOCK_LAUNCH in source:
+        source = source.replace(BLOCK_LAUNCH, BLOCK_LAUNCH_WITH_ERRORS, 1)
     if RELIGHT_CLICK_WITH_API in source:
+        demo.write_text(source)
         return
     if RELIGHT_CLICK not in source:
         raise RuntimeError("IC-Light demo layout changed; relight callback was not found")
