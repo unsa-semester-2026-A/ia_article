@@ -15,6 +15,7 @@ from src.evaluation.pipeline import (
     ConditionsPredictions,
     OBBResultLike,
     PipelineEvaluation,
+    PredictionSanitizationDiagnostics,
     TensorLike,
     YoloResultLike,
     adapt_ultralytics_result,
@@ -154,20 +155,54 @@ def test_ultralytics_result_adapter_handles_obb_and_empty_results() -> None:
     assert adapt_ultralytics_result("clip_0000", _FakeResult(None)) == []
 
 
-def test_yolo_adapter_discards_nonpositive_model_outputs() -> None:
-    """Skip non-positive OBBs which cannot contribute to an rIoU metric."""
+def test_yolo_adapter_canonicalizes_negative_dimensions_and_discards_zero_area() -> (
+    None
+):
+    """Preserve valid geometry while excluding only zero-area candidates."""
+    diagnostics = PredictionSanitizationDiagnostics()
     detections = adapt_yolo_obb_arrays(
         "clip_0000",
         np.asarray(
             (
                 (1.0, 2.0, -1.0, 4.0, 0.0),
+                (3.0, 4.0, 2.0, 0.0, 0.0),
                 (10.0, 20.0, 8.0, 4.0, math.pi / 2),
             )
         ),
-        np.asarray((0.4, 0.8)),
-        np.asarray((0, 0), dtype=np.int64),
+        np.asarray((0.4, 0.6, 0.8)),
+        np.asarray((0, 0, 0), dtype=np.int64),
+        diagnostics=diagnostics,
     )
-    assert detections == [Detection(1, 0.8, 10.0, 20.0, 8.0, 4.0, 90.0)]
+    assert detections == [
+        Detection(1, 0.4, 1.0, 2.0, 1.0, 4.0, 0.0),
+        Detection(1, 0.8, 10.0, 20.0, 8.0, 4.0, 90.0),
+    ]
+    assert diagnostics.canonicalized_negative_dimensions == 1
+    assert diagnostics.discarded_zero_area == 1
+    assert diagnostics.accepted == 2
+
+
+def test_yolo_adapter_discards_invalid_model_candidates_with_diagnostics() -> None:
+    """A single bad model candidate must not abort a full evaluation run."""
+    diagnostics = PredictionSanitizationDiagnostics()
+    detections = adapt_yolo_obb_arrays(
+        "clip_0000",
+        np.asarray(
+            (
+                (1.0, 2.0, 3.0, 4.0, 0.0),
+                (math.nan, 2.0, 3.0, 4.0, 0.0),
+                (1.0, 2.0, 3.0, 4.0, 0.0),
+                (1.0, 2.0, 3.0, 4.0, 0.0),
+            )
+        ),
+        np.asarray((0.8, 0.8, 1.1, 0.8)),
+        np.asarray((0, 0, 0, 99), dtype=np.int64),
+        diagnostics=diagnostics,
+    )
+    assert detections == [Detection(1, 0.8, 1.0, 2.0, 3.0, 4.0, 0.0)]
+    assert diagnostics.discarded_nonfinite == 1
+    assert diagnostics.discarded_invalid_score == 1
+    assert diagnostics.discarded_unmapped_class == 1
 
 
 def test_infer_clip_batches_results_and_builds_homographies() -> None:
@@ -301,10 +336,11 @@ def test_invalid_yolo_shapes_and_classes_are_rejected() -> None:
             np.zeros(2),
             np.zeros(1, dtype=np.int64),
         )
-    with pytest.raises(ValueError, match="unmapped"):
+    with pytest.raises(ValueError, match="official IDs"):
         adapt_yolo_obb_arrays(
             "clip_0000",
             np.asarray(((1.0, 2.0, 3.0, 4.0, 0.0),)),
             np.asarray((0.5,)),
-            np.asarray((9,), dtype=np.int64),
+            np.asarray((0,), dtype=np.int64),
+            {0: 10},
         )

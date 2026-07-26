@@ -33,6 +33,7 @@ from src.evaluation.pipeline import (
     INFERENCE_CONFIDENCE,
     INTERNAL_TO_OFFICIAL_CLASS_IDS,
     PipelineEvaluation,
+    PredictionSanitizationDiagnostics,
     estimate_clip_homographies,
     evaluate_dataset,
     load_ground_truth_csv,
@@ -534,6 +535,7 @@ def run_final_evaluation(
         sampler.start()
         started = time.perf_counter()
         raw_by_clip: dict[str, dict[str, list[Detection]]] = {}
+        sanitization = PredictionSanitizationDiagnostics()
         try:
             from src.evaluation.pipeline import infer_clip
 
@@ -552,6 +554,7 @@ def run_final_evaluation(
                         else None
                     ),
                     homographies=homographies_by_clip[clip_id],
+                    diagnostics=sanitization,
                 )
         finally:
             elapsed = time.perf_counter() - started
@@ -572,6 +575,7 @@ def run_final_evaluation(
             "gpu_sampling": gpu_sampling,
             "torch_cuda_memory": _torch_cuda_memory_metrics(),
             "latency": _latency_summary(timing_model.speed_samples),
+            "prediction_sanitization": asdict(sanitization),
         }
         checksum = sha256_file(weight_path)
         archive = _package_result(
