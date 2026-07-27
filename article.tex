@@ -38,8 +38,10 @@
 \usepackage[utf8]{inputenc}   % UTF-8 encoding
 \usepackage{amsmath}             % For equation references with \eqref
 \usepackage{booktabs}            % For \toprule, \midrule, \bottomrule in tables
-\usepackage{flushend}            % To equalize columns on the last page
+\usepackage[protrusion=true,expansion=true]{microtype}
+% \usepackage{flushend}          % Optional last-page column balancing.
 \usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+\Urlmuskip=0mu plus 2mu
 \input{latex_report/style/style.tex}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

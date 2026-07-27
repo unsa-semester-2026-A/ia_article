@@ -26,7 +26,7 @@
 %\dochead{Article Header}
 %% Use \dochead if there is an article header, e.g. \dochead{Short communication}
 
-\title{Real-Time Oriented Bounding Box Vehicle Detection on Edge Hardware: Overcoming Class Imbalance and Motion-Only Annotation Bias in Peruvian Traffic Surveillance}
+\title{Segmentation-Assisted Synthetic Augmentation for Oriented Vehicle Detection in Peruvian Traffic Surveillance}
 
 %% use optional labels to link authors explicitly to addresses:
 %% \author[label1,label2]{<author name>}
@@ -56,7 +56,7 @@
 \address[First]{Universidad Nacional de San Agust{\'i}n, Arequipa, Per{\'u}.}
 
 \begin{abstract}
-Abstract here.
+Traffic surveillance systems require reliable vehicle detection under changing viewpoints, illumination, occlusion, scale, and class imbalance. This work presents a segmentation-assisted synthetic augmentation workflow for oriented vehicle detection in Peruvian traffic imagery. The method characterizes the dataset, converts annotations to YOLO oriented bounding boxes, extracts real vehicle instances with Segment Anything Model masks, inserts them into train-only safe slots, and preserves validation data unchanged. The resulting augmentation set contains 1,501 synthetic image-label pairs and 3,391 inserted instances. The evaluation protocol implements Macro AP-rIoU over nine classes and seven rotated-IoU thresholds with a homography-based motion filter. The main contribution is a validation-preserving augmentation methodology that increases minority-class training evidence while maintaining explicit geometric correspondence between generated pixels and oriented labels.
 \end{abstract}
 
 \begin{keyword}
@@ -65,7 +65,7 @@ Abstract here.
 %% MSC codes here, in the form: \MSC code \sep code
 %% or \MSC[2008] code \sep code (2000 is the default)
 
-Keyword 1 \sep Keyword 2 \sep Keyword 3 \sep Keyword 4 \sep Keyword 5.
+traffic surveillance \sep oriented object detection \sep data augmentation \sep instance segmentation \sep copy-paste augmentation
 \end{keyword}
 
 \end{frontmatter}

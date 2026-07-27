@@ -1,3 +1,8 @@
 \section{Conclusions}
 \label{sec:conclusions}
-Conclusions go here.
+
+This work presents a workflow for oriented vehicle detection in Peruvian traffic surveillance imagery, with emphasis on dataset characterization, OBB label conversion, segmentation-assisted synthetic augmentation, and evaluation design. The implemented training family uses YOLO26s-OBB and replaces the earlier IC-Light-centered exploration with a SAM-based copy-paste set. The final augmentation set is train-only, contains 1,501 image-label pairs and 3,391 inserted instances, preserves validation data unchanged, and includes validation records that check image-label pairing and normalized OBB validity.
+
+The main methodological contribution is the explicit connection between long-tailed traffic classes and label-preserving synthetic composition. Vehicle crops are selected from real tracks, isolated with SAM masks, inserted into pseudo-labeled safe slots, warped to target OBB geometry, and serialized as YOLO-OBB labels. This approach does not attempt to solve domain shift or illumination variation by generation. Instead, it provides a controlled mechanism for increasing minority-class training evidence while keeping the validation setting stable.
+
+The article also clarifies the status of IC-Light. Relighting code remains as preliminary exploration, but it is not part of the final production augmentation command or the training data used by the segmentation-assisted conditions. The proposed contribution is therefore a validated augmentation methodology and evaluation design, while downstream accuracy effects remain to be quantified through controlled detector comparisons.

@@ -1,2 +1,8 @@
-\section{Limitations and future work}
+\section{Limitations and Future Work}
 \label{sec:limitations_future_work}
+
+The most important limitation is that the present study emphasizes the validity of the data-generation process rather than a conclusive downstream accuracy comparison. The code supports Macro AP-rIoU evaluation, motion filtering, and per-condition reporting, but the effect of the synthetic samples should be quantified through a controlled study with an independent validation protocol and repeated runs.
+
+The augmentation set is also conservative in appearance modeling. It uses real masked vehicles and preserves background pixels outside the semantic support, but it does not perform final relighting or learned harmonization. This choice protects annotation validity, yet some pasted instances may show residual differences in illumination, scale realism, or local road context. Future work should evaluate whether lightweight appearance matching improves Macro AP-rIoU without introducing label drift.
+
+Finally, static-slot discovery depends on pseudo-labeling and temporal motion thresholds. The current safeguards reject validation clips, out-of-frame slots, and overlaps with real annotations, but manual spot checks or a small human-reviewed slot subset would strengthen confidence in the semantic suitability of accepted insertion locations. A future study should also assess whether the motion filter removes true stationary false positives without suppressing slowly moving vehicles in congested scenes.

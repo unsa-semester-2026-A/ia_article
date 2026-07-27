@@ -1,27 +1,8 @@
 \subsection{Tools and Technologies}
 \label{sec:tools_technologies}
 
-Model development and training were implemented in Python v3.12 using PyTorch V1.2.10
-as the primary deep learning framework. PyTorch provides a dynamic computation
-graph with imperative execution, enabling straightforward debugging and rapid
-iteration during experimental design of oriented-detection training
-loops~\cite{Paszke2019PyTorch}. Its native autograd engine supports
-the gradient computation required for angular regression losses (e.g.,
-Kullback--Leibler divergence loss over Gaussian-parameterised bounding boxes)
-without requiring custom backward passes. Training experiments were executed
-on Google Colaboratory accelerated hardware (NVIDIA T4 and A100
-GPUs), a cloud-based environment that provides access to modern GPU architectures
-without requiring local infrastructure investment (a constraint particularly
-relevant for research groups in resource-limited institutions)~\cite{Garavagno2022ColabNAS}.
+The experimental code is organized as a Python package under \texttt{experiments/}. The package metadata pins Python to the 3.12 series, NumPy to version 1.26.4, setuptools to version 70.0.0, wheel to version 0.43.0, Ultralytics to version 8.4.103 in the cloud and local optional dependency groups, and LAP to version 0.5.13. Pytest 8.1.1, Pyright 1.1.350, and Ruff 0.15.14 are pinned for development validation. OpenCV, pandas, PyYAML, scikit-learn, tqdm, Torch, Torchvision, Albumentations, and Google API client libraries are declared by package metadata but are not all pinned to exact versions.
 
-Model architectures are drawn from the Ultralytics YOLO ecosystem~\cite{Jocher2026}, which provides YOLO11\allowbreak-OBB and YOLO26\allowbreak-OBB with built-in support
-for oriented bounding box regression, rotated-IoU-based matching, and
-rotation-aware data augmentation. The Ultralytics library also exposes
-an internal rotated-IoU computation that was reused as a primitive within
-the custom Macro AP-rIoU@[0.50:0.80] evaluator implemented for this work.
-For inference-speed benchmarking on edge\allowbreak-representative hardware, models were
-exported to the ONNX portable format, enabling CPU-only evaluation
-independent of the PyTorch runtime. Preprocessing utilities, annotation
-parsing, clip-level dataset splitting, and result formatting were implemented
-as auxiliary Python scripts to ensure full reproducibility across experimental
-configurations.
+Model training and inference use the Ultralytics implementation of YOLO26s-OBB~\cite{Jocher2026}. The training runner writes a standard YOLO dataset YAML with nine zero-indexed class names: auto, combi, microbus, minibus, omnibus, articulado, camion, mototaxi, and motocicleta. It uses PyTorch through the Ultralytics runtime; PyTorch is cited as the underlying tensor and automatic differentiation framework~\cite{Paszke2019PyTorch}. Kaggle and Colab provide the CUDA-compatible PyTorch builds used in cloud execution.
+
+The augmentation code uses OpenCV for polygon geometry, homographies, alpha compositing, connected components, image warping, and JPEG/PNG serialization. SAM is accessed through the Ultralytics adapter with the SAM-B checkpoint in the production notebook. Google Colab and Kaggle notebooks are used as cloud execution environments, consistent with notebook-based research workflows and GPU-backed experimentation~\cite{Garavagno2022ColabNAS,Zhao2021NaaVRE}. The code also records resource and GPU evidence through a lightweight monitor based on process statistics and NVIDIA SMI samples.

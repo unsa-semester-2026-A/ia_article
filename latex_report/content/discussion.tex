@@ -1,21 +1,16 @@
 \section{Discussion}
 \label{sec:discussion}
-Discussion goes here.
 
-One-column table example:
+The developed workflow shows a clear methodological shift from relighting-based synthetic generation toward segmentation-assisted copy-paste. This shift is justified by the implemented augmentation procedure. The IC-Light path served as a preliminary visual exploration, but it showed background hallucination and foreground handling issues that were not compatible with the final training-data requirements. The final production command instead uses SAM masks, deterministic geometry checks, alpha composition that preserves the background, and YOLO-OBB label writing. This design prioritizes annotation fidelity and validation isolation over photorealistic full-frame synthesis.
 
-\begin{table}[H]
-  \centering
-  \caption{Table example}
-  \label{tab:table2}
-  \begin{tabular*}{\hsize}{l p{4cm}}
-    \hline
-    \textbf{Parameter} & \textbf{Description} \\
-    \hline
-    Parameter1 & Text of example. \\
-    Parameter2 & Text of example. \\
-    Parameter3 & Text of example. \\
-    Parameter4 & Text of example. \\
-    \hline
-  \end{tabular*}
-\end{table}
+The conservative design has important advantages for a detection dataset evaluated with rotated boxes. Because inserted objects are real vehicle crops and their final labels are derived from target OBB slots, the renderer can preserve a direct relationship between pixels and annotations. The validation routine also enforces a train-only rule, reducing the risk that synthetic images contaminate validation estimates. These properties are especially relevant under Macro AP-rIoU, where small geometric inconsistencies and rare-class failures can strongly influence the final score.
+
+At the same time, the method does not eliminate every source of bias or uncertainty. The inserted vehicles inherit the appearance distribution of source training examples, and the final renderer applies only geometric warping plus minimal alpha feathering. It does not perform final photometric harmonization or lighting adaptation. This restraint avoids attributing unmeasured gains to relighting, but it also means that some composites may retain visible foreground-background mismatch. A Lab ring-distance helper exists in the code base, although the production renderer does not use it as a hard selection criterion.
+
+The static-slot mechanism also depends on pseudo-label quality. The pseudo-labeler uses a pretrained YOLO-OBB model, homography compensation, centroid tracking, and ground-truth cross-checking to find candidate stationary vehicles, but the resulting slots are still derived from model predictions rather than manual labels. The augmentation builder mitigates this risk by rejecting validation clips, out-of-frame slots, and overlaps with real labels. However, it cannot prove that every accepted slot is semantically ideal for a pasted rare-class vehicle. This limitation should be considered when interpreting any future gain from Improvement B or Improvement C.
+
+The evaluation design is useful for reproducibility because all conditions share the same validation frames, metric implementation, class mapping, and motion filter. Nevertheless, the evidence presented here should be interpreted as methodological rather than as a demonstration of improved detector accuracy. The experiments define the comparison protocol and the augmentation set, but they do not isolate a statistically supported performance effect for the synthetic samples.
+
+This limitation does not invalidate the augmentation set by itself. Dataset statistics, set size, train-only validation, and label-format checks remain evidence that the method can generate consistent synthetic training data. The next scientific question is whether this set improves detector behavior under an independent validation protocol, especially for rare classes that motivated the augmentation strategy.
+
+Overall, the contribution of this study is best understood as a reproducible segmentation-assisted augmentation methodology for a long-tailed OBB traffic dataset. It aligns with the literature on object-centric augmentation by preserving foreground masks and explicit labels, but it remains more conservative than generative image-editing approaches. This choice keeps the method aligned with the implemented pipeline and avoids presenting the preliminary IC-Light exploration as the final experimental contribution.
