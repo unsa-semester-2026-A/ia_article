@@ -56,7 +56,7 @@
 \address[First]{Universidad Nacional de San Agust{\'i}n, Arequipa, Per{\'u}.}
 
 \begin{abstract}
-Traffic surveillance systems require reliable vehicle detection under changing viewpoints, illumination, occlusion, scale, and class imbalance. This work presents a segmentation-assisted synthetic augmentation workflow for oriented vehicle detection in Peruvian traffic imagery. The method characterizes the dataset, converts annotations to YOLO oriented bounding boxes, extracts real vehicle instances with Segment Anything Model masks, inserts them into train-only safe slots, and preserves validation data unchanged. The resulting augmentation set contains 1,501 synthetic image-label pairs and 3,391 inserted instances. The evaluation protocol implements Macro AP-rIoU over nine classes and seven rotated-IoU thresholds with a homography-based motion filter. The main contribution is a validation-preserving augmentation methodology that increases minority-class training evidence while maintaining explicit geometric correspondence between generated pixels and oriented labels.
+Camera-based traffic surveillance can support urban mobility analysis, but reliable vehicle detection remains difficult in dense urban scenes from Lima because viewpoint, illumination, occlusion, scale, orientation, and class imbalance affect the visual evidence available to a detector. This paper presents \textit{Segmentation-Assisted Synthetic Augmentation for Oriented Vehicle Detection in Peruvian Traffic Surveillance}, a validation-preserving workflow for increasing minority-class training evidence in an oriented bounding box setting. The method audits the traffic dataset, converts parametric annotations to YOLO-OBB labels, extracts real vehicle instances with Segment Anything Model masks, places them into train-only safe slots, and evaluates predictions with Macro AP-rIoU over nine classes and seven rotated-IoU thresholds using a homography-based motion filter. The implemented augmentation release contains 1,501 synthetic image-label pairs and 3,391 inserted instances, with no synthetic validation files. The main contribution is a reproducible, segmentation-assisted copy-paste methodology that preserves explicit correspondence between generated pixels and oriented labels while avoiding unverified full-frame generative synthesis.
 \end{abstract}
 
 \begin{keyword}
@@ -65,7 +65,7 @@ Traffic surveillance systems require reliable vehicle detection under changing v
 %% MSC codes here, in the form: \MSC code \sep code
 %% or \MSC[2008] code \sep code (2000 is the default)
 
-traffic surveillance \sep oriented object detection \sep data augmentation \sep instance segmentation \sep copy-paste augmentation
+traffic surveillance \sep oriented object detection \sep segmentation-assisted augmentation \sep copy-paste augmentation
 \end{keyword}
 
 \end{frontmatter}

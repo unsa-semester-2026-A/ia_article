@@ -1,32 +1,32 @@
-\subsection{Theoretical Background}
+\section{Background}
 \label{sec:theoretical_background}
 
-\subsubsection{Traffic Video Detection}
+\subsection{Traffic Video Detection}
 \label{sec:traffic_video_detection}
 
-Intelligent transport systems use visual sensing to estimate vehicle flows, classify vehicle types, and support traffic management decisions. Camera-based monitoring is attractive because existing surveillance infrastructure can capture dense spatial information without installing physical sensors at every lane. At the same time, urban video presents perceptual variability that is uncommon in controlled image benchmarks: shadows, night and daylight transitions, camera height differences, occlusion, congestion, and heterogeneous vehicle shapes can all change the appearance of the same semantic class~\cite{Zhou2025TrafficSurveillanceSurvey,Azfar2024ComplexTrafficReview}. These factors motivate methods that treat dataset preparation, annotation geometry, and evaluation design as part of the detection problem rather than as secondary implementation details.
+Intelligent transport systems use visual sensing to estimate vehicle flows, classify vehicle types, and support traffic management decisions. Camera-based monitoring is attractive because existing infrastructure can capture dense spatial information without additional physical sensors. However, urban video is highly variable: illumination changes, occlusion, congestion, camera placement, and heterogeneous fleets alter vehicle appearance substantially~\cite{Zhou2025TrafficSurveillanceSurvey,Azfar2024ComplexTrafficReview}. Modern object detection surveys also show that performance depends not only on the detector architecture, but also on the distribution and quality of the data used for training~\cite{Zou2023ObjectDetectionSurvey}. These conditions motivate treating dataset preparation, annotation geometry, and evaluation design as core parts of the detection problem.
 
-\subsubsection{Oriented Bounding Boxes}
+\subsection{Oriented Bounding Boxes}
 \label{sec:oriented_bounding_boxes}
 
-Object detectors commonly localize instances with horizontal bounding boxes (HBBs), but HBBs are inefficient for vehicles observed at arbitrary headings. A diagonal car or turning bus can occupy only a fraction of its axis-aligned rectangle, causing extra background pixels to enter the localization target and increasing overlap between neighboring vehicles. Oriented bounding boxes (OBBs) add an angle parameter to the center and size representation, or equivalently encode the four rotated box corners, so the box can align with the physical vehicle footprint~\cite{Wang2025OBBSurvey,Zand2022OBB}. OBBs are therefore well suited to elevated traffic cameras and aerial viewpoints, where vehicle orientation is informative and localization errors can propagate to safety-related downstream quantities~\cite{Ahmed2025}.
+Object detectors commonly localize instances with horizontal bounding boxes (HBBs), but HBBs are inefficient for vehicles observed at arbitrary headings. They include unnecessary background and can increase overlap between nearby objects. Oriented bounding boxes (OBBs) add rotation to the localization target, either through center-size-angle parameters or four rotated corners, so the box better matches the vehicle footprint~\cite{Wang2025OBBSurvey,Zand2022OBB}. This makes OBBs more suitable for elevated traffic viewpoints, where orientation matters and geometric error has practical consequences~\cite{Ahmed2025}.
 
-\subsubsection{Rotated Intersection over Union}
+\subsection{Rotated Intersection over Union}
 \label{sec:riou_metric}
 
-Rotated Intersection over Union (rIoU) measures the geometric agreement between two oriented boxes after converting them into polygons. Unlike conventional IoU for horizontal rectangles, rIoU computes the intersection and union areas of the rotated quadrilaterals themselves. It is therefore sensitive to angular misalignment, not only to center displacement or scale error. This distinction is important for elongated vehicles: two boxes can have similar centers and dimensions but a poor rIoU if their headings differ substantially. In this work, the metric implementation validates every OBB, converts it to a four-vertex polygon, computes convex-polygon overlap with OpenCV, and clips numerical results to the interval $[0,1]$. For a predicted box $B_p$ and a ground-truth box $B_g$, rIoU is defined as
+Rotated Intersection over Union (rIoU) measures the geometric agreement between two oriented boxes after converting them into polygons. Unlike conventional IoU, it evaluates overlap on the rotated quadrilaterals themselves, so it is sensitive to angular misalignment as well as center and scale error. This is especially relevant for elongated vehicles, where small heading differences can reduce overlap sharply even when the predicted center is close to the target. In this work, every OBB is validated, converted to a four-vertex polygon, and evaluated with OpenCV polygon operations. For a predicted box $B_p$ and a ground-truth box $B_g$, rIoU is defined as
 \begin{equation}
   \operatorname{rIoU}(B_p,B_g) =
   \frac{\left|P(B_p)\cap P(B_g)\right|}
        {\left|P(B_p)\cup P(B_g)\right|},
   \label{eq:riou}
 \end{equation}
-where $P(\cdot)$ denotes the polygon induced by an OBB and $|\cdot|$ denotes polygon area. A value of 1 indicates perfect overlap, while 0 indicates no overlap. Values near a decision threshold, such as 0.50 or 0.80, are interpreted as localization matches only if the rotated geometry satisfies that threshold.
+where $P(\cdot)$ denotes the polygon induced by an OBB and $|\cdot|$ denotes polygon area. A value of 1 indicates perfect overlap and 0 indicates no overlap. Values near a threshold, such as 0.50 or 0.80, are accepted as matches only when the rotated geometry satisfies that threshold, which makes rIoU stricter than horizontal IoU for diagonal or thin objects.
 
-\subsubsection{Macro AP-rIoU}
+\subsection{Macro AP-rIoU}
 \label{sec:macro_ap_riou}
 
-The evaluation protocol implements Macro AP-rIoU over the nine vehicle classes and seven rIoU thresholds, $\mathcal{T}=\{0.50,0.55,\ldots,0.80\}$. For each class and threshold, predictions are sorted by confidence and greedily matched to unused ground-truth boxes from the same frame and class. Average Precision (AP) is then computed with 101 interpolated recall levels. The final score gives equal weight to every class, so rare classes affect the metric as much as frequent ones:
+The evaluation protocol implements Macro AP-rIoU over the nine vehicle classes and seven rIoU thresholds, $\mathcal{T}=\{0.50,0.55,\ldots,0.80\}$. For each class and threshold, predictions are sorted by confidence, matched greedily to unused ground-truth boxes from the same frame and class, and summarized with 101-point interpolated Average Precision (AP). The final score gives equal weight to every class:
 \begin{equation}
 \begin{aligned}
   \operatorname{MacroAP}_{rIoU}
@@ -36,14 +36,14 @@ The evaluation protocol implements Macro AP-rIoU over the nine vehicle classes a
 \end{aligned}
 \label{eq:macro_ap_riou}
 \end{equation}
-Macro averaging is important in a long-tailed dataset. A detector that performs well on cars but poorly on microbuses, articulated buses, or mototaxis can still obtain a limited final score because class frequency does not weight the average. The metric therefore supports the methodological focus on minority-class data augmentation.
+Macro averaging is important in a long-tailed dataset because strong performance on cars cannot compensate for weak performance on rare categories. The metric therefore aligns with the study's focus on minority-class augmentation.
 
-\subsubsection{Small Objects and Class Imbalance}
+\subsection{Small Objects and Class Imbalance}
 \label{sec:small_objects_imbalance}
 
-Traffic scenes from elevated cameras contain many compact or distant vehicles that occupy few pixels. Small-object surveys identify repeated downsampling, limited feature support, and dense context as common failure modes for convolutional detectors~\cite{Cheng2023SmallObjectSurvey,Nikouei2025SmallObjectSurvey}. Class imbalance compounds the problem because frequent classes dominate the training signal. In the study dataset, the car class accounts for most annotations, while several bus and mototaxi categories occupy the long tail. Prior work on motorcycle detection and oriented aerial vehicle detection motivates both class-aware evaluation and data-level balancing strategies~\cite{Espinosa2020,Mo2020}. The augmentation strategy follows that motivation by allocating synthetic additions only to classes whose real frequency falls below a configured threshold.
+Traffic scenes from elevated cameras contain many compact or distant vehicles that occupy few pixels. Small-object surveys identify downsampling, weak feature support, and dense context as common detector failure modes~\cite{Cheng2023SmallObjectSurvey,Nikouei2025SmallObjectSurvey}. Class imbalance compounds the problem because frequent classes dominate the training signal, while rare categories receive fewer examples and less variation during optimization. Work on motorcycle detection and oriented aerial vehicle detection shows that vulnerable or minority vehicle classes often require dedicated modeling or data-balancing strategies~\cite{Espinosa2020,Mo2020}. These observations justify both the class-aware metric and the data-level augmentation strategy used in this study.
 
-\subsubsection{Segmentation-Assisted Synthetic Augmentation}
+\subsection{Segmentation-Assisted Synthetic Augmentation}
 \label{sec:segmentation_assisted_augmentation_background}
 
-Synthetic data can improve detector training when it adds useful diversity without destroying label validity. Artificial vehicle images and broader surveys show that combining real and synthetic data may be effective, but they also highlight the risk of domain gaps and unrealistic artifacts~\cite{Weber2021ArtificialImagesVehicleDetection,Mumuni2024}. More recent generative augmentation approaches use segmentation or region control to preserve object identity and spatial annotations, because unconditioned generation can shift object boundaries or create label-image mismatch~\cite{Rahat2024,Benkedadra2024,ZhuH2025}. The method documented in this paper takes a conservative form of this idea: it uses segmentation masks for foreground extraction and copy-paste composition, while avoiding full-frame diffusion generation in the final training set.
+Synthetic data can improve detector training when it increases diversity without breaking label validity. Prior studies show that combining real and synthetic images can be useful, but they also warn about domain gaps and unrealistic artifacts~\cite{Weber2021ArtificialImagesVehicleDetection,Mumuni2024}. Recent augmentation methods therefore use segmentation or regional control to preserve object identity and spatial consistency~\cite{Rahat2024,Benkedadra2024,ZhuH2025}. The method documented here follows that conservative direction by using segmentation masks and copy-paste composition instead of full-frame generation in the final training set.

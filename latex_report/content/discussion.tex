@@ -1,4 +1,4 @@
-\section{Discussion}
+\subsection{Discussion}
 \label{sec:discussion}
 
 The developed workflow shows a clear methodological shift from relighting-based synthetic generation toward segmentation-assisted copy-paste. This shift is justified by the implemented augmentation procedure. The IC-Light path served as a preliminary visual exploration, but it showed background hallucination and foreground handling issues that were not compatible with the final training-data requirements. The final production command instead uses SAM masks, deterministic geometry checks, alpha composition that preserves the background, and YOLO-OBB label writing. This design prioritizes annotation fidelity and validation isolation over photorealistic full-frame synthesis.

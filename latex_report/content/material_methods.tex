@@ -1,14 +1,16 @@
-\section{Material and Methods}
+\section{Methodology}
 \label{sec:material_methods}
 
-\input{latex_report/content/theoretical_background.tex}
-\input{latex_report/content/tools_technologies.tex}
-\input{latex_report/content/dataset.tex}
-
-\subsection{Study Design}
+\subsection{Methodological Design}
 \label{sec:study_design}
 
-The implemented workflow follows a data-centric experimental design. First, the raw competition annotations are parsed, checked, split at clip level, and converted to YOLO-OBB labels. Second, a train-only augmentation set is produced by extracting real vehicle masks and inserting them into safe background slots. Third, YOLO26s-OBB training conditions are assembled so that raw data, classical online augmentation, LaMa-corrected training pixels, and segmentation-assisted synthetic deltas can be compared without changing the validation split. Finally, predictions are evaluated with the same Macro AP-rIoU metric and a shared motion filter. This section describes the implemented pipeline and the evaluation protocol.
+The implemented workflow follows a data-centric experimental design. First, the original annotations are parsed, checked, split at clip level, and converted to YOLO-OBB labels. Second, a train-only augmentation set is produced by extracting real vehicle masks and inserting them into safe background slots. Third, YOLO26s-OBB training conditions are assembled so that raw data, classical online augmentation, LaMa-corrected pixels, and segmentation-assisted synthetic deltas can be compared without changing the validation split. Finally, predictions are evaluated with the same Macro AP-rIoU metric and a shared motion filter. This design keeps the experimental variable focused on the training data while preserving a stable validation protocol.
+
+\subsection{Materials}
+\label{sec:materials}
+
+\input{latex_report/content/tools_technologies.tex}
+\input{latex_report/content/dataset.tex}
 
 \subsection{Annotation Parsing and Split Construction}
 \label{sec:annotation_preprocessing}
@@ -38,7 +40,7 @@ Rendering uses grouped jobs that place up to three non-overlapping target slots 
 \subsubsection{Label Preservation and Validation}
 \label{sec:augmentation_validation}
 
-For every synthetic image, the renderer copies the original background label lines and appends one YOLO-OBB line for each inserted object using the target OBB corners. The writer normalizes all eight coordinates to the 640 by 360 frame and clips them to the closed interval $[0,1]$. The production command stages the generated images and labels under train directories, records one entry per inserted object, stores a JSON summary, exports a metrics report, and creates separate training-delta and validation ZIPs. The validation routine refuses generated sets with missing image-label pairs, unexpected validation outputs, generated labels without corresponding insertion records, out-of-range OBB coordinates, or backgrounds outside train clips. A separate staging script checks that the generated set is copied into a complete Kaggle dataset snapshot without modifying validation data.
+For every synthetic image, the renderer copies the original background label lines and appends one YOLO-OBB line for each inserted object using the target OBB corners. The writer normalizes all eight coordinates to the 640 by 360 frame and clips them to the closed interval $[0,1]$. The production command stages the generated images and labels under train directories, records one entry per inserted object, stores a JSON summary, exports a metrics report, and creates separate training-delta and validation ZIPs. The validation routine refuses generated sets with missing image-label pairs, unexpected validation outputs, generated labels without corresponding insertion records, out-of-range OBB coordinates, or backgrounds outside train clips. A separate staging script checks that the generated set is copied into a complete dataset snapshot without modifying validation data.
 
 \subsection{Training Conditions}
 \label{sec:training_conditions}
@@ -75,7 +77,3 @@ The evaluation pipeline uses homographies to filter static detections because th
 
 The evaluation code uses a confidence threshold of 0.001 to collect model candidates before metric ranking. It converts training class identifiers 0 through 8 into official class identifiers 1 through 9, discards malformed or non-finite predictions, canonicalizes negative dimensions when encountered, and rejects scores outside $[0,1]$. Ground-truth annotations are loaded from the SMART CSV for the selected validation frames. After optional motion filtering, predictions are grouped by class and evaluated with Macro AP-rIoU as defined in Section~\ref{sec:macro_ap_riou}. For each condition, the evaluation protocol records predictions, homographies, metric details, and summary values such as Macro AP-rIoU, macro AP at rIoU 0.50, and macro AP at rIoU 0.80.
 
-\subsection{Data Access Statement}
-\label{sec:data_access}
-
-The competition data are available through the Kaggle SMART Challenge page after accepting the competition and platform terms~\cite{MTC2026SmartChallenge}. The source code contains scripts for parsing, preprocessing, training, augmentation, and evaluation, but it does not redistribute \texttt{train.zip}, \texttt{test.zip}, \texttt{train.csv}, or \texttt{sample\_submission.csv}. Private collaborative mirrors are not primary public dataset sources.
