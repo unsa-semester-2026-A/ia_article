@@ -1,14 +1,16 @@
 DOC = article
 BUILD_DIR = latex_report/build
+PDF_TARGET = $(BUILD_DIR)/$(DOC).pdf
 LATEX = pdflatex
 LATEX_FLAGS = -output-directory=$(BUILD_DIR) -interaction=nonstopmode -halt-on-error
 BIBTEX = bibtex
+SOURCES = $(DOC).tex latex_report/content/*.tex latex_report/style/*.tex latex_report/references.bib
 
 FILTER = grep --color=always -iE "warning|error|underfull|overfull|^!" || true
 
-all: $(DOC).pdf
+all: $(PDF_TARGET)
 
-$(DOC).pdf:
+$(PDF_TARGET): $(SOURCES)
 	@mkdir -p $(BUILD_DIR)
 	@echo "-> Primera pasada de LaTeX..."
 	@$(LATEX) $(LATEX_FLAGS) $(DOC).tex | $(FILTER)
@@ -37,4 +39,4 @@ clean:
 
 rebuild: clean all
 
-.PHONY: all fast clean rebuild $(DOC).pdf
+.PHONY: all fast clean rebuild
