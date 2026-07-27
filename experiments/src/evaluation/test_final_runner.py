@@ -47,6 +47,10 @@ def test_default_conditions_include_known_f1_weights() -> None:
     conditions = {item.name: item for item in default_conditions()}
     assert conditions["Base 1"].checkpoint_name == "f1_c1_best.pt"
     assert conditions["Mejora A"].checkpoint_name == "f1_c3_best.pt"
+    assert conditions["Mejora B"].checkpoint_name == "f1_mejora_b_best.pt"
+    assert conditions["Mejora C"].checkpoint_name == "f1_mejora_c_best.pt"
+    assert conditions["Mejora B"].enabled is True
+    assert conditions["Mejora C"].enabled is True
     assert conditions["Base 0"].class_id_map == {10: 1, 9: 7}
     assert conditions["Base 0"].allow_model_download is True
 

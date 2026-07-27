@@ -160,8 +160,18 @@ def default_conditions() -> tuple[ConditionSpec, ...]:
             "1Hi8OmTIMNzLfadjFbk79OL8yiIZewhpz",
             "f1_c3_best.pt",
         ),
-        ConditionSpec("Mejora B", "1Spi8ArWMV3E9Av8mbNp6xt4xzUhWQaXv", enabled=False),
-        ConditionSpec("Mejora C", "1P5CzJwUZAxETNkWm4F6_LUzChGvKRr_Q", enabled=False),
+        ConditionSpec(
+            "Mejora B",
+            "1Spi8ArWMV3E9Av8mbNp6xt4xzUhWQaXv",
+            "1ag0EPL1f-7T93HjusTBUNXmUWNnZwrBy",
+            "f1_mejora_b_best.pt",
+        ),
+        ConditionSpec(
+            "Mejora C",
+            "1P5CzJwUZAxETNkWm4F6_LUzChGvKRr_Q",
+            "1_kAXLZNnG3m76gdbdLd3nJ5QtJ-MOt96",
+            "f1_mejora_c_best.pt",
+        ),
     )
 
 
