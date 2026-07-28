@@ -4,17 +4,14 @@
 \subsection{Results}
 \label{sec:results}
 
-This subsection reports the dataset characterization, the generated augmentation set, and the experimental conditions used to evaluate the proposed workflow. The quantitative evidence focuses on the data-generation stage, label consistency, and validation isolation. This framing is deliberate because the current validated artifact supports methodological conclusions about data preparation and augmentation integrity, while detector-accuracy gains require a separate controlled performance analysis.
+This section reports the available evidence as an ablation study. The current artifact set contains final Macro AP-rIoU packages for Base 0, Base 2, and Improvement A; a consolidated final-metrics JSON for Base 1; and Ultralytics training artifacts for Improvement B. The final Macro AP-rIoU package for Improvement B is still pending, and Improvement C is intentionally left pending until its artifact is uploaded. For this reason, final detector comparisons are made only for conditions with a final evaluator output, while training-only evidence is reported separately.
 
-\subsubsection{Dataset Characterization}
+\subsubsection{Dataset and Augmentation Artifacts}
 \label{sec:dataset_characterization_results}
 
-The preprocessing analysis confirms that the training CSV contains 54,262 frames, 1,088 clips, and 601,934 OBB annotations. The parser validates class identifiers, positive dimensions, frame-to-label correspondence, and the expected long-tailed distribution reported in Table~\ref{tab:dataset_class_distribution}. These checks are necessary because both YOLO training and synthetic augmentation depend on exact image-label pairing. The analysis also supports the decision to split by clip rather than by frame, since adjacent frames share highly similar camera geometry and would otherwise create validation leakage.
+The preprocessing audit confirms that the training CSV contains 54,262 frames, 1,088 clips, and 601,934 OBB annotations. The validation subset used by the final evaluator contains 10,873 frames and 109,448 ground-truth instances. This confirms that the reported final metrics operate on a fixed validation partition rather than on synthetic or resampled validation data.
 
-\subsubsection{Augmentation Set}
-\label{sec:augmentation_release_results}
-
-The final train-only augmentation set is documented as \texttt{sam\_cp\_production\_v1}. It contains 1,501 synthetic images and 1,501 matching YOLO-OBB label files, with 3,391 inserted vehicle instances. The procedure creates no validation images or labels. The same synthetic delta is used with raw training images in Improvement B and with LaMa-corrected training images in Improvement C. Table~\ref{tab:augmentation_release_summary} summarizes the generated set.
+The train-only augmentation release, named SAM CP production v1, contains 1,501 synthetic images and 1,501 matching YOLO-OBB label files, with 3,391 inserted vehicle instances. No validation images or validation labels are generated. The same synthetic delta is intended for Improvement B over raw training images and for Improvement C over LaMa-corrected training images. Table~\ref{tab:augmentation_release_summary} summarizes the generated augmentation set.
 
 \begin{table}[!t]
   \caption{SAM copy-paste augmentation set used for training.}
@@ -37,37 +34,98 @@ The final train-only augmentation set is documented as \texttt{sam\_cp\_producti
   \end{tabular}
 \end{table}
 
-The validation checks cover the main failure modes that could compromise the experiment. They verify image-label stem equality, reject empty deltas, check every generated YOLO-OBB label for nine fields and normalized coordinates, confirm that no synthetic file shadows a real training frame, and ensure that every synthetic background belongs to the train split. The synthetic data are copied as a separate top-level directory, leaving the base dataset and validation files unchanged. These checks establish the integrity of the augmentation set.
+The validation checks cover the main failure modes that could compromise the experiment. They verify image-label stem equality, reject empty deltas, check every generated YOLO-OBB label for nine fields and normalized coordinates, confirm that no synthetic file shadows a real training frame, and ensure that every synthetic background belongs to the train split. These checks establish that the augmentation set is suitable for ablation, although they do not by themselves prove a detector-performance gain.
 
-\subsubsection{IC-Light Status}
-\label{sec:iclight_status_results}
+\subsubsection{Ablation Artifact Status}
+\label{sec:ablation_artifact_status}
 
-IC-Light remains present in the codebase as a preliminary visual-comparison path. The available documentation records difficulties with Gradio API exposure, RGBA foreground handling, full-frame background hallucination, and the need for manual review of generated outputs. The production augmentation command does not call the IC-Light client or the relighting renderer. Therefore, IC-Light is treated in this manuscript as an evaluated but discarded alternative, not as part of the final training data pipeline.
-
-\subsubsection{Training and Evaluation Conditions}
-\label{sec:training_evaluation_conditions}
-
-The experimental design defines five YOLO26s-OBB F1 training conditions and one zero-shot baseline. The trained conditions compare raw training pixels, classical online augmentation, LaMa-corrected training pixels, and the SAM copy-paste delta while preserving the same validation split. Table~\ref{tab:final_evaluation_conditions} summarizes the evaluated conditions.
+Table~\ref{tab:ablation_artifact_status} records the status of each experimental condition. This distinction is important because Improvement B currently has strong internal YOLO validation logs, but not the same final Macro AP-rIoU package used for the Base 0, Base 2, and Improvement A comparisons.
 
 \begin{table*}[!t]
-  \caption{Evaluation conditions used in the experimental comparison.}
-  \label{tab:final_evaluation_conditions}
+  \caption{Status of the ablation artifacts available for analysis.}
+  \label{tab:ablation_artifact_status}
   \centering
   \small
-  \begin{tabular}{p{0.14\textwidth} p{0.25\textwidth} p{0.29\textwidth} p{0.22\textwidth}}
+  \begin{tabular}{p{0.14\textwidth} p{0.23\textwidth} p{0.24\textwidth} p{0.29\textwidth}}
     \toprule
-    \textbf{Condition} & \textbf{Role} & \textbf{Training data} & \textbf{Evaluation note} \\
+    \textbf{Condition} & \textbf{Role} & \textbf{Available artifact} & \textbf{Interpretation status} \\
     \midrule
-    Base 0 & Zero-shot baseline & Pretrained YOLO26s-OBB & DOTA vehicles mapped to Auto/Camion \\
-    Base 1 & Minimal online augmentation baseline & Raw training pixels & Shared validation split \\
-    Base 2 & Classical augmentation baseline & Raw training pixels & Stronger YOLO augmentation profile \\
-    Improvement A & Background-cleaning condition & LaMa-corrected training pixels & Minimal online augmentation profile \\
-    Improvement B & SAM copy-paste condition & Raw pixels plus SAM copy-paste delta & Train-only synthetic additions \\
-    Improvement C & LaMa plus SAM copy-paste & LaMa-corrected pixels plus same delta & Train-only synthetic additions \\
+    Base 0 & Zero-shot YOLO26s-OBB & Final evaluator ZIP & Comparable final Macro AP-rIoU output \\
+    Base 1 & Raw-data baseline & Consolidated final JSON & Comparable with caution because the package format differs \\
+    Base 2 & Classical augmentation baseline & Final evaluator ZIP & Comparable final Macro AP-rIoU output \\
+    Improvement A & LaMa-corrected training pixels & Final evaluator ZIP & Comparable final Macro AP-rIoU output \\
+    Improvement B & Raw pixels plus SAM copy-paste delta & Ultralytics training run & Training convergence only; final Macro AP-rIoU pending \\
+    Improvement C & LaMa-corrected pixels plus SAM copy-paste delta & Pending upload & Not analyzed yet \\
     \bottomrule
   \end{tabular}
 \end{table*}
 
-Each condition uses the same 10,873 validation frames. They also share batch size 16 and a candidate confidence threshold of 0.001. The protocol records raw predictions, filtered predictions, homographies, class-wise metrics, and threshold-wise metrics so that the comparison can be repeated under the same settings. The present analysis defines these conditions but does not attribute accuracy gains to any single augmentation source.
+\subsubsection{Final Macro AP-rIoU Comparison}
+\label{sec:final_macro_ap_results}
 
-For this reason, the experimental contribution of this section is the validated data-generation process and the controlled definition of the comparison conditions. The results support the feasibility of producing label-consistent synthetic training samples for minority traffic classes, while the effect of those samples on detector accuracy remains a subject for controlled downstream evaluation.
+Table~\ref{tab:ablation_final_metrics} and Figure~\ref{fig:ablation_macro_metrics} show the final evaluator results available at this stage. Base 1 is the only condition with non-zero Macro AP-rIoU, reaching 0.577 over rIoU thresholds 0.50--0.80, with 0.666 at rIoU 0.50 and 0.411 at rIoU 0.80. The count snapshot at rIoU 0.50 also shows 79,098 true positives, 183,084 false positives, and 30,350 false negatives for Base 1.
+
+Base 0, Base 2, and Improvement A produce candidate detections, but none are accepted as true positives by the final class-and-geometry matching step after motion filtering. Their final AP values are therefore 0.000 across the three reported summary metrics. This result means that the currently uploaded final-evaluation artifacts do not support a positive effect for zero-shot inference, classical online augmentation, or LaMa-only training. It also indicates that Base 2 and Improvement A should be audited for checkpoint, class-remapping, or evaluation-compatibility issues before their zero scores are interpreted as a purely visual-model failure.
+
+\begin{table*}[!t]
+  \caption{Available final ablation metrics. Counts are reported at rIoU 0.50 after motion filtering.}
+  \label{tab:ablation_final_metrics}
+  \centering
+  \scriptsize
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{p{0.14\textwidth} p{0.16\textwidth} c c c p{0.22\textwidth} p{0.13\textwidth}}
+    \toprule
+    \textbf{Condition} & \textbf{Final artifact} & \textbf{Macro AP-rIoU} & \textbf{AP@0.50} & \textbf{AP@0.80} & \textbf{TP / FP / FN @0.50} & \textbf{Throughput} \\
+    \midrule
+    Base 0 & Final ZIP & 0.000 & 0.000 & 0.000 & 0 / 319,557 / 109,448 & 38.9 FPS \\
+    Base 1 & Consolidated JSON & 0.577 & 0.666 & 0.411 & 79,098 / 183,084 / 30,350 & 34.2 FPS \\
+    Base 2 & Final ZIP & 0.000 & 0.000 & 0.000 & 0 / 252,890 / 109,448 & 85.5 FPS \\
+    Improvement A & Final ZIP & 0.000 & 0.000 & 0.000 & 0 / 253,713 / 109,448 & 83.8 FPS \\
+    Improvement B & Pending final ZIP & -- & -- & -- & Final evaluation pending & Training logs only \\
+    Improvement C & Pending upload & -- & -- & -- & Pending upload & Pending upload \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table*}
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.88\textwidth]{latex_report/src/fig/ablation_macro_metrics.png}
+  \caption{Final Macro AP-rIoU, AP@0.50, and AP@0.80 for the conditions with available final or consolidated evaluation metrics. Improvement B and Improvement C are excluded because their final Macro AP-rIoU artifacts are pending.}
+  \label{fig:ablation_macro_metrics}
+\end{figure*}
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.88\textwidth]{latex_report/src/fig/ablation_outcomes_riou50.png}
+  \caption{True positives, false positives, and false negatives at rIoU 0.50 after motion filtering. The zero-score conditions still emit many candidates, but no candidate satisfies the final class-and-geometry match.}
+  \label{fig:ablation_outcomes_riou50}
+\end{figure*}
+
+\subsubsection{Base 1 Class-Level Behavior}
+\label{sec:base1_class_results}
+
+Because Base 1 is the only condition with a non-zero final score, its class-level profile provides the most useful diagnostic view of the current detector behavior. Figure~\ref{fig:base1_class_ap} shows that the strongest classes are Microbus (0.851), Omnibus (0.701), Mototaxi (0.627), and Auto (0.626). The weakest classes are Motocicleta (0.275) and Articulado (0.406). This pattern shows that the difficulty is not explained by class frequency alone. Some minority classes remain measurable, while classes with small visual footprints, ambiguous orientation, or sparse examples still limit the macro-averaged score.
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.88\textwidth]{latex_report/src/fig/base1_class_ap.png}
+  \caption{Class-wise AP-rIoU for Base 1 over thresholds 0.50--0.80. Base 1 is the current reference condition because it is the only uploaded final-result artifact with non-zero true positives.}
+  \label{fig:base1_class_ap}
+\end{figure*}
+
+The threshold-level counts for Base 1 also show the expected localization penalty as the rIoU threshold increases. At rIoU 0.50, precision is 0.302, recall is 0.723, and F1 is 0.426. At rIoU 0.80, precision decreases to 0.227, recall to 0.545, and F1 to 0.321. Since inference begins with a low confidence threshold of 0.001 to preserve candidates for AP computation, the false-positive count is high; the relevant comparison is therefore the ranked AP and the consistent validation protocol rather than the raw candidate count alone.
+
+\subsubsection{Improvement B Training Evidence}
+\label{sec:improvement_b_training_results}
+
+Improvement B has training artifacts but not yet a final Macro AP-rIoU evaluation ZIP. The uploaded run completed 12 epochs of a requested 40-epoch schedule with patience 5, batch size 96, image size 640, AdamW, automatic mixed precision, and two Tesla T4 GPUs. The best internal YOLO validation mAP50 is 0.929 at epoch 11, and the best internal mAP50-95 is 0.761 at epoch 7. The last recorded epoch reports precision 0.900, recall 0.859, mAP50 0.928, and mAP50-95 0.757.
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.88\textwidth]{latex_report/src/fig/mejora_b_training_curves.png}
+  \caption{Internal Ultralytics validation curves for Improvement B. These values show that the run converged, but they are not a substitute for the final Macro AP-rIoU evaluation with motion filtering.}
+  \label{fig:mejora_b_training_curves}
+\end{figure*}
+
+These Improvement B metrics are encouraging as training diagnostics, but they are not directly comparable with Table~\ref{tab:ablation_final_metrics}. Ultralytics mAP uses the model's validation loop, while the paper's final metric uses the SMART validation frames, official class identifiers, rotated IoU thresholds, and the homography-based motion filter. The effect of the SAM copy-paste delta must therefore remain pending until the final evaluator package for Improvement B is produced. Improvement C is also left pending until its uploaded artifact is available.
