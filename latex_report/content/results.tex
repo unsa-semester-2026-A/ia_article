@@ -4,7 +4,7 @@
 \subsection{Results}
 \label{sec:results}
 
-This section reports the available evidence as an ablation study. The current artifact set contains final Macro AP-rIoU packages for Base 0, Base 2, and Improvement A; a consolidated final-metrics JSON for Base 1; and Ultralytics training artifacts for Improvement B. The final Macro AP-rIoU package for Improvement B is still pending, and Improvement C is intentionally left pending until its artifact is uploaded. For this reason, final detector comparisons are made only for conditions with a final evaluator output, while training-only evidence is reported separately.
+This section reports the available evidence as an ablation study. The current artifact set contains final Macro AP-rIoU packages for Base 0, Base 2, Improvement A, and Improvement C; a consolidated final-metrics JSON for Base 1; and Ultralytics training artifacts for Improvement B. The final Macro AP-rIoU package for Improvement B is not available, so its evidence is reported separately as training-level validation rather than merged into the final-evaluator comparison.
 
 \subsubsection{Dataset and Augmentation Artifacts}
 \label{sec:dataset_characterization_results}
@@ -39,7 +39,7 @@ The validation checks cover the main failure modes that could compromise the exp
 \subsubsection{Ablation Artifact Status}
 \label{sec:ablation_artifact_status}
 
-Table~\ref{tab:ablation_artifact_status} records the status of each experimental condition. This distinction is important because Improvement B currently has strong internal YOLO validation logs, but not the same final Macro AP-rIoU package used for the Base 0, Base 2, and Improvement A comparisons.
+Table~\ref{tab:ablation_artifact_status} records the status of each experimental condition. This distinction is important because Improvement B currently has strong internal YOLO validation logs, but not the same final Macro AP-rIoU package used for the Base 0, Base 2, Improvement A, and Improvement C comparisons.
 
 \begin{table*}[!t]
   \caption{Status of the ablation artifacts available for analysis.}
@@ -54,8 +54,8 @@ Table~\ref{tab:ablation_artifact_status} records the status of each experimental
     Base 1 & Raw-data baseline & Consolidated final JSON & Comparable with caution because the package format differs \\
     Base 2 & Classical augmentation baseline & Final evaluator ZIP & Comparable final Macro AP-rIoU output \\
     Improvement A & LaMa-corrected training pixels & Final evaluator ZIP & Comparable final Macro AP-rIoU output \\
-    Improvement B & Raw pixels plus SAM copy-paste delta & Ultralytics training run & Training convergence only; final Macro AP-rIoU pending \\
-    Improvement C & LaMa-corrected pixels plus SAM copy-paste delta & Pending upload & Not analyzed yet \\
+    Improvement B & Raw pixels plus SAM copy-paste delta & Ultralytics training run & Training convergence only; final Macro AP-rIoU unavailable \\
+    Improvement C & LaMa-corrected pixels plus SAM copy-paste delta & Final evaluator ZIP & Comparable final Macro AP-rIoU output \\
     \bottomrule
   \end{tabular}
 \end{table*}
@@ -65,7 +65,9 @@ Table~\ref{tab:ablation_artifact_status} records the status of each experimental
 
 Table~\ref{tab:ablation_final_metrics} and Figure~\ref{fig:ablation_macro_metrics} show the final evaluator results available at this stage. Base 1 is the only condition with non-zero Macro AP-rIoU, reaching 0.577 over rIoU thresholds 0.50--0.80, with 0.666 at rIoU 0.50 and 0.411 at rIoU 0.80. The count snapshot at rIoU 0.50 also shows 79,098 true positives, 183,084 false positives, and 30,350 false negatives for Base 1.
 
-Base 0, Base 2, and Improvement A produce candidate detections, but none are accepted as true positives by the final class-and-geometry matching step after motion filtering. Their final AP values are therefore 0.000 across the three reported summary metrics. This result means that the currently uploaded final-evaluation artifacts do not support a positive effect for zero-shot inference, classical online augmentation, or LaMa-only training. It also indicates that Base 2 and Improvement A should be audited for checkpoint, class-remapping, or evaluation-compatibility issues before their zero scores are interpreted as a purely visual-model failure.
+Base 0, Base 2, Improvement A, and Improvement C produce candidate detections, but none are accepted as true positives by the final class-and-geometry matching step after motion filtering. Their final AP values are therefore 0.000 across the three reported summary metrics. This result means that the uploaded final-evaluation artifacts do not support a positive effect for zero-shot inference, classical online augmentation, LaMa-only training, or the LaMa plus SAM copy-paste condition. It also indicates that Base 2, Improvement A, and Improvement C should be audited for checkpoint, class-remapping, OBB-coordinate, or evaluation-compatibility issues before their zero scores are interpreted as purely visual-model failures.
+
+Improvement C does reduce the post-filter candidate volume relative to Base 2 and Improvement A, with 201,344 false positives at rIoU 0.50 compared with 252,890 and 253,713, respectively. It also records the highest throughput among the final ZIP packages, at 98.9 FPS. However, this operational improvement does not translate into accepted detections under the final metric because the true-positive count remains zero.
 
 \begin{table*}[!t]
   \caption{Available final ablation metrics. Counts are reported at rIoU 0.50 after motion filtering.}
@@ -81,8 +83,8 @@ Base 0, Base 2, and Improvement A produce candidate detections, but none are acc
     Base 1 & Consolidated JSON & 0.577 & 0.666 & 0.411 & 79,098 / 183,084 / 30,350 & 34.2 FPS \\
     Base 2 & Final ZIP & 0.000 & 0.000 & 0.000 & 0 / 252,890 / 109,448 & 85.5 FPS \\
     Improvement A & Final ZIP & 0.000 & 0.000 & 0.000 & 0 / 253,713 / 109,448 & 83.8 FPS \\
-    Improvement B & Pending final ZIP & -- & -- & -- & Final evaluation pending & Training logs only \\
-    Improvement C & Pending upload & -- & -- & -- & Pending upload & Pending upload \\
+    Improvement B & Training run & -- & -- & -- & Final evaluation unavailable & Training logs only \\
+    Improvement C & Final ZIP & 0.000 & 0.000 & 0.000 & 0 / 201,344 / 109,448 & 98.9 FPS \\
     \bottomrule
   \end{tabular}
   }
@@ -91,7 +93,7 @@ Base 0, Base 2, and Improvement A produce candidate detections, but none are acc
 \begin{figure*}[!t]
   \centering
   \includegraphics[width=0.88\textwidth]{latex_report/src/fig/ablation_macro_metrics.png}
-  \caption{Final Macro AP-rIoU, AP@0.50, and AP@0.80 for the conditions with available final or consolidated evaluation metrics. Improvement B and Improvement C are excluded because their final Macro AP-rIoU artifacts are pending.}
+  \caption{Final Macro AP-rIoU, AP@0.50, and AP@0.80 for the conditions with available final or consolidated evaluation metrics. Improvement B is excluded because its final Macro AP-rIoU artifact is unavailable.}
   \label{fig:ablation_macro_metrics}
 \end{figure*}
 
@@ -119,7 +121,7 @@ The threshold-level counts for Base 1 also show the expected localization penalt
 \subsubsection{Improvement B Training Evidence}
 \label{sec:improvement_b_training_results}
 
-Improvement B has training artifacts but not yet a final Macro AP-rIoU evaluation ZIP. The uploaded run completed 12 epochs of a requested 40-epoch schedule with patience 5, batch size 96, image size 640, AdamW, automatic mixed precision, and two Tesla T4 GPUs. The best internal YOLO validation mAP50 is 0.929 at epoch 11, and the best internal mAP50-95 is 0.761 at epoch 7. The last recorded epoch reports precision 0.900, recall 0.859, mAP50 0.928, and mAP50-95 0.757.
+Improvement B has training artifacts but not a final Macro AP-rIoU evaluation ZIP. The uploaded run completed 12 epochs of a requested 40-epoch schedule with patience 5, batch size 96, image size 640, AdamW, automatic mixed precision, and two Tesla T4 GPUs. The best internal YOLO validation mAP50 is 0.929 at epoch 11, and the best internal mAP50-95 is 0.761 at epoch 7. The last recorded epoch reports precision 0.900, recall 0.859, mAP50 0.928, and mAP50-95 0.757.
 
 \begin{figure*}[!t]
   \centering
@@ -128,4 +130,4 @@ Improvement B has training artifacts but not yet a final Macro AP-rIoU evaluatio
   \label{fig:mejora_b_training_curves}
 \end{figure*}
 
-These Improvement B metrics are encouraging as training diagnostics, but they are not directly comparable with Table~\ref{tab:ablation_final_metrics}. Ultralytics mAP uses the model's validation loop, while the paper's final metric uses the SMART validation frames, official class identifiers, rotated IoU thresholds, and the homography-based motion filter. The effect of the SAM copy-paste delta must therefore remain pending until the final evaluator package for Improvement B is produced. Improvement C is also left pending until its uploaded artifact is available.
+These Improvement B metrics are encouraging as training diagnostics, but they are not directly comparable with Table~\ref{tab:ablation_final_metrics}. Ultralytics mAP uses the model's validation loop, while the paper's final metric uses the SMART validation frames, official class identifiers, rotated IoU thresholds, and the homography-based motion filter. Therefore, the raw-pixel SAM copy-paste condition cannot be assigned a final Macro AP-rIoU effect from the current artifacts. The LaMa plus SAM copy-paste condition is no longer pending: its uploaded final package is included as Improvement C and obtains 0.000 under the final evaluator.
