@@ -4,7 +4,7 @@
 \subsection{Methodological Design}
 \label{sec:study_design}
 
-The study uses a data-centric ablation design. The workflow first checks the original annotations, assigns complete clips to train or validation, and exports labels in YOLO-OBB format. It then creates a train-only augmentation set by extracting real vehicle masks and placing them in accepted background slots. Training conditions are organized to compare raw frames, classical online augmentation, LaMa-corrected pixels~\cite{Suvorov2022LaMa}, and segmentation-assisted synthetic additions while keeping validation fixed. All final predictions are evaluated with the same Macro AP-rIoU implementation and the same motion filter, so the main experimental variable remains the training data. Conditions without a final evaluator package are reported as pending rather than imputed from non-equivalent metrics.
+The study uses a data-centric ablation design. The workflow first checks the original annotations, assigns complete clips to train or validation, and exports labels in YOLO-OBB format. It then creates a train-only augmentation set by extracting real vehicle masks and placing them in accepted background slots. Training conditions are organized to compare raw frames, classical online augmentation, LaMa-corrected pixels~\cite{Suvorov2022LaMa}, and segmentation-assisted synthetic additions while keeping validation fixed. All final predictions are evaluated with the same Macro AP-rIoU implementation and the same motion filter, so the main experimental variable remains the training data. Training-loop metrics are reported only as diagnostics when they help explain a final-artifact result.
 
 \subsection{Materials}
 \label{sec:materials}
