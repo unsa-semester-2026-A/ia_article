@@ -4,7 +4,7 @@
 \subsection{Traffic Video Detection}
 \label{sec:traffic_video_detection}
 
-Visual traffic monitoring supports tasks such as flow estimation, vehicle classification, and incident analysis. Cameras are useful in this context because they provide dense spatial evidence from infrastructure that many cities already operate. The challenge is that urban footage is not visually stable: lighting, congestion, occlusion, camera placement, and fleet composition can change the appearance of the same class across locations~\cite{Zhou2025TrafficSurveillanceSurvey,Azfar2024ComplexTrafficReview}. Object-detection surveys also emphasize that performance depends on the training data distribution, not only on the network architecture~\cite{Zou2023ObjectDetectionSurvey}. For this reason, data preparation, annotation geometry, and evaluation design are treated here as part of the detection problem itself.
+Visual traffic monitoring supports tasks such as flow estimation, vehicle classification, and incident analysis. Cameras are useful in this context because they provide dense spatial evidence from infrastructure that many cities already operate. The challenge is that urban footage is not visually stable: lighting, congestion, occlusion, camera placement, and fleet composition can change the appearance of the same class across locations~\cite{Zhou2025TrafficSurveillanceSurvey,Azfar2024ComplexTrafficReview}. Object-detection surveys also emphasize that performance depends on the training data distribution as well as the network architecture~\cite{Zou2023ObjectDetectionSurvey}. In this project, data preparation, annotation geometry, and evaluation design are treated as part of the detection problem itself.
 
 \subsection{Oriented Bounding Boxes}
 \label{sec:oriented_bounding_boxes}
@@ -14,7 +14,7 @@ Many detectors represent object location with horizontal bounding boxes. That re
 \subsection{Rotated Intersection over Union}
 \label{sec:riou_metric}
 
-Rotated Intersection over Union (rIoU) compares two oriented boxes as polygons. It differs from horizontal IoU because the overlap is computed on the rotated quadrilaterals, making the score sensitive to heading, scale, and center error at the same time. This follows the logic of oriented-detection benchmarks such as DOTA, where polygon overlap is used while the overall detection protocol remains related to the PASCAL VOC tradition~\cite{Ding2022DOTA,Everingham2015PASCAL}. For a predicted box $B_p$ and a ground-truth box $B_g$, rIoU is defined as
+Rotated Intersection over Union (rIoU) compares two oriented boxes as polygons. It differs from horizontal IoU because the overlap is computed on the rotated quadrilaterals, making the score sensitive to heading, scale, and center error at the same time. The definition follows oriented-detection benchmarks such as DOTA, where polygon overlap is used while the detection protocol remains related to the PASCAL VOC tradition~\cite{Ding2022DOTA,Everingham2015PASCAL}. For a predicted box $B_p$ and a ground-truth box $B_g$, rIoU is defined as
 \begin{equation}
   \operatorname{rIoU}(B_p,B_g) =
   \frac{\left|P(B_p)\cap P(B_g)\right|}
@@ -36,14 +36,14 @@ Macro AP-rIoU combines class-balanced AP with rotated overlap. The protocol uses
 \end{aligned}
 \label{eq:macro_ap_riou}
 \end{equation}
-The macro average is intentionally class-balanced. In a long-tailed dataset, high AP for cars should not hide failure on rare vehicle types. The metric therefore matches the motivation for minority-class augmentation while retaining the geometric strictness of rIoU.
+The macro average is intentionally class-balanced. In a long-tailed dataset, high AP for cars should not hide failure on rare vehicle types. The metric matches the motivation for minority-class augmentation while retaining the geometric strictness of rIoU.
 
 \subsection{Small Objects and Class Imbalance}
 \label{sec:small_objects_imbalance}
 
-Elevated cameras often capture vehicles that are small in the image or partially hidden by surrounding traffic. Small-object surveys relate this difficulty to downsampling, weak feature support, and cluttered context~\cite{Cheng2023SmallObjectSurvey,Nikouei2025SmallObjectSurvey}. Class imbalance adds a second pressure: frequent classes dominate optimization, while rare classes provide fewer examples and less appearance variation. Studies on motorcycle detection and oriented aerial vehicle detection indicate that vulnerable or minority vehicle classes often need targeted modeling or balancing strategies~\cite{Espinosa2020,Mo2020}. These observations support both the class-aware metric and the data-level augmentation strategy used in this study.
+Elevated cameras often capture vehicles that are small in the image or partially hidden by surrounding traffic. Small-object surveys relate this difficulty to downsampling, weak feature support, and cluttered context~\cite{Cheng2023SmallObjectSurvey,Nikouei2025SmallObjectSurvey}. Class imbalance adds a second pressure: frequent classes dominate optimization, while rare classes provide fewer examples and less appearance variation. Studies on motorcycle detection and oriented aerial vehicle detection indicate that vulnerable or minority vehicle classes often need targeted modeling or balancing strategies~\cite{Espinosa2020,Mo2020}. These observations support both the class-aware metric and the data-level augmentation strategy used in the experiment.
 
 \subsection{Segmentation-Assisted Synthetic Augmentation}
 \label{sec:segmentation_assisted_augmentation_background}
 
-Synthetic data is useful for detection only when it adds variation without damaging the labels. Prior work reports benefits from combining real and artificial images, while also warning that domain gaps and visual artifacts can reduce the value of generated samples~\cite{Weber2021ArtificialImagesVehicleDetection,Mumuni2024}. Recent methods therefore use segmentation masks or region-level controls to protect object identity and spatial consistency~\cite{Rahat2024,Benkedadra2024,ZhuH2025}. The workflow in this paper follows that conservative direction: the final training data uses mask-guided copy-paste rather than full-frame image generation.
+Synthetic data is useful for detection only when it adds variation without damaging the labels. Prior work reports benefits from combining real and artificial images, while also warning that domain gaps and visual artifacts can reduce the value of generated samples~\cite{Weber2021ArtificialImagesVehicleDetection,Mumuni2024}. Recent methods use segmentation masks or region-level controls to protect object identity and spatial consistency~\cite{Rahat2024,Benkedadra2024,ZhuH2025}. The final training data follows that conservative direction with mask-guided copy-paste rather than full-frame image generation.

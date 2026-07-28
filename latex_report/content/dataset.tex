@@ -22,7 +22,7 @@ The dataset is the traffic-imagery release published by Peru's Ministry of Trans
 
 Each object annotation stores a category identifier, box center, width, height, and angle in degrees. Multiple vehicles in one frame are separated by semicolons, while frames without annotated moving vehicles use \texttt{none}. Preprocessing converts this parametric representation to YOLO-OBB corner coordinates and remaps official class identifiers 1--9 to zero-indexed training labels. The resulting training format uses one label file per image and one line per object, with the class identifier followed by eight normalized vertex coordinates.
 
-Frame identifiers follow the pattern \texttt{v\_[clip]\_[frame]}; the last number indicates temporal order within a short clip. This naming scheme is used for splitting because adjacent frames share background, viewpoint, and illumination. A random frame-level split could place near-duplicate evidence in both training and validation. The preprocessing stage therefore assigns complete clips to a single subset. Table~\ref{tab:clip_statistics} reports the resulting clip statistics.
+Frame identifiers follow the pattern \texttt{v\_[clip]\_[frame]}; the last number indicates temporal order within a short clip. This naming scheme is used for splitting because adjacent frames share background, viewpoint, and illumination. A random frame-level split could place near-duplicate evidence in both training and validation. The preprocessing stage assigns complete clips to a single subset. Table~\ref{tab:clip_statistics} reports the resulting clip statistics.
 
 \begin{table}[!t]
   \caption{Per-split clip statistics derived from frame identifiers.}
@@ -98,4 +98,4 @@ The class distribution is highly long-tailed. Cars represent 481,731 instances, 
   \end{tabular}
 \end{table*}
 
-The annotation policy affects how predictions should be interpreted. The labels target moving vehicles, so visible stationary vehicles may be absent from the ground truth. A model can therefore predict a visually reasonable stationary vehicle and still receive no match during evaluation. Section~\ref{sec:material_methods} addresses this issue through train-only pseudo-labeling of static slots and a homography-compensated motion filter used before scoring.
+The annotation policy affects how predictions should be interpreted. The labels target moving vehicles, so visible stationary vehicles may be absent from the ground truth. A model can predict a visually reasonable stationary vehicle and still receive no match during evaluation. Section~\ref{sec:material_methods} addresses this issue through train-only pseudo-labeling of static slots and a homography-compensated motion filter used before scoring.

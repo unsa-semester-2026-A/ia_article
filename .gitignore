@@ -32,6 +32,7 @@ experiments/dataset/
 experiments/audit_output/
 experiments/dummy_train.csv
 experiments/*.json
+.results/
 
 # Credentials: Google Drive OAuth tokens and Kaggle API keys
 token_drive
