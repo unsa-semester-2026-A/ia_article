@@ -1,7 +1,7 @@
 \subsubsection{Dataset}
 \label{sec:dataset}
 
-The data come from a traffic-imagery release published by Peru's Ministry of Transportation and Communications (MTC)~\cite{MTC2026SmartChallenge}. The task is oriented vehicle detection and classification with rotated boxes, which means that each predicted vehicle must include both category and geometry. In this study, the original archives and CSV annotations are treated as external inputs consumed by preprocessing scripts and not redistributed in the repository. Table~\ref{tab:dataset_structure} summarizes the files used by the workflow and separates the role of training frames, held-out frames, public annotations, and submission templates.
+The dataset is the traffic-imagery release published by Peru's Ministry of Transportation and Communications (MTC)~\cite{MTC2026SmartChallenge}. The task requires both vehicle classification and oriented localization, so each predicted instance must include a category and a rotated box. The raw archives and CSV files are treated as external inputs to the preprocessing scripts and are not redistributed with this repository. Table~\ref{tab:dataset_structure} lists the files used by the workflow and distinguishes training images, held-out images, public annotations, and the submission template.
 
 \begin{table*}[!t]
   \caption{MTC traffic-imagery data files and their role in the workflow.}
@@ -20,9 +20,9 @@ The data come from a traffic-imagery release published by Peru's Ministry of Tra
   \end{tabular}
 \end{table*}
 
-Each object record contains a category identifier, center coordinates, width, height, and an angle in degrees. Frames with multiple vehicles store records separated by semicolons, whereas frames without annotated moving vehicles use the literal value \texttt{none}. The preprocessing stage converts these parametric OBB annotations into YOLO-OBB corner coordinates and remaps the official class identifiers from 1--9 to the zero-indexed labels required for training. This conversion is necessary because the training pipeline expects one label file per image and one line per object, with the class identifier followed by eight normalized corner coordinates.
+Each object annotation stores a category identifier, box center, width, height, and angle in degrees. Multiple vehicles in one frame are separated by semicolons, while frames without annotated moving vehicles use \texttt{none}. Preprocessing converts this parametric representation to YOLO-OBB corner coordinates and remaps official class identifiers 1--9 to zero-indexed training labels. The resulting training format uses one label file per image and one line per object, with the class identifier followed by eight normalized vertex coordinates.
 
-Frame identifiers follow the pattern \texttt{v\_[clip]\_[frame]}, where the final number marks the temporal position within a short clip. This organization is central to the split design because adjacent frames share viewpoint, background, and illumination. If individual frames were split randomly, near-duplicate visual evidence from the same clip could appear in both training and validation. To avoid this leakage, the preprocessing pipeline assigns complete clips, rather than individual frames, to a single split. Table~\ref{tab:clip_statistics} reports the resulting clip statistics.
+Frame identifiers follow the pattern \texttt{v\_[clip]\_[frame]}; the last number indicates temporal order within a short clip. This naming scheme is used for splitting because adjacent frames share background, viewpoint, and illumination. A random frame-level split could place near-duplicate evidence in both training and validation. The preprocessing stage therefore assigns complete clips to a single subset. Table~\ref{tab:clip_statistics} reports the resulting clip statistics.
 
 \begin{table}[!t]
   \caption{Per-split clip statistics derived from frame identifiers.}
@@ -42,7 +42,7 @@ Frame identifiers follow the pattern \texttt{v\_[clip]\_[frame]}, where the fina
   \end{tabular}
 \end{table}
 
-The dataset defines nine vehicle categories. Some categories with similar shape and scale, such as combi, microbus, and minibus, are visually difficult to separate from elevated viewpoints, so class ambiguity must be considered during interpretation. The analysis code verifies that class identifiers remain within range, dimensions stay positive, centers fall inside the frame, and angles follow the expected convention. Figure~\ref{fig:dataset_obb_sample} illustrates the rotated annotation format used by the task and shows why OBB geometry is preferable to horizontal boxes in dense traffic frames.
+The dataset contains nine vehicle categories. Some of them, especially combi, microbus, and minibus, can be hard to separate from elevated viewpoints because their shapes and scales are similar. The audit checks that class identifiers are valid, dimensions are positive, centers fall inside the frame, and angles follow the expected convention. Figure~\ref{fig:dataset_obb_sample} illustrates the rotated annotation format and the motivation for using OBBs in dense traffic frames.
 
 \begin{figure}[!t]
   \centering
@@ -51,7 +51,7 @@ The dataset defines nine vehicle categories. Some categories with similar shape 
   \label{fig:dataset_obb_sample}
 \end{figure}
 
-The statistical audit identified 601,934 annotated objects across 54,262 training frames. Among these frames, 3,394 contain no annotated objects, 6,212 contain one object, and 44,656 contain two or more objects, with a maximum of 53 objects in a single frame. Cross-checks between CSV identifiers and archive image names confirmed one-to-one correspondence, which is necessary because both YOLO-OBB conversion and synthetic augmentation assume exact image-label pairing. Table~\ref{tab:dataset_frame_summary} summarizes these frame-level statistics and supports the use of automated validation before training or augmentation.
+The audit found 601,934 annotated objects in 54,262 training frames. Of those frames, 3,394 contain no annotated objects, 6,212 contain one object, and 44,656 contain at least two objects; the maximum is 53 objects in one frame. CSV identifiers were cross-checked against archive image names to confirm one-to-one correspondence. This check is necessary because both YOLO-OBB conversion and synthetic augmentation assume exact image-label pairing. Table~\ref{tab:dataset_frame_summary} summarizes the frame-level statistics.
 
 \begin{table}[!t]
   \caption{Training frame and annotation statistics.}
@@ -74,7 +74,7 @@ The statistical audit identified 601,934 annotated objects across 54,262 trainin
   \end{tabular}
 \end{table}
 
-The class distribution is strongly long-tailed. Cars account for 481,731 instances, or 80.03\% of all annotations, whereas articulated buses account for only 250. This imbalance directly affects both training and evaluation because the final metric gives the same weight to every class. A model can therefore perform well on the dominant car class and still obtain a limited macro score if it fails on rare categories. Table~\ref{tab:dataset_class_distribution} reports the per-class distribution without duplicating the same information in a separate chart.
+The class distribution is highly long-tailed. Cars represent 481,731 instances, equivalent to 80.03\% of all annotations, while articulated buses appear only 250 times. This imbalance affects both optimization and interpretation because the final metric gives equal weight to each class. A detector may perform well on cars but still obtain a limited macro score if rare categories are missed. Table~\ref{tab:dataset_class_distribution} reports the per-class distribution.
 
 \begin{table*}[!t]
   \caption{Per-class object distribution in \texttt{train.csv}.}
@@ -98,4 +98,4 @@ The class distribution is strongly long-tailed. Cars account for 481,731 instanc
   \end{tabular}
 \end{table*}
 
-The annotation policy is also relevant to interpretation. Visible stationary vehicles are treated as a special case because the labels target moving vehicles only. As a result, a detector may produce visually plausible boxes that remain unmatched in the ground truth. This issue is handled through two mechanisms described in Section~\ref{sec:material_methods}: pseudo-labeling of static slots for train-only augmentation and a homography-compensated temporal filter for evaluation-time suppression.
+The annotation policy affects how predictions should be interpreted. The labels target moving vehicles, so visible stationary vehicles may be absent from the ground truth. A model can therefore predict a visually reasonable stationary vehicle and still receive no match during evaluation. Section~\ref{sec:material_methods} addresses this issue through train-only pseudo-labeling of static slots and a homography-compensated motion filter used before scoring.
