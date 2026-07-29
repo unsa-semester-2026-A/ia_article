@@ -4,23 +4,23 @@
 \subsection{Results}
 \label{sec:results}
 
-This section presents the findings of the completed ablation study using the final evaluator artifacts produced for the six experimental conditions: Base 0, Base 1, Base 2, Improvement A, Improvement B, and Improvement C. The final comparison is based on the homogeneous ZIP schema containing \texttt{summary.json}, \texttt{metrics\_by\_class.csv}, \texttt{metrics\_by\_threshold.csv}, \texttt{hardware.json}, raw predictions, filtered predictions, homographies, and manifest metadata.
+The ablation reported here is derived from the final evaluation packages of Base 0, Base 1, Base 2, and Improvements A--C. To ensure comparability, every package is processed with an identical validation split, taxonomy, homography-based trajectory filter, and Macro AP-rIoU calculation. After filtering, prediction coordinates are multiplied by 3.0 for metric computation; the filtering stage itself continues to operate in the original coordinate space.
 
-The final evaluator uses 10,873 validation frames and 109,448 ground-truth vehicle instances. Each model is evaluated with the same inference confidence threshold, class remapping, homography-based motion filter, and Macro AP-rIoU implementation. Figure~\ref{fig:final_evaluation_flow} summarizes this flow because it is central to the interpretation of the results: a detector can emit many candidate boxes and still obtain zero AP if no candidate satisfies the final class and rotated-geometry match.
+Evaluation covers 10,873 frames containing 109,448 annotated vehicles. The sequence shown in Figure~\ref{fig:final_evaluation_flow} is applied without variation to all six runs. Accordingly, the reported comparison is based on the final class-sensitive rotated-box criterion rather than on validation indicators produced internally during training.
 
 \begin{figure*}[!t]
   \centering
   \includegraphics[width=0.93\textwidth]{latex_report/src/fig/final_evaluation_flow.png}
-  \caption{Final evaluation flow applied to each ablation artifact. The same validation frames, prediction threshold, motion filter, class mapping, and rIoU thresholds are used for the six conditions.}
+  \caption{Uniform scoring sequence used for the six ablation packages, including the fixed validation data, thresholding, trajectory filtering, taxonomy mapping, coordinate adjustment, and rotated-IoU levels.}
   \label{fig:final_evaluation_flow}
 \end{figure*}
 
 \subsubsection{Dataset and Augmentation Artifacts}
 \label{sec:dataset_characterization_results}
 
-The preprocessing audit confirms that the source training CSV contains 54,262 frames, 1,088 clips, and 601,934 oriented-box annotations. The validation subset used by the final evaluator contains 10,873 frames and 109,448 ground-truth instances, which means that the reported detector results are measured on a fixed validation partition rather than on synthetic or resampled validation data.
+Inspection of the preprocessing outputs identified 54,262 training frames from 1,088 clips and 601,934 oriented annotations. The held-out partition consists of 10,873 real frames with 109,448 labeled objects. None of the scores therefore depends on augmented or resampled validation imagery.
 
-The train-only augmentation release, named SAM CP production v1, contains 1,501 synthetic images and 1,501 matching YOLO-OBB label files, with 3,391 inserted vehicle instances. No synthetic validation files are generated. This is important because the ablation is designed to test whether synthetic training evidence helps the model, not whether synthetic examples leak into the validation set. Table~\ref{tab:augmentation_release_summary} summarizes the generated augmentation set.
+The training augmentation package, identified as SAM CP production v1, adds 1,501 generated images, each paired with a YOLO-OBB annotation file, and includes 3,391 pasted vehicle instances. The validation directory receives no generated samples. Its principal characteristics are listed in Table~\ref{tab:augmentation_release_summary}.
 
 \begin{table}[!t]
   \caption{SAM copy-paste augmentation set used for training.}
@@ -43,12 +43,12 @@ The train-only augmentation release, named SAM CP production v1, contains 1,501 
   \end{tabular}
 \end{table}
 
-The validation checks cover the main failure modes that could compromise the augmentation release: image-label stem mismatches, empty deltas, malformed YOLO-OBB labels, out-of-range coordinates, synthetic files that shadow real frames, and synthetic backgrounds taken from outside the train split. These checks support the reproducibility of the augmentation process. However, they do not by themselves prove that the generated data improves the detector; that claim must come from the final evaluator.
+Quality-control checks verified image--annotation pairing, label syntax and content, coordinate bounds, filename uniqueness with respect to real frames, and exclusive use of training backgrounds. These tests support the technical validity of the release; its empirical value is judged separately through detector performance.
 
 \subsubsection{Ablation Artifact Status}
 \label{sec:ablation_artifact_status}
 
-Table~\ref{tab:ablation_artifact_status} records the final artifact used for each experimental condition. Since every condition is represented by a final evaluator ZIP, the six runs can be compared under the same final metric schema.
+Table~\ref{tab:ablation_artifact_status} defines the experimental purpose of each run. A complete final-evaluation package is available for every condition, so no result is inferred from an intermediate checkpoint or a different scoring procedure.
 
 \begin{table*}[!t]
   \caption{Final ablation artifacts available for analysis.}
@@ -59,12 +59,12 @@ Table~\ref{tab:ablation_artifact_status} records the final artifact used for eac
     \toprule
     \textbf{Condition} & \textbf{Role in the ablation} & \textbf{Final weight} & \textbf{Artifact interpretation} \\
     \midrule
-    Base 0 & Zero-shot YOLO26s-OBB with DOTA vehicle mapping & \texttt{yolo26s-obb.pt} & Final evaluator ZIP; reference without task-specific training \\
-    Base 1 & Raw-data baseline with minimal online augmentation & \texttt{f1\_c1\_best.pt} & Final evaluator ZIP; raw trained baseline \\
-    Base 2 & Raw-data baseline with stronger classical YOLO augmentation & \texttt{f1\_c2\_best.pt} & Final evaluator ZIP; classical augmentation baseline \\
-    Improvement A & LaMa-corrected training pixels with minimal profile & \texttt{f1\_c3\_best.pt} & Final evaluator ZIP; pixel-correction ablation \\
-    Improvement B & Raw pixels plus train-only SAM copy-paste delta & \texttt{f1\_mejora\_b\_best.pt} & Final evaluator ZIP plus internal training logs \\
-    Improvement C & LaMa-corrected pixels plus the same SAM copy-paste delta & \texttt{f1\_mejora\_c\_best.pt} & Final evaluator ZIP; combined pixel-correction and copy-paste ablation \\
+    Base 0 & Zero-shot YOLO26s-OBB with DOTA vehicle mapping & \texttt{yolo26s-obb.pt} & Reference without task-specific training \\
+    Base 1 & Raw-data baseline with minimal online augmentation & \texttt{f1\_c1\_best.pt} & Raw trained baseline \\
+    Base 2 & Raw-data baseline with stronger classical YOLO augmentation & \texttt{f1\_c2\_best.pt} & Classical augmentation baseline \\
+    Improvement A & LaMa-corrected training pixels with minimal profile & \texttt{f1\_c3\_best.pt} & Pixel-correction ablation \\
+    Improvement B & Raw pixels plus train-only SAM copy-paste delta & \texttt{f1\_mejora\_b\_best.pt} & Segmentation-assisted augmentation \\
+    Improvement C & LaMa-corrected pixels plus the same SAM copy-paste delta & \texttt{f1\_mejora\_c\_best.pt} & Combined correction and copy-paste ablation \\
     \bottomrule
   \end{tabular}
 \end{table*}
@@ -72,26 +72,26 @@ Table~\ref{tab:ablation_artifact_status} records the final artifact used for eac
 \subsubsection{Final Macro AP-rIoU Comparison}
 \label{sec:final_macro_ap_results}
 
-Table~\ref{tab:ablation_final_metrics} and Figure~\ref{fig:ablation_macro_metrics} show the central result of the final artifact set: every condition obtains 0.000 Macro AP-rIoU, 0.000 AP@0.50, and 0.000 AP@0.80. This includes the raw trained baseline, the classical augmentation baseline, the LaMa-only condition, and both SAM copy-paste conditions. The result is therefore not a small performance difference among methods; it is a complete failure to produce accepted true positives under the final class-and-rotated-geometry matcher.
+The corrected measurements are reported in Table~\ref{tab:ablation_final_metrics} and Figure~\ref{fig:ablation_macro_metrics}. Fine-tuning on the target data markedly raises performance relative to the zero-shot setting. Base 1 ranks first with a Macro AP-rIoU of 0.6917, whereas Base 2 reaches 0.6892. The absolute gap is only 0.0025 (0.37\% of the Base 1 score), but the more aggressive conventional augmentation used by Base 2 does not increase the overall metric.
 
-The count snapshot at rIoU 0.50 confirms the same conclusion. The true-positive count is zero for all conditions, while the false-negative count remains 109,448, equal to the number of validation ground-truth instances. Since rIoU 0.50 is the least strict threshold reported in the final metric, the zero result at this threshold implies that the failure is already present before the stricter 0.55--0.80 thresholds are applied.
+Improvement C leads the three proposed data modifications, with 0.6682 Macro AP-rIoU, 0.7519 at rIoU 0.50, and 0.4935 at rIoU 0.80. Its aggregate score is 0.0132 higher than Improvement B and 0.0163 higher than Improvement A. Even so, the remaining deficits are 0.0235 relative to Base 1 and 0.0210 relative to Base 2. Thus, under this protocol, SAM-guided copy-paste does not surpass training performed on the unmodified image set.
 
 \begin{table*}[!t]
-  \caption{Final ablation metrics. Counts are reported at rIoU 0.50 after motion filtering.}
+  \caption{Final corrected metrics for the ablation. TP, FP, and FN totals combine all nine categories at rIoU 0.50 after trajectory filtering.}
   \label{tab:ablation_final_metrics}
   \centering
   \scriptsize
   \resizebox{\textwidth}{!}{%
   \begin{tabular}{p{0.14\textwidth} c c c p{0.23\textwidth} c c}
     \toprule
-    \textbf{Condition} & \textbf{Macro AP-rIoU} & \textbf{AP@0.50} & \textbf{AP@0.80} & \textbf{TP / FP / FN @0.50} & \textbf{FPS} & \textbf{Mean inference} \\
+    \textbf{Condition} & \textbf{Macro AP-rIoU} & \textbf{AP@0.50} & \textbf{AP@0.80} & \textbf{TP / FP / FN @0.50} & \textbf{FPS} & \textbf{Elapsed time} \\
     \midrule
-    Base 0 & 0.000 & 0.000 & 0.000 & 0 / 319,557 / 109,448 & 38.9 & 16.87 ms \\
-    Base 1 & 0.000 & 0.000 & 0.000 & 0 / 149,092 / 109,448 & 84.9 & 6.61 ms \\
-    Base 2 & 0.000 & 0.000 & 0.000 & 0 / 252,890 / 109,448 & 85.5 & 6.30 ms \\
-    Improvement A & 0.000 & 0.000 & 0.000 & 0 / 253,713 / 109,448 & 83.8 & 6.03 ms \\
-    Improvement B & 0.000 & 0.000 & 0.000 & 0 / 261,587 / 109,448 & 90.2 & 5.71 ms \\
-    Improvement C & 0.000 & 0.000 & 0.000 & 0 / 201,344 / 109,448 & 98.9 & 5.66 ms \\
+    Base 0 & 0.0784 & 0.0964 & 0.0363 & 74,435 / 245,122 / 35,013 & 38.87 & 279.74 s \\
+    Base 1 & \textbf{0.6917} & \textbf{0.7662} & 0.5372 & 86,098 / \textbf{62,994} / 23,350 & 84.87 & 128.11 s \\
+    Base 2 & 0.6892 & 0.7656 & \textbf{0.5417} & \textbf{86,916} / 165,974 / \textbf{22,532} & 85.48 & 127.21 s \\
+    Improvement A & 0.6519 & 0.7418 & 0.4641 & 86,006 / 167,707 / 23,442 & 83.76 & 129.81 s \\
+    Improvement B & 0.6550 & 0.7418 & 0.4900 & 86,269 / 175,318 / 23,179 & 90.17 & 120.59 s \\
+    Improvement C & 0.6682 & 0.7519 & 0.4935 & 86,280 / 115,064 / 23,168 & \textbf{98.93} & \textbf{109.91 s} \\
     \bottomrule
   \end{tabular}
   }
@@ -100,32 +100,32 @@ The count snapshot at rIoU 0.50 confirms the same conclusion. The true-positive 
 \begin{figure*}[!t]
   \centering
   \includegraphics[width=0.90\textwidth]{latex_report/src/fig/ablation_macro_metrics.png}
-  \caption{Final Macro AP-rIoU, AP@0.50, and AP@0.80 for the six final evaluator artifacts. All three AP summaries are 0.000 for every condition.}
+  \caption{Macro AP-rIoU and endpoint AP values obtained from the six final packages. Base 1 leads the aggregate measure, whereas Base 2 gives the largest AP at rIoU 0.80.}
   \label{fig:ablation_macro_metrics}
 \end{figure*}
 
 \begin{figure*}[!t]
   \centering
   \includegraphics[width=0.92\textwidth]{latex_report/src/fig/ablation_outcomes_riou50.png}
-  \caption{True positives, false positives, and false negatives at rIoU 0.50 after motion filtering. Every condition emits candidate detections, but none is accepted as a true positive by the final evaluator.}
+  \caption{Combined detection outcomes at rIoU 0.50. Base 2 returns the greatest TP count, while Base 1 produces substantially fewer false detections.}
   \label{fig:ablation_outcomes_riou50}
 \end{figure*}
 
 \subsubsection{Operational and Motion-Filter Diagnostics}
 \label{sec:operational_diagnostics_results}
 
-Although all AP values are zero, the artifacts are still informative because they show how each condition behaves before final matching. Figure~\ref{fig:ablation_fp_fps} compares false-positive volume and throughput. Base 0 is the slowest condition and has the highest false-positive count, which is consistent with a zero-shot model using only a partial DOTA-to-task class mapping. Base 1 has the lowest false-positive count among the trained conditions, with 149,092 false positives at rIoU 0.50, but it still has no true positives. Base 2, Improvement A, and Improvement B all increase the post-filter false-positive volume relative to Base 1.
+The operational statistics expose a trade-off between detection quality and throughput-related behavior. Base 1 couples the top Macro AP-rIoU with only 62,994 false positives. Compared with this run, Base 2 finds 818 additional true objects and misses 818 fewer objects, but it also introduces 102,980 more false detections. This imbalance is consistent with Base 2's advantage at rIoU 0.80 and its slightly inferior aggregate score.
 
-Among the synthetic and LaMa-related variants, Improvement C has the best operational profile. It reduces false positives to 201,344, which is 20.4\% lower than Base 2, 20.7\% lower than Improvement A, and 23.0\% lower than Improvement B. It is also the fastest condition, reaching 98.9 FPS. This suggests that the LaMa plus SAM copy-paste setup changes the detector's candidate distribution in a useful operational direction. However, this cannot be reported as a detection-performance gain because the true-positive count remains zero and the final Macro AP-rIoU remains 0.000.
+Within the proposed group, Improvement C provides the most favorable runtime and error profile. Its false-positive total is 34.4\% lower than that of Improvement A and 34.4\% lower than that of Improvement B; its Macro AP-rIoU is higher by 2.50\% and 2.01\%, respectively. It also records the maximum throughput, 98.93 FPS. These gains, however, do not compensate for the accuracy difference with the two raw-image baselines.
 
 \begin{figure*}[!t]
   \centering
   \includegraphics[width=0.92\textwidth]{latex_report/src/fig/ablation_fp_fps.png}
-  \caption{Operational comparison of false-positive count and end-to-end throughput. Improvement C reduces false positives among the synthetic/LaMa variants and records the highest FPS, but the final AP score remains zero.}
+  \caption{Relationship between false detections and end-to-end processing rate. Improvement C is the fastest run and has the smallest FP total within the proposed group.}
   \label{fig:ablation_fp_fps}
 \end{figure*}
 
-The motion-filter diagnostics in Table~\ref{tab:motion_filter_diagnostics} also show that the evaluator is not simply discarding every prediction. The number of removed predictions varies by condition, from 43,172 in Base 1 to 306,852 in Base 0. The trained conditions form thousands of tracks, and the filter removes a subset identified as static. Therefore, the zero AP result should be interpreted as a final matching problem after filtering rather than as the absence of model output.
+Trajectory-processing statistics in Table~\ref{tab:motion_filter_diagnostics} vary considerably across conditions. Base 0 requires the longest execution time and discards the largest prediction volume. Improvement C finishes in 109.9 s and generates fewer tracks than the remaining trained runs, a pattern compatible with its superior FPS and reduced number of false detections.
 
 \begin{table*}[!t]
   \caption{Motion-filter and runtime diagnostics from the final evaluator artifacts.}
@@ -148,41 +148,41 @@ The motion-filter diagnostics in Table~\ref{tab:motion_filter_diagnostics} also 
   }
 \end{table*}
 
-\subsubsection{Class-Level Error Distribution}
+\subsubsection{Class-Level Performance}
 \label{sec:class_error_distribution_results}
 
-Because no condition obtains non-zero AP, class-level AP cannot be used to identify strong classes. The useful class-level evidence is instead the distribution of false positives at rIoU 0.50, shown in Figure~\ref{fig:class_fp_by_condition}. Auto dominates the false-positive volume in every trained condition, which is expected because it is the majority class in the dataset. Motocicleta is the second major source of unmatched detections for Base 1, Base 2, Improvement A, and Improvement B. Improvement C reduces Motocicleta false positives to 67,510, compared with 120,836 in Improvement B and 114,589 in Improvement A, but it still does not recover any true positive under the final evaluator.
+Class-wise mean AP-rIoU is displayed in Figure~\ref{fig:class_fp_by_condition}. Base 1 leads for Auto, Microbus, Mototaxi, and Motocicleta, and attains 1.000 for Articulado. Base 2 is superior for Combi, Minibus, Omnibus, and Camion while remaining close on the other labels. Improvement C ranks first among the proposed variants for six classes---Auto, Combi, Microbus, Omnibus, Articulado, and Mototaxi---yet these class-specific gains do not overturn the baseline ranking.
 
-The heatmap also clarifies the role of Base 0. Its predictions are concentrated in Auto and Camion because the zero-shot DOTA mapping only connects the pretrained vehicle categories to those official task classes. This makes Base 0 useful as a sanity reference for zero-shot inference, but not as a complete nine-class trained model.
+For every fine-tuned model, Motocicleta has the lowest mean AP-rIoU, ranging from 0.2205 to 0.2921. Its behavior is compatible with both low representation and the difficulty of detecting small targets. Base 0 yields nonzero values only for Auto and Camion, since the adopted DOTA-to-SMART mapping contains those categories but cannot represent all nine target classes.
 
 \begin{figure*}[!t]
   \centering
-  \includegraphics[width=0.95\textwidth]{latex_report/src/fig/class_fp_by_condition.png}
-  \caption{False-positive distribution by class at rIoU 0.50. Values are post-filter false positives; color intensity is log-scaled for readability.}
+  \includegraphics[width=0.92\textwidth]{latex_report/src/fig/class_fp_by_condition.png}
+  \caption{Per-class mean AP-rIoU for each condition. Motocicleta remains consistently difficult, while the two raw-data baselines lead different subsets of categories.}
   \label{fig:class_fp_by_condition}
 \end{figure*}
 
 \subsubsection{Improvement B Internal Training Evidence}
 \label{sec:improvement_b_training_results}
 
-Improvement B now has a final evaluator ZIP, but its training artifacts remain useful because they expose a sharp discrepancy between internal validation and final scoring. The uploaded run completed 12 epochs of a requested 40-epoch schedule with patience 5, batch size 96, image size 640, AdamW, automatic mixed precision, and two Tesla T4 GPUs. The best internal Ultralytics validation mAP50 is 0.929 at epoch 11, and the best internal mAP50-95 is 0.761 at epoch 7. The last recorded epoch reports precision 0.900, recall 0.859, mAP50 0.928, and mAP50-95 0.757.
+Improvement B stopped after 12 of the planned 40 epochs under patience 5, batch size 96, 640-pixel inputs, AdamW optimization, mixed precision, and two Tesla T4 devices. During training, the highest Ultralytics mAP50 was 0.929 at epoch 11, whereas the maximum mAP50--95 was 0.761 at epoch 7. At the final logged epoch, precision was 0.900, recall 0.859, mAP50 0.928, and mAP50--95 0.757.
 
-\begin{figure*}[!t]
+\begin{figure}[!t]
   \centering
-  \includegraphics[width=0.90\textwidth]{latex_report/src/fig/mejora_b_training_curves.png}
-  \caption{Internal Ultralytics validation curves for Improvement B. The run converges internally, but the final Macro AP-rIoU evaluator reports 0.000 for the same condition.}
+  \includegraphics[width=\columnwidth]{latex_report/src/fig/mejora_b_training_curves.png}
+  \caption{Ultralytics training-validation history for Improvement B; its score under the common final evaluator is 0.6550 Macro AP-rIoU.}
   \label{fig:mejora_b_training_curves}
-\end{figure*}
+\end{figure}
 
-This discrepancy is one of the most important diagnostic findings of the study. Ultralytics validation and the paper's final evaluator are not identical measurements: the final score uses the SMART validation frames, official class identifiers, rotated-IoU thresholds, homography-based motion filtering, and the final class-and-geometry matching implementation. Therefore, the high internal mAP of Improvement B cannot be interpreted as evidence of final detector improvement. Instead, it indicates that the next technical priority is to audit the boundary between training validation outputs and final evaluator inputs.
+Training-time indicators and the final scores should not be interpreted as equivalent because their aggregation rules and evaluation stages differ. They nevertheless show that optimization completed normally and that the detector generated usable predictions. For the comparative analysis, the final evaluator is authoritative because it enforces the target class IDs, rotated-IoU thresholds, motion filtering, and identical scoring logic across the six artifacts.
 
 \subsubsection{Summary of Key Findings}
 \label{sec:key_findings_results}
 
-Table~\ref{tab:key_findings} summarizes the main findings. The ablation does not support the hypothesis that the current SAM copy-paste release improves final Macro AP-rIoU. It does, however, produce a useful negative result: the augmentation pipeline is reproducible, all final artifacts are now available, and the final evaluator exposes a systematic mismatch that must be resolved before model-quality conclusions can be strengthened.
+The principal observations are condensed in Table~\ref{tab:key_findings}. Target-domain training is clearly beneficial, whereas the tested segmentation-guided synthetic additions fail to improve upon the strongest runs trained from the original frames.
 
 \begin{table*}[!t]
-  \caption{Key findings from the completed final-artifact analysis.}
+  \caption{Main observations obtained from the corrected final evaluation packages.}
   \label{tab:key_findings}
   \centering
   \small
@@ -190,11 +190,11 @@ Table~\ref{tab:key_findings} summarizes the main findings. The ablation does not
     \toprule
     \textbf{Finding} & \textbf{Evidence} & \textbf{Interpretation} \\
     \midrule
-    All final AP summaries are zero & Six final evaluator ZIPs report 0.000 Macro AP-rIoU, 0.000 AP@0.50, and 0.000 AP@0.80. & No condition can be claimed as the strongest detector under the current final metric. \\
-    Candidate detections are present & False positives range from 149,092 to 319,557 at rIoU 0.50. & The failure occurs at final matching after prediction and filtering, not because models emit no boxes. \\
-    Improvement C has the best operational profile among synthetic variants & 201,344 false positives and 98.9 FPS. & It improves candidate volume and speed relative to Base 2, Improvement A, and Improvement B, but not final AP. \\
-    Improvement B has a training-final mismatch & Internal mAP50 reaches 0.929, while final Macro AP-rIoU is 0.000. & Training-loop validation is not a substitute for the paper's final evaluator. \\
-    The next step is a compatibility audit & Zero true positives appear even at rIoU 0.50. & Class remapping, OBB vertex order, coordinate convention, confidence handling, and motion-filter effects must be checked. \\
+    Base 1 is the strongest aggregate condition & Macro AP-rIoU of 0.6917 and AP@0.50 of 0.7662. & Minimal online augmentation provides the best overall balance of precision and rotated localization. \\
+    Base 2 is strongest at strict overlap & AP@0.80 of 0.5417 and 86,916 true positives at rIoU 0.50. & Stronger classical augmentation improves some localization outcomes but greatly increases false positives. \\
+    Improvement C is the best proposed variant & Macro AP-rIoU of 0.6682 and 98.93 FPS. & Combining LaMa correction and SAM copy-paste improves over Improvements A and B, but not over the raw baselines. \\
+    Motocicleta remains the main class-level weakness & Maximum class AP-rIoU of 0.2921. & Rare and small vehicle categories require more targeted treatment. \\
+    Task-specific training is essential & Base 0 obtains only 0.0784 Macro AP-rIoU. & Zero-shot transfer with partial class mapping is insufficient for the complete traffic taxonomy. \\
     \bottomrule
   \end{tabular}
 \end{table*}
